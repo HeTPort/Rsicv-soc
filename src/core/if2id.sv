@@ -26,13 +26,8 @@ module if2id #(
       instr_addr_out <= '0;
       instr_out      <= `INST_NOP;
     end
-    // stall 时保持原值，不推进流水
-    else if (stall) begin
-      instr_addr_out <= instr_addr_out;
-      instr_out      <= instr_out;
-    end
-    // 正常推进
-    else begin
+    // stall 时保持原值，不推进流水,取消stall有效的自赋值，因为寄存器在没有新赋值时，天然会保持原值，这正是寄存器的正常行为，不是锁存器，锁存器一般出现在组合逻辑中
+    else if (!stall) begin
       instr_addr_out <= instr_addr_in;
       instr_out      <= instr_in;
     end

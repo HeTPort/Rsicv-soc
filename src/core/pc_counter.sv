@@ -27,7 +27,7 @@ module pc_counter #(
     end
     // 正常顺序执行
     else begin
-      pc_pointer <= pc_pointer + AW'(32'd4);
+      pc_pointer <= pc_pointer + AW'd4;
     end
   end
 endmodule
