@@ -1,80 +1,66 @@
 `timescale 1ns / 1ps
-`ifndef DEFINE_SV
-`define DEFINE_SV
-// ============================================================
-// Global architecture parameters
-// ============================================================
-`define AW             32
-`define DW             32
-`define REG_NUM        32
-`define REG_ADDR_W     5
-`define BYTE_W         8
-`define BYTE_NUM       (`DW/8)
-// default memory depth
-`define PROG_RAM_DEPTH 4096
-`define DATA_RAM_DEPTH 4096
-// ============================================================
-// Special instructions
-// ============================================================
-`define INST_NOP       32'h00000013   // addi x0, x0, 0
-`define INST_ECALL     32'h00000073
-`define INST_EBREAK    32'h00100073
-`define INST_MRET      32'h30200073
-// ============================================================
-// Opcode definitions
-// ============================================================
-`define INST_TYPE_I      7'b0010011
-`define INST_TYPE_R_M    7'b0110011
-`define INST_TYPE_L      7'b0000011
-`define INST_TYPE_S      7'b0100011
-`define INST_TYPE_B      7'b1100011
-`define INST_TYPE_JALR   7'b1100111
-`define INST_TYPE_JAL    7'b1101111
-`define INST_LUI         7'b0110111
-`define INST_AUIPC       7'b0010111
-// ============================================================
-// I-type func3
-// ============================================================
-`define INST_ADDI        3'b000
-`define INST_SLLI        3'b001
-`define INST_SLTI        3'b010
-`define INST_SLTIU       3'b011
-`define INST_XORI        3'b100
-`define INST_SRI         3'b101   // SRLI/SRAI
-`define INST_ORI         3'b110
-`define INST_ANDI        3'b111
-// ============================================================
-// R-type func3
-// ============================================================
-`define INST_ADD_SUB     3'b000
-`define INST_SLL         3'b001
-`define INST_SLT         3'b010
-`define INST_SLTU        3'b011
-`define INST_XOR         3'b100
-`define INST_SR          3'b101   // SRL/SRA
-`define INST_OR          3'b110
-`define INST_AND         3'b111
-// ============================================================
-// Load func3
-// ============================================================
-`define INST_LB          3'b000
-`define INST_LH          3'b001
-`define INST_LW          3'b010
-`define INST_LBU         3'b100
-`define INST_LHU         3'b101
-// ============================================================
-// Store func3
-// ============================================================
-`define INST_SB          3'b000
-`define INST_SH          3'b001
-`define INST_SW          3'b010
-// ============================================================
-// Branch func3
-// ============================================================
-`define INST_BEQ         3'b000
-`define INST_BNE         3'b001
-`define INST_BLT         3'b100
-`define INST_BGE         3'b101
-`define INST_BLTU        3'b110
-`define INST_BGEU        3'b111
-`endif
+`default_nettype none
+package riscv_pkg;
+  parameter int XLEN = 32;
+  parameter int AW   = 32;
+  parameter int DW   = 32;
+  parameter int REG_NUM    = 32;
+  parameter int REG_ADDR_W = 5;
+  parameter int BYTE_NUM   = DW / 8;
+  localparam logic [31:0] INST_NOP    = 32'h0000_0013; // addi x0,x0,0
+  localparam logic [31:0] INST_ECALL  = 32'h0000_0073;
+  localparam logic [31:0] INST_EBREAK = 32'h0010_0073;
+  localparam logic [31:0] INST_MRET   = 32'h3020_0073;
+  // Opcodes
+  localparam logic [6:0] OPCODE_LOAD     = 7'b0000011;
+  localparam logic [6:0] OPCODE_MISC_MEM = 7'b0001111;
+  localparam logic [6:0] OPCODE_OP_IMM   = 7'b0010011;
+  localparam logic [6:0] OPCODE_AUIPC    = 7'b0010111;
+  localparam logic [6:0] OPCODE_STORE    = 7'b0100011;
+  localparam logic [6:0] OPCODE_OP       = 7'b0110011;
+  localparam logic [6:0] OPCODE_LUI      = 7'b0110111;
+  localparam logic [6:0] OPCODE_BRANCH   = 7'b1100011;
+  localparam logic [6:0] OPCODE_JALR     = 7'b1100111;
+  localparam logic [6:0] OPCODE_JAL      = 7'b1101111;
+  localparam logic [6:0] OPCODE_SYSTEM   = 7'b1110011;
+  // OP-IMM funct3
+  localparam logic [2:0] FUNCT3_ADDI  = 3'b000;
+  localparam logic [2:0] FUNCT3_SLLI  = 3'b001;
+  localparam logic [2:0] FUNCT3_SLTI  = 3'b010;
+  localparam logic [2:0] FUNCT3_SLTIU = 3'b011;
+  localparam logic [2:0] FUNCT3_XORI  = 3'b100;
+  localparam logic [2:0] FUNCT3_SRI   = 3'b101;
+  localparam logic [2:0] FUNCT3_ORI   = 3'b110;
+  localparam logic [2:0] FUNCT3_ANDI  = 3'b111;
+  // OP funct3
+  localparam logic [2:0] FUNCT3_ADD_SUB = 3'b000;
+  localparam logic [2:0] FUNCT3_SLL     = 3'b001;
+  localparam logic [2:0] FUNCT3_SLT     = 3'b010;
+  localparam logic [2:0] FUNCT3_SLTU    = 3'b011;
+  localparam logic [2:0] FUNCT3_XOR     = 3'b100;
+  localparam logic [2:0] FUNCT3_SR      = 3'b101;
+  localparam logic [2:0] FUNCT3_OR      = 3'b110;
+  localparam logic [2:0] FUNCT3_AND     = 3'b111;
+  // Load funct3
+  localparam logic [2:0] FUNCT3_LB  = 3'b000;
+  localparam logic [2:0] FUNCT3_LH  = 3'b001;
+  localparam logic [2:0] FUNCT3_LW  = 3'b010;
+  localparam logic [2:0] FUNCT3_LBU = 3'b100;
+  localparam logic [2:0] FUNCT3_LHU = 3'b101;
+  // Store funct3
+  localparam logic [2:0] FUNCT3_SB = 3'b000;
+  localparam logic [2:0] FUNCT3_SH = 3'b001;
+  localparam logic [2:0] FUNCT3_SW = 3'b010;
+  // Branch funct3
+  localparam logic [2:0] FUNCT3_BEQ  = 3'b000;
+  localparam logic [2:0] FUNCT3_BNE  = 3'b001;
+  localparam logic [2:0] FUNCT3_BLT  = 3'b100;
+  localparam logic [2:0] FUNCT3_BGE  = 3'b101;
+  localparam logic [2:0] FUNCT3_BLTU = 3'b110;
+  localparam logic [2:0] FUNCT3_BGEU = 3'b111;
+  // funct7
+  localparam logic [6:0] FUNCT7_BASE   = 7'b0000000;
+  localparam logic [6:0] FUNCT7_ALT    = 7'b0100000;
+  localparam logic [6:0] FUNCT7_MULDIV = 7'b0000001;
+endpackage
+`default_nettype wire

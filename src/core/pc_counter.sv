@@ -1,33 +1,29 @@
 `timescale 1ns / 1ps
+`default_nettype none
 module pc_counter #(
-  parameter AW = 32,
-  parameter RESET_PC = 32'h0000_0000
+  parameter int AW = 32,
+  parameter logic [AW-1:0] RESET_PC = '0
 )(
-  input  logic          clk,
-  input  logic          rst_n,
-  // stall=1 时，PC 保持不变，不继续取下一条指令
-  input  logic          stall,
-  // jump_en=1 时，PC 重定向到 jump_addr
-  input  logic          jump_en,
-  input  logic [AW-1:0] jump_addr,
-  output logic [AW-1:0] pc_pointer
+  input  logic          clk_i,
+  input  logic          rst_ni,
+  input  logic          stall_i,
+  input  logic          redirect_en_i,
+  input  logic [AW-1:0] redirect_pc_i,
+  output logic [AW-1:0] pc_o
 );
-  always_ff @(posedge clk or negedge rst_n) begin
-    if (!rst_n) begin
-      pc_pointer <= RESET_PC;
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
+      pc_o <= RESET_PC;
     end
-    // jump 优先级高于 stall：
-    // 一旦 EX 判断跳转成立，PC 必须立刻重定向
-    else if (jump_en) begin
-      pc_pointer <= jump_addr;
+    else if (redirect_en_i) begin
+      pc_o <= redirect_pc_i;
     end
-    // stall 时保持当前 PC，不取新指令
-    else if (stall) begin
-      pc_pointer <= pc_pointer;
+    else if (stall_i) begin
+      pc_o <= pc_o;
     end
-    // 正常顺序执行
     else begin
-      pc_pointer <= pc_pointer + AW'd4;
+      pc_o <= pc_o + AW'(4);
     end
   end
 endmodule
+`default_nettype wire

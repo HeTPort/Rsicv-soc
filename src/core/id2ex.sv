@@ -1,61 +1,52 @@
 `timescale 1ns / 1ps
-`include "define.sv"
+`default_nettype none
+import riscv_pkg::*;
 module id2ex #(
-  parameter AW = 32,
-  parameter DW = 32
+  parameter int AW = riscv_pkg::AW,
+  parameter int DW = riscv_pkg::DW
 )(
-  input  logic          clk,
-  input  logic          rst_n,
-  // flush=1 时，向 EX 注入 NOP
-  // 用于：
-  // 1) branch/jump 冲刷
-  // 2）hazard 时插入 bubble
-  input  logic          flush,
-  // stall=1 时，保持 ID/EX 不变
-  // 当前最小方案里暂时不一定用到，但先留好接口
-  input  logic          stall,
-  input  logic [AW-1:0] instr_addr_in,
-  input  logic [DW-1:0] instr_in,
-  input  logic [DW-1:0] op1_in,
-  input  logic [DW-1:0] op2_in,
-  input  logic [DW-1:0] store_data_in,
-  output logic [AW-1:0] instr_addr_out,
-  output logic [DW-1:0] instr_out,
-  output logic [DW-1:0] op1_out,
-  output logic [DW-1:0] op2_out,
-  output logic [DW-1:0] store_data_out
+  input  logic          clk_i,
+  input  logic          rst_ni,
+  input  logic          flush_i,
+  input  logic          stall_i,
+  input  logic          valid_i,
+  input  logic [AW-1:0] pc_i,
+  input  logic [DW-1:0] instr_i,
+  input  logic [DW-1:0] op1_i,
+  input  logic [DW-1:0] op2_i,
+  input  logic [DW-1:0] store_data_i,
+  output logic          valid_o,
+  output logic [AW-1:0] pc_o,
+  output logic [DW-1:0] instr_o,
+  output logic [DW-1:0] op1_o,
+  output logic [DW-1:0] op2_o,
+  output logic [DW-1:0] store_data_o
 );
-  always_ff @(posedge clk or negedge rst_n) begin
-    if (!rst_n) begin
-      instr_addr_out <= '0;
-      instr_out      <= `INST_NOP;
-      op1_out        <= '0;
-      op2_out        <= '0;
-      store_data_out <= '0;
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
+      valid_o      <= 1'b0;
+      pc_o         <= '0;
+      instr_o      <= INST_NOP;
+      op1_o        <= '0;
+      op2_o        <= '0;
+      store_data_o <= '0;
     end
-    // flush 时向 EX 注入 bubble
-    else if (flush) begin
-      instr_addr_out <= '0;
-      instr_out      <= `INST_NOP;
-      op1_out        <= '0;
-      op2_out        <= '0;
-      store_data_out <= '0;
+    else if (flush_i) begin
+      valid_o      <= 1'b0;
+      pc_o         <= '0;
+      instr_o      <= INST_NOP;
+      op1_o        <= '0;
+      op2_o        <= '0;
+      store_data_o <= '0;
     end
-    // stall 时保持当前内容
-    else if (stall) begin
-      instr_addr_out <= instr_addr_out;
-      instr_out      <= instr_out;
-      op1_out        <= op1_out;
-      op2_out        <= op2_out;
-      store_data_out <= store_data_out;
-    end
-    // 正常推进
-    else begin
-      instr_addr_out <= instr_addr_in;
-      instr_out      <= instr_in;
-      op1_out        <= op1_in;
-      op2_out        <= op2_in;
-      store_data_out <= store_data_in;
+    else if (!stall_i) begin
+      valid_o      <= valid_i;
+      pc_o         <= pc_i;
+      instr_o      <= instr_i;
+      op1_o        <= op1_i;
+      op2_o        <= op2_i;
+      store_data_o <= store_data_i;
     end
   end
 endmodule
+`default_nettype wire
