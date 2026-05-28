@@ -237,7 +237,7 @@ module riscv #(
     .redirect_pc_i(ex_redirect_pc),
     .pc_o         (if_pc)
   );
-  assign instr_ren_o  = !halt_q;
+  assign instr_ren_o  = !halt_q && (!pc_stall || ex_redirect_en);
   assign instr_addr_o = if_pc;
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) begin

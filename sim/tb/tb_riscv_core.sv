@@ -174,5 +174,18 @@ module tb_riscv_core;
     end
   end
 `endif
+
+//some checks
+always @(posedge clk_i) begin
+  #1ps;
+  if (rst_ni && u_core.id_valid) begin
+    assert (u_core.id_instr[31:0] === u_prog_ram.mem[u_core.id_pc[31:2]])
+      else $error("ID PC/INSTR mismatch: pc=%08h instr=%08h expected=%08h",
+                  u_core.id_pc,
+                  u_core.id_instr[31:0],
+                  u_prog_ram.mem[u_core.id_pc[31:2]]);
+  end
+end
+
 endmodule
 `default_nettype wire
