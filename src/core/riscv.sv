@@ -66,7 +66,7 @@ module riscv #(
   logic [DW-1:0] id_rs2_rdata;
   logic [DW-1:0] id_op1;
   logic [DW-1:0] id_op2;
-  logic [DW-1:0] id_data;
+  logic [DW-1:0] id_store_data;
   logic          id_use_rs1;
   logic          id_use_rs2;
   logic [4:0]    id_rd;

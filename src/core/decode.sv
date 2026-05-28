@@ -38,15 +38,72 @@ module decode #(
   input  logic [AW-1:0] pc_i,
   input  logic [DW-1:0] instr_i,
   // Register file read interface
+  // --------------------------------------------------------------------------
+  // Register file read interface
+  //
+  // Direction is from the point of view of this decode module.
+  //
+  // Decode extracts rs1/rs2 fields from the instruction and drives the
+  // register-file read addresses outward.
+  //
+  // The external register file reads x[rs1] and x[rs2], then returns the
+  // corresponding register values back into this decode module.
+  //
+  // Typical connection:
+  //
+  //   decode.rf_rs1_raddr_o  --->  regfile.raddr1_i
+  //   decode.rf_rs2_raddr_o  --->  regfile.raddr2_i
+  //   decode.rf_rs1_rdata_i  <---  regfile.rdata1_o
+  //   decode.rf_rs2_rdata_i  <---  regfile.rdata2_o
+  //
+  // This interface assumes that the register file has combinational or
+  // asynchronous read ports, meaning rdata is valid in the same cycle after
+  // raddr is driven.
+  //
+  // If the register file uses synchronous reads, then rf_rs*_rdata_i would be
+  // valid one clock later, and the pipeline must add an extra register stage
+  // or otherwise align the timing.
+  // --------------------------------------------------------------------------
   output logic [4:0]    rf_rs1_raddr_o,
   output logic [4:0]    rf_rs2_raddr_o,
   input  logic [DW-1:0] rf_rs1_rdata_i,
   input  logic [DW-1:0] rf_rs2_rdata_i,
   // Operand outputs to ID/EX
+    // --------------------------------------------------------------------------
+  // Decoded operands forwarded to the execute stage.
+  //
+  // These are already selected by decode and are not necessarily raw register
+  // values.
+  //
+  // Examples:
+  //   R-type ALU: op1 = x[rs1], op2 = x[rs2]
+  //   I-type ALU: op1 = x[rs1], op2 = immediate
+  //   Load/store address: op1 = x[rs1], op2 = immediate
+  //   AUIPC: op1 = pc, op2 = upper immediate
+  //   LUI: op1 = 0, op2 = upper immediate
+  //
+  // store_data_o is specifically the data to be written to memory for store
+  // instructions, normally x[rs2].
+  // --------------------------------------------------------------------------
   output logic [DW-1:0] op1_o,
   output logic [DW-1:0] op2_o,
   output logic [DW-1:0] store_data_o,
   // Register usage information for hazard detection
+    // --------------------------------------------------------------------------
+  // Source register usage flags.
+  //
+  // use_rs1_o/use_rs2_o indicate whether the current instruction actually
+  // reads rs1/rs2 architecturally.
+  //
+  // They are used by hazard detection and forwarding logic.
+  //
+  // Examples:
+  //   ADD  uses rs1 and rs2
+  //   ADDI uses rs1 only
+  //   LUI  uses neither rs1 nor rs2
+  //   SW   uses rs1 for address and rs2 for store data
+  //   BEQ  uses rs1 and rs2
+  // --------------------------------------------------------------------------
   output logic          use_rs1_o,
   output logic          use_rs2_o,
   // Destination register and RF write control
@@ -73,6 +130,17 @@ module decode #(
   output logic          ecall_o,
   output logic          ebreak_o
 );
+
+  initial begin
+    if (DW < 32) begin
+      $error("decode requires DW >= 32, got DW=%0d", DW);
+    end
+  end
+  initial begin
+    if (AW > DW) begin
+      $error("decode assumes AW <= DW, got AW=%0d DW=%0d", AW, DW);
+    end
+  end
   // ------------------------------------------------------------
   // Instruction fields
   // ------------------------------------------------------------
@@ -299,6 +367,9 @@ module decode #(
             rf_we_o         = 1'b0;
             mem_req_o       = 1'b0;
             wb_sel_o        = WB_NONE;
+            //prevent illegal instr engaging in hazard detection
+            use_rs1_o       = 1'b0;
+            use_rs2_o       = 1'b0;
             illegal_instr_o = 1'b1;
           end
         endcase
