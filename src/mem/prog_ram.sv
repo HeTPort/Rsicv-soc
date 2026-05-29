@@ -4,21 +4,21 @@ module prog_ram #(
   parameter int    AW            = 32,          // 地址宽度，单位：bit
   parameter int    DW            = 32,          // 数据宽度，单位：bit
   parameter int    DEPTH         = 4096,        // RAM 深度，单位：word
-  parameter string FILE          = "prog.dat",  // 初始化文件
+  parameter string FILE          = "D:/Rsicv-soc/testdata/prog.hex",  // 初始化文件
   parameter logic [DW-1:0] INVALID_RDATA = '0   // 非法读时返回的数据
 )(
-  input  logic          clk_i,
+  input  wire logic          clk_i,
   // 读端口，一般用于取指
-  input  logic          ren_i,
-  input  logic [AW-1:0] instr_addr_i,
-  output logic [DW-1:0] instr_data_o,
+  input  wire logic          ren_i,
+  input  wire logic [AW-1:0] instr_addr_i,
+  output      logic [DW-1:0] instr_data_o,
   // 写端口
-  input  logic          wen_i,
-  input  logic [AW-1:0] waddr_i,
-  input  logic [DW-1:0] wdata_i,
+  input  wire logic          wen_i,
+  input  wire logic [AW-1:0] waddr_i,
+  input  wire logic [DW-1:0] wdata_i
   // 错误输出
-  //output logic          rerr_o,   // 读错误，读越界或读地址未对齐
-  //output logic          werr_o    // 写错误，写越界或写地址未对齐
+  //output    logic          rerr_o,   // 读错误，读越界或读地址未对齐
+  //output    logic          werr_o    // 写错误，写越界或写地址未对齐
 );
   // ------------------------------------------------------------
   // 参数计算
@@ -170,7 +170,7 @@ module prog_ram #(
     input logic [WORD_AW-1:0] word_addr
   );
     addr_in_range =
-      longint unsigned'(word_addr) < longint unsigned'(DEPTH_SAFE);
+       $unsigned(word_addr) < $unsigned(DEPTH_SAFE);
   endfunction
   assign fetch_in_range = addr_in_range(fetch_word_addr_full);
   assign write_in_range = addr_in_range(write_word_addr_full);

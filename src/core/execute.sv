@@ -179,7 +179,7 @@ module execute #(
       MULDIV_MULHSU: begin
         muldiv_result = product_su[(2*DW)-1:DW];
       end
-      MIV_MULHU: begin
+      MULDIV_MULHU: begin
         muldiv_result = product_uu[(2*DW)-1:DW];
       end
       MULDIV_DIV: begin

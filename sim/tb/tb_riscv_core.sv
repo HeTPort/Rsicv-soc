@@ -106,7 +106,7 @@ module tb_riscv_core;
   // ------------------------------------------------------------
   initial begin
     $dumpfile("tb_riscv.vcd");
-    $dumpvars(0, tb_riscv);
+    $dumpvars(0, tb_riscv_core);
   end
   // ------------------------------------------------------------
   // Timeout watchdog
@@ -145,7 +145,7 @@ module tb_riscv_core;
     $display("[TB] dbg_x3         = 0x%08h", dbg_x3);
     $display("[TB] dbg_x10        = 0x%08h", dbg_x10);
     $display("[TB] dbg_x11        = 0x%08h", dbg_x11);
-    $display("[TB] illegal_instr  = %0b",_instr);
+    $display("[TB] illegal_instr  = %0b",illegal_instr);
     $display("[TB] exception      = %0b", exception);
     if (dbg_x10 == 32'd1 && dbg_x11 == 32'd0) begin
       $display("[TB] RESULT: PASS");
@@ -175,15 +175,15 @@ module tb_riscv_core;
   end
 `endif
 
-//some checks
-always @(posedge clk_i) begin
+//some check
+always @(posedge clk) begin
   #1ps;
-  if (rst_ni && u_core.id_valid) begin
-    assert (u_core.id_instr[31:0] === u_prog_ram.mem[u_core.id_pc[31:2]])
+  if (rst_n &&  u_riscv.id_valid) begin
+    assert ( u_riscv.id_instr[31:0] === u_prog_ram.mem[ u_riscv.id_pc[31:2]])
       else $error("ID PC/INSTR mismatch: pc=%08h instr=%08h expected=%08h",
-                  u_core.id_pc,
-                  u_core.id_instr[31:0],
-                  u_prog_ram.mem[u_core.id_pc[31:2]]);
+                   u_riscv.id_pc,
+                   u_riscv.id_instr[31:0],
+                   u_prog_ram.mem[ u_riscv.id_pc[31:2]]);
   end
 end
 
