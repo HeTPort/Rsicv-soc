@@ -50,7 +50,7 @@ module ex2wb #(
       rf_waddr_o       <= 5'd0;
       wb_sel_o         <= WB_NONE;
       alu_data_o       <= '0;
-      pc4_data_o       <= ';
+      pc4_data_o       <= '0;
       mem_size_o       <= MEM_SIZE_WORD;
       mem_unsigned_o   <= 1'b0;
       load_offset_o    <= 2'd0;
