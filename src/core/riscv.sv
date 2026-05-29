@@ -188,7 +188,7 @@ module riscv #(
       $error("RV32IM core ECALL detected; halting core");
     end
     if (wb_valid && wb_ebreak) begin
-      $error("RV32IM core EBREAK detected; halting core");
+      $info("RV32IM core EBREAK detected; halting core");
     end
     if (wb_valid && wb_mem_misaligned) begin
       $error("RV32IM core memory misaligned access detected");

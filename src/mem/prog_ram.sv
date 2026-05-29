@@ -4,7 +4,7 @@ module prog_ram #(
   parameter int    AW            = 32,          // 地址宽度，单位：bit
   parameter int    DW            = 32,          // 数据宽度，单位：bit
   parameter int    DEPTH         = 4096,        // RAM 深度，单位：word
-  parameter string FILE          = "D:/Rsicv-soc/testdata/prog.hex",  // 初始化文件
+  parameter string FILE          = "D:/Rsicv-soc/testdata/minuimn_core.hex",  // 初始化文件
   parameter logic [DW-1:0] INVALID_RDATA = '0   // 非法读时返回的数据
 )(
   input  wire logic          clk_i,
@@ -92,7 +92,16 @@ module prog_ram #(
   // ------------------------------------------------------------
   initial begin
     if (FILE != "") begin
+      $display("[prog_ram] Loading program file: %s", FILE);
       $readmemh(FILE, mem);
+      $display("[prog_ram] mem[0] = 0x%08h", mem[0]);
+      $display("[prog_ram] mem[1] = 0x%08h", mem[1]);
+      $display("[prog_ram] mem[2] = 0x%08h", mem[2]);
+      $display("[prog_ram] mem[3] = 0x%08h", mem[3]);
+      $display("[prog_ram] mem[4] = 0x%08h", mem[4]);
+      $display("[prog_ram] mem[5] = 0x%08h", mem[5]);
+      $display("[prog_ram] mem[6] = 0x%08h", mem[6]);
+      $display("[prog_ram] mem[7] = 0x%08h", mem[7]);
     end
   end
   // ------------------------------------------------------------

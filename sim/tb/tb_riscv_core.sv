@@ -90,7 +90,7 @@ module tb_riscv_core;
     .AW(AW),
     .DW(DW),
     .DEPTH(PROG_RAM_DEPTH),
-    .FILE("prog.hex"),
+    .FILE("D:/Rsicv-soc/testdata/minuimn_core.hex"),
     .INVALID_RDATA(32'h0010_0073) // ebreak on invalid fetch
   ) u_prog_ram (
     .clk_i        (clk),
@@ -112,6 +112,19 @@ module tb_riscv_core;
   // Timeout watchdog
   // ------------------------------------------------------------
   integer cycle_count;
+  initial begin
+    #1ns;
+    $display("[TB] Check program RAM content");
+    $display("[TB] u_prog_ram.mem[0] = 0x%08h", u_prog_ram.mem[0]);
+    $display("[TB] u_prog_ram.mem[1] = 0x%08h", u_prog_ram.mem[1]);
+    $display("[TB] u_prog_ram.mem[2] = 0x%08h", u_prog_ram.mem[2]);
+    $display("[TB] u_prog_ram.mem[3] = 0x%08h", u_prog_ram.mem[3]);
+    $display("[TB] u_prog_ram.mem[4] = 0x%08h", u_prog_ram.mem[4]);
+    $display("[TB] u_prog_ram.mem[5] = 0x%08h", u_prog_ram.mem[5]);
+    $display("[TB] u_prog_ram.mem[6] = 0x%08h", u_prog_ram.mem[6]);
+    $display("[TB] u_prog_ram.mem[7] = 0x%08h", u_prog_ram.mem[7]);
+    $display("[TB] u_prog_ram.mem[253] = 0x%08h", u_prog_ram.mem[253]);
+  end
   initial begin
     cycle_count = 0;
     wait (rst_n == 1'b1);
