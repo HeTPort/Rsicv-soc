@@ -39,6 +39,17 @@ module tb_riscv_core;
   // ------------------------------------------------------------
   logic clk;
   logic rst_n;
+  logic  seen_illegal;
+  // ------------------------------------------------------------
+  // Sticky illegal instruction monitor
+  // ------------------------------------------------------------
+  always_ff @(posedge clk or negedge rst_n) begin
+    if (!rst_n) begin
+      seen_illegal <= 1'b0;
+    end else if (illegal_instr) begin
+      seen_illegal <= 1'b1;
+    end
+  end
   initial begin
     clk = 1'b0;
     forever #(CLK_PERIOD_NS / 2) clk = ~clk;
@@ -90,7 +101,7 @@ module tb_riscv_core;
     .AW(AW),
     .DW(DW),
     .DEPTH(PROG_RAM_DEPTH),
-    .FILE("D:/Rsicv-soc/testdata/minuimn_core.hex"),
+    .FILE("D:/Rsicv-soc/testdata/prog.hex"),
     .INVALID_RDATA(32'h0010_0073) // ebreak on invalid fetch
   ) u_prog_ram (
     .clk_i        (clk),
@@ -154,13 +165,16 @@ module tb_riscv_core;
     $display("============================================================");
     $display("[TB] CPU halted");
     $display("[TB] cycle          = %0d", cycle_count);
+    //instr_addr是取指地址，並非“最后提交执行的指令地址”
+    //想知道最后真正触发 halt 的 PC，最好 CPU 内部暴露一个调试信号,在wb階段輸出
     $display("[TB] instr_addr     = 0x%08h", instr_addr);
     $display("[TB] dbg_x3         = 0x%08h", dbg_x3);
     $display("[TB] dbg_x10        = 0x%08h", dbg_x10);
     $display("[TB] dbg_x11        = 0x%08h", dbg_x11);
     $display("[TB] illegal_instr  = %0b",illegal_instr);
     $display("[TB] exception      = %0b", exception);
-    if (dbg_x10 == 32'd1 && dbg_x11 == 32'd0) begin
+
+    if (dbg_x10 == 32'd1 && dbg_x11 == 32'd0 && !seen_illegal) begin
       $display("[TB] RESULT: PASS");
       $display("============================================================");
       $finish;
@@ -168,6 +182,7 @@ module tb_riscv_core;
     else begin
       $display("[TB] RESULT: FAIL");
       $display("[TB] Failure code in x11 = %0d / 0x%08h", dbg_x11, dbg_x11);
+      $display("[TB] seen_illegal = %0b", seen_illegal);
       $display("============================================================");
       $fatal(1, "[TB] RV32IM test failed");
     end
@@ -187,6 +202,51 @@ module tb_riscv_core;
     end
   end
 `endif
+//WB monitor
+always_ff @(posedge clk) begin
+  if (rst_n) begin
+    $display("[WBPATH] cycle=%0d | ex_wb_valid=%0b ex_wb_rf_wen=%0b ex_wb_rd=%0d ex_wb_sel=%0d ex_wb_alu=0x%08h | wb_valid=%0b wb_pre_wen=%0b wb_pre_rd=%0d wb_sel=%0d wb_alu=0x%08h | wb_wen=%0b wb_rd=%0d wb_wdata=0x%08h",
+             cycle_count,
+             u_riscv.ex_wb_valid,
+             u_riscv.ex_wb_rf_wen,
+             u_riscv.ex_wb_rf_waddr,
+             u_riscv.ex_wb_sel_out,
+             u_riscv.ex_wb_alu_data,
+             u_riscv.wb_valid,
+             u_riscv.wb_rf_wen_pre,
+             u_riscv.wb_rf_waddr_pre,
+             u_riscv.wb_sel,
+             u_riscv.wb_alu_data,
+             u_riscv.wb_rf_wen,
+             u_riscv.wb_rf_waddr,
+             u_riscv.wb_rf_wdata);
+  end
+end
+//ID/EX monitor
+always_ff @(posedge clk) begin
+  if (rst_n) begin
+    if (u_riscv.id_valid) begin
+      $display("[ID] cycle=%0d pc=0x%08h instr=0x%08h rd=%0d rf_we=%0b illegal=%0b ebreak=%0b",
+               cycle_count,
+               u_riscv.id_pc,
+               u_riscv.id_instr,
+               u_riscv.id_rd,
+               u_riscv.id_rf_we,
+               u_riscv.id_illegal_instr,
+               u_riscv.id_ebreak);
+    end
+    if (u_riscv.ex_valid) begin
+      $display("[EX] cycle=%0d pc=0x%08h instr=0x%08h rd=%0d rf_we=%0b illegal=%0b ebreak=%0b",
+               cycle_count,
+               u_riscv.ex_pc,
+               u_riscv.ex_instr,
+               u_riscv.ex_rd,
+               u_riscv.ex_rf_we,
+               u_riscv.ex_illegal_instr,
+               u_riscv.ex_ebreak);
+    end
+  end
+end
 
 //some check
 always @(posedge clk) begin
@@ -200,5 +260,11 @@ always @(posedge clk) begin
   end
 end
 
+always_ff @(posedge clk) begin
+  if (rst_n && instr_ren) begin
+    $display("[IF] cycle=%0d pc=0x%08h instr=0x%08h",
+             cycle_count, instr_addr, instr_rdata);
+  end
+end
 endmodule
 `default_nettype wire

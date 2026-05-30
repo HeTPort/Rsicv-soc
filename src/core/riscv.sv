@@ -161,13 +161,20 @@ module riscv #(
   logic [4:0]    wb_rf_waddr;
   logic [DW-1:0] wb_rf_wdata;
   // ============================================================
+  // Add trap/halt kill signals
+  // ============================================================
+  logic trap_event;
+  logic pipe_kill;
+  assign trap_event = 
+      wb_valid && (wb_illegal_instr || wb_ecall || wb_ebreak || wb_mem_misaligned);
+  assign pipe_kill = trap_event | halt_q;
+  // ============================================================
   // Minimal halt/exception handling
   // ============================================================
   logic halt_q;
   logic exception_event;
-  assign exception_event =
-      wb_valid &&
-      (wb_illegal_instr || wb_ecall || wb_ebreak || wb_mem_misaligned);
+  assign exception_event = trap_event;
+
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) begin
       halt_q <= 1'b0;
@@ -177,21 +184,24 @@ module riscv #(
     end
   end
   assign halt_o          = halt_q;
-  assign illegal_instr_o = wb_valid && wb_illegal_instr;
-  assign exception_o     = exception_event;
+  assign illegal_instr_o = wb_valid && wb_illegal_instr && !halt_q;
+  assign exception_o     = exception_event && !halt_q;
 `ifndef SYNTHESIS
   always_ff @(posedge clk_i) begin
-    if (wb_valid && wb_illegal_instr) begin
-      $error("RV32IM core illegal instruction detected at WB stage");
-    end
-    if (wb_valid && wb_ecall) begin
-      $error("RV32IM core ECALL detected; halting core");
-    end
-    if (wb_valid && wb_ebreak) begin
-      $info("RV32IM core EBREAK detected; halting core");
-    end
-    if (wb_valid && wb_mem_misaligned) begin
-      $error("RV32IM core memory misaligned access detected");
+  //避免halt后重復打印，後續可能考慮從源頭保證wb_valid 在 halt 后为 0，而不是只屏蔽打印。
+    if (!halt_q) begin 
+      if (wb_valid && wb_illegal_instr) begin
+        $error("RV32IM core illegal instruction detected at WB stage");
+      end
+      if (wb_valid && wb_ecall) begin
+        $error("RV32IM core ECALL detected; halting core");
+      end
+      if (wb_valid && wb_ebreak) begin
+        $info("RV32IM core EBREAK detected; halting core");
+      end
+      if (wb_valid && wb_mem_misaligned) begin
+        $error("RV32IM core memory misaligned access detected");
+      end
     end
   end
 `endif
@@ -218,11 +228,11 @@ module riscv #(
   logic ifid_flush;
   logic idex_flush;
   logic idex_stall;
-  assign pc_stall   = hazard_stall | ex_stall | halt_q;
-  assign ifid_stall = hazard_stall | ex_stall | halt_q;
-  assign idex_stall = ex_stall | halt_q;
-  assign ifid_flush = ex_flush_req | fetch_kill_q;
-  assign idex_flush = ex_flush_req | hazard_stall;
+  assign pc_stall   = hazard_stall | ex_stall | pipe_kill;
+  assign ifid_stall = hazard_stall | ex_stall ;
+  assign idex_stall = ex_stall ;
+  assign ifid_flush = ex_flush_req | fetch_kill_q | pipe_kill;
+  assign idex_flush = ex_flush_req | hazard_stall | pipe_kill;
   // ============================================================
   // PC
   // ============================================================
@@ -237,7 +247,7 @@ module riscv #(
     .redirect_pc_i(ex_redirect_pc),
     .pc_o         (if_pc)
   );
-  assign instr_ren_o  = !halt_q && (!pc_stall || ex_redirect_en);
+  assign instr_ren_o  = !pipe_kill && (!pc_stall || ex_redirect_en);
   assign instr_addr_o = if_pc;
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) begin
@@ -309,6 +319,9 @@ module riscv #(
   // ============================================================
   // Regfile
   // ============================================================
+
+  logic wb_rf_wen_safe;
+  assign wb_rf_wen_safe = wb_rf_wen && !halt_q && !trap_event;
   regfile #(
     .DW(DW)
   ) u_regfile (
@@ -435,6 +448,10 @@ module riscv #(
   // ============================================================
   // Data RAM
   // ============================================================
+  logic dmem_ren_safe;
+  logic dmem_wen_safe;
+  assign dmem_ren_safe = dmem_ren && !pipe_kill;
+  assign dmem_wen_safe = dmem_wen && !pipe_kill;
   data_ram #(
     .AW(AW),
     .DW(DW),
@@ -442,8 +459,8 @@ module riscv #(
   ) u_data_ram (
     .clk_i   (clk_i),
     .rst_ni  (rst_ni),
-    .ren_i   (dmem_ren),
-    .wen_i   (dmem_wen),
+    .ren_i   (dmem_ren_safe),
+    .wen_i   (dmem_wen_safe),
     .wstrb_i (dmem_wstrb),
     .addr_i  (dmem_addr),
     .wdata_i (dmem_wdata),
@@ -452,13 +469,17 @@ module riscv #(
   // ============================================================
   // EX/WB
   // ============================================================
+  logic ex2wb_valid_i;
+  logic ex2wb_rf_wen_i;
+  assign ex2wb_valid_i = ex_wb_valid && !pipe_kill;
+  assign ex2wb_rf_wen_i = ex_wb_rf_wen && !pipe_kill;
   ex2wb #(
     .DW(DW)
   ) u_ex2wb (
     .clk_i             (clk_i),
     .rst_ni            (rst_ni),
-    .valid_i           (ex_wb_valid),
-    .rf_wen_i          (ex_wb_rf_wen),
+    .valid_i           (ex2wb_valid_i),
+    .rf_wen_i          (ex2wb_rf_wen_i),
     .rf_waddr_i        (ex_wb_rf_waddr),
     .wb_sel_i          (ex_wb_sel_out),
     .alu_data_i        (ex_wb_alu_data),
@@ -466,10 +487,10 @@ module riscv #(
     .mem_size_i        (ex_wb_mem_size),
     .mem_unsigned_i    (ex_wb_mem_unsigned),
     .load_offset_i     (ex_wb_load_offset),
-    .illegal_instr_i   (ex_wb_illegal_instr),
-    .ecall_i           (ex_wb_ecall),
-    .ebreak_i          (ex_wb_ebreak),
-    .mem_misaligned_i  (ex_wb_mem_misaligned),
+    .illegal_instr_i   (ex_wb_illegal_instr && !pipe_kill),
+    .ecall_i           (ex_wb_ecall && !pipe_kill),
+    .ebreak_i          (ex_wb_ebreak && !pipe_kill),
+    .mem_misaligned_i  (ex_wb_mem_misaligned && !pipe_kill),
     .valid_o           (wb_valid),
     .rf_wen_o          (wb_rf_wen_pre),
     .rf_waddr_o        (wb_rf_waddr_pre),

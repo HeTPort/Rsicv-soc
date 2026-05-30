@@ -102,6 +102,7 @@ module wb_stage #(
     rf_wdata_o = '0;
     if (valid_i &&
         rf_wen_i &&
+        rf_waddr_i != 5'd0 &&
         !illegal_instr_i &&
         !ecall_i &&
         !ebreak_i &&
