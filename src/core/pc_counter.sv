@@ -1,5 +1,5 @@
 `timescale 1ns / 1ps
-`default_nettype none
+`default_nettype wire
 module pc_counter #(
   parameter int AW = 32,
   parameter logic [AW-1:0] RESET_PC = '0

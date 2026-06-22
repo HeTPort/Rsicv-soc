@@ -1,5 +1,5 @@
 `timescale 1ns / 1ps
-`default_nettype none
+`default_nettype wire
 module prog_ram #(
   parameter int    AW            = 32,          // 地址宽度，单位：bit
   parameter int    DW            = 32,          // 数据宽度，单位：bit

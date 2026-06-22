@@ -1,5 +1,5 @@
 `timescale 1ns / 1ps
-`default_nettype none
+`default_nettype wire
 import riscv_pkg::*;
 // ============================================================
 // Module: riscv
@@ -25,7 +25,8 @@ import riscv_pkg::*;
 module riscv #(
   parameter int AW = riscv_pkg::AW,
   parameter int DW = riscv_pkg::DW,
-  parameter int DATA_RAM_DEPTH = 4096
+  parameter int DATA_RAM_DEPTH = 4096,
+  parameter string INIT_DATA_FILE = ""
 )(
   input  logic          clk_i,
   input  logic          rst_ni,
@@ -455,7 +456,8 @@ module riscv #(
   data_ram #(
     .AW(AW),
     .DW(DW),
-    .DEPTH(DATA_RAM_DEPTH)
+    .DEPTH(DATA_RAM_DEPTH),
+    .INIT_FILE(INIT_DATA_FILE)
   ) u_data_ram (
     .clk_i   (clk_i),
     .rst_ni  (rst_ni),

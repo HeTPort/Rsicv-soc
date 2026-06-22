@@ -1,5 +1,5 @@
 `timescale 1ns / 1ps
-`default_nettype none
+`default_nettype wire
 import riscv_pkg::*;
 // ============================================================
 // Module: tb_riscv
@@ -80,7 +80,8 @@ module tb_riscv_core;
   riscv #(
     .AW(AW),
     .DW(DW),
-    .DATA_RAM_DEPTH(DATA_RAM_DEPTH)
+    .DATA_RAM_DEPTH(DATA_RAM_DEPTH),
+    .INIT_DATA_FILE("")
   ) u_riscv (
     .clk_i           (clk),
     .rst_ni          (rst_n),

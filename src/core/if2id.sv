@@ -1,5 +1,5 @@
 `timescale 1ns / 1ps
-`default_nettype none
+`default_nettype wire
 import riscv_pkg::*;
 module if2id #(
   parameter int AW = riscv_pkg::AW,

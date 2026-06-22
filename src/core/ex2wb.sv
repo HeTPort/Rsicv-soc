@@ -1,5 +1,5 @@
 `timescale 1ns / 1ps
-`default_nettype none
+`default_nettype wire
 import riscv_pkg::*;
 // ============================================================
 // Module: ex2wb
@@ -14,21 +14,21 @@ import riscv_pkg::*;
 module ex2wb #(
   parameter int DW = riscv_pkg::DW
 )(
-  input  logic          clk_i,
-  input  logic          rst_ni,
-  input  logic          valid_i,
-  input  logic          rf_wen_i,
-  input  logic [4:0]    rf_waddr_i,
-  input  wb_sel_e       wb_sel_i,
-  input  logic [DW-1:0] alu_data_i,
-  input  logic [DW-1:0] pc4_data_i,
-  input  mem_size_e     mem_size_i,
-  input  logic          mem_unsigned_i,
-  input  logic [1:0]    load_offset_i,
-  input  logic          illegal_instr_i,
-  input  logic          ecall_i,
-  input  logic          ebreak_i,
-  input  logic          mem_misaligned_i,
+  input  wire logic          clk_i,
+  input  wire logic          rst_ni,
+  input  wire logic          valid_i,
+  input  wire logic          rf_wen_i,
+  input  wire logic [4:0]    rf_waddr_i,
+  input  wire wb_sel_e       wb_sel_i,
+  input  wire logic [DW-1:0] alu_data_i,
+  input  wire logic [DW-1:0] pc4_data_i,
+  input  wire mem_size_e     mem_size_i,
+  input  wire logic          mem_unsigned_i,
+  input  wire logic [1:0]    load_offset_i,
+  input  wire logic          illegal_instr_i,
+  input  wire logic          ecall_i,
+  input  wire logic          ebreak_i,
+  input  wire logic          mem_misaligned_i,
   output logic          valid_o,
   output logic          rf_wen_o,
   output logic [4:0]    rf_waddr_o,
