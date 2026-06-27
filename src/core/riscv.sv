@@ -228,7 +228,7 @@ module riscv #(
     .rs1_rdata_o (id_rs1_rdata),
     .rs2_raddr_i (id_rs2_raddr),
     .rs2_rdata_o (id_rs2_rdata),
-    .rd_wen_i    (wb_rf_wen),
+    .rd_wen_i    (wb_rf_wen_safe),
     .rd_waddr_i  (wb_rf_waddr),
     .rd_wdata_i  (wb_rf_wdata),
     .dbg_x3_o    (dbg_x3_o),
