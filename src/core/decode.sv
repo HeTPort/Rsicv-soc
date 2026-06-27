@@ -6,43 +6,15 @@ module decode #(
   parameter int AW = riscv_pkg::AW,
   parameter int DW = riscv_pkg::DW
 )(
-  input  logic [AW-1:0] pc_i,
-  input  logic [DW-1:0] instr_i,
-  // Register file read interface
+  // 输入结构体
+  input  fetch_pkt_t   pktd_i,
+  // Register file 横向接口依然独立
   output logic [4:0]    rf_rs1_raddr_o,
   output logic [4:0]    rf_rs2_raddr_o,
   input  logic [DW-1:0] rf_rs1_rdata_i,
   input  logic [DW-1:0] rf_rs2_rdata_i,
-  // Operand outputs to ID/EX
-  output logic [DW-1:0] op1_o,
-  output logic [DW-1:0] op2_o,
-  output logic [DW-1:0] store_data_o,
-  // Register usage information for hazard detection
-  output logic          use_rs1_o,
-  output logic          use_rs2_o,
-  // Destination register and RF write control
-  output logic [4:0]    rd_o,
-  output logic          rf_we_o,
-  // Decoded immediate
-  output logic [DW-1:0] imm_o,
-  // Execute controls
-  output alu_op_e       alu_op_o,
-  output branch_op_e    branch_op_o,
-  output jump_op_e      jump_op_o,
-  // Memory controls
-  output logic          mem_req_o,
-  output logic          mem_we_o,
-  output mem_size_e     mem_size_o,
-  output logic          mem_unsigned_o,
-  // Writeback control
-  output wb_sel_e       wb_sel_o,
-  // RV32M controls
-  output logic          muldiv_valid_o,
-  output muldiv_op_e    muldiv_op_o,
-  // Exception/special instruction flags
-  output logic          illegal_instr_o,
-  output logic          ecall_o,
-  output logic          ebreak_o
+  // 输出结构体
+  output id_ex_pkt_t   pktd_o
 );
 
   initial begin
@@ -55,6 +27,12 @@ module decode #(
       $error("decode assumes AW <= DW, got AW=%0d DW=%0d", AW, DW);
     end
   end
+
+
+  logic [AW-1:0] pc_i;
+  logic [DW-1:0] instr_i;
+  assign pc_i    = pktd_i.pc;
+  assign instr_i = pktd_i.instr;
 
   // ------------------------------------------------------------
   // Instruction fields
@@ -101,6 +79,20 @@ module decode #(
   assign imm_u = DW'(imm_u_32);
   assign imm_j = DW'(imm_j_32);
 
+
+  logic [DW-1:0] op1_o, op2_o, store_data_o, imm_o;
+  logic          use_rs1_o, use_rs2_o;
+  logic [4:0]    rd_o;
+  logic          rf_we_o;
+  alu_op_e       alu_op_o;
+  branch_op_e    branch_op_o;
+  jump_op_e      jump_op_o;
+  logic          mem_req_o, mem_we_o, mem_unsigned_o;
+  mem_size_e     mem_size_o;
+  wb_sel_e       wb_sel_o;
+  logic          muldiv_valid_o;
+  muldiv_op_e    muldiv_op_o;
+  logic          illegal_instr_o, ecall_o, ebreak_o;
 
   // ============================================================
   // 性能优化核心区：数据通路提前，物理直连
@@ -393,6 +385,40 @@ module decode #(
       default: illegal_instr_o = 1'b1;
     endcase
   end
+
+  assign pktd_o.valid    = pktd_i.valid;
+  assign pktd_o.pc       = pc_i;
+  assign pktd_o.instr    = instr_i;
+  assign pktd_o.use_rs1  = use_rs1_o;
+  assign pktd_o.use_rs2  = use_rs2_o;
+
+  // rf_pkt_t
+  assign pktd_o.rf.we    = rf_we_o;
+  assign pktd_o.rf.addr  = rd_o;
+
+  // ex_data_pkt_t
+  assign pktd_o.ex_data.op1        = op1_o;
+  assign pktd_o.ex_data.op2        = op2_o;
+  assign pktd_o.ex_data.imm        = imm_o;
+  assign pktd_o.ex_data.store_data = store_data_o;
+
+  // ex_ctrl_pkt_t
+  assign pktd_o.ex_ctrl.alu_op       = alu_op_o;
+  assign pktd_o.ex_ctrl.branch_op    = branch_op_o;
+  assign pktd_o.ex_ctrl.jump_op      = jump_op_o;
+  assign pktd_o.ex_ctrl.mem_req      = mem_req_o;
+  assign pktd_o.ex_ctrl.mem_we       = mem_we_o;
+  assign pktd_o.ex_ctrl.mem_size     = mem_size_o;
+  assign pktd_o.ex_ctrl.mem_unsigned = mem_unsigned_o;
+  assign pktd_o.ex_ctrl.wb_sel       = wb_sel_o;
+  assign pktd_o.ex_ctrl.muldiv_valid = muldiv_valid_o;
+  assign pktd_o.ex_ctrl.muldiv_op    = muldiv_op_o;
+
+  // exc_pkt_t
+  assign pktd_o.exc.illegal_instr    = illegal_instr_o;
+  assign pktd_o.exc.ecall            = ecall_o;
+  assign pktd_o.exc.ebreak           = ebreak_o;
+
 
 endmodule
 `default_nettype wire

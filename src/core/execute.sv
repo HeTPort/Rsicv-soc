@@ -31,56 +31,62 @@ module execute #(
   parameter int AW = riscv_pkg::AW,
   parameter int DW = riscv_pkg::DW
 )(
-  input  logic          valid_i,
-  input  logic [AW-1:0] pc_i,
-  input  logic [DW-1:0] instr_i,
-  input  logic [DW-1:0] op1_i,
-  input  logic [DW-1:0] op2_i,
-  input  logic [DW-1:0] store_data_i,
-  input  logic [4:0]    rd_i,
-  input  logic          rf_we_i,
-  input  logic [DW-1:0] imm_i,
-  input  alu_op_e       alu_op_i,
-  input  branch_op_e    branch_op_i,
-  input  jump_op_e      jump_op_i,
-  input  logic          mem_req_i,
-  input  logic          mem_we_i,
-  input  mem_size_e     mem_size_i,
-  input  logic          mem_unsigned_i,
-  input  wb_sel_e       wb_sel_i,
-  input  logic          muldiv_valid_i,
-  input  muldiv_op_e    muldiv_op_i,
-  input  logic          illegal_instr_i,
-  input  logic          ecall_i,
-  input  logic          ebreak_i,
-  // Writeback information
-  output logic          wb_valid_o,
-  output logic          wb_rf_wen_o,
-  output logic [4:0]    wb_rf_waddr_o,
-  output wb_sel_e       wb_sel_o,
-  output logic [DW-1:0] wb_alu_data_o,
-  output logic [DW-1:0] wb_pc4_data_o,
-  output mem_size_e     wb_mem_size_o,
-  output logic          wb_mem_unsigned_o,
-  output logic [1:0]    wb_load_offset_o,
-  // Exception/halt information propagated to WB/top
-  output logic          wb_illegal_instr_o,
-  output logic          wb_ecall_o,
-  output logic          wb_ebreak_o,
-  output logic          wb_mem_misaligned_o,
-  // PC redirect
+  input  id_ex_pkt_t   pkt_exe_i,
+  
+  // 横向输出信号保持独立
   output logic          redirect_en_o,
   output logic [AW-1:0] redirect_pc_o,
   output logic          flush_req_o,
-  // Data memory request
   output logic            dmem_ren_o,
   output logic            dmem_wen_o,
   output logic [DW/8-1:0] dmem_wstrb_o,
   output logic [AW-1:0]   dmem_addr_o,
-  output logic [DW-1:0]   dmem_wdata_o
+  output logic [DW-1:0]   dmem_wdata_o,
+  
+  // 输出结构体
+  output ex_wb_pkt_t   pkt_exe_o
 );
   localparam int BYTE_NUM = DW / 8;
   localparam int SHAMT_W  = (DW == 64) ? 6 : 5;
+
+  logic          valid_i;
+  logic [AW-1:0] pc_i;
+  logic [DW-1:0] instr_i, op1_i, op2_i, store_data_i, imm_i;
+  logic [4:0]    rd_i;
+  logic          rf_we_i;
+  alu_op_e       alu_op_i;
+  branch_op_e    branch_op_i;
+  jump_op_e      jump_op_i;
+  logic          mem_req_i, mem_we_i, mem_unsigned_i;
+  mem_size_e     mem_size_i;
+  wb_sel_e       wb_sel_i;
+  logic          muldiv_valid_i;
+  muldiv_op_e    muldiv_op_i;
+  logic          illegal_instr_i, ecall_i, ebreak_i;
+
+  assign valid_i         = pkt_exe_i.valid;
+  assign pc_i            = pkt_exe_i.pc;
+  assign instr_i         = pkt_exe_i.instr;
+  assign op1_i           = pkt_exe_i.ex_data.op1;
+  assign op2_i           = pkt_exe_i.ex_data.op2;
+  assign store_data_i    = pkt_exe_i.ex_data.store_data;
+  assign imm_i           = pkt_exe_i.ex_data.imm;
+  assign rd_i            = pkt_exe_i.rf.addr;
+  assign rf_we_i         = pkt_exe_i.rf.we;
+  assign alu_op_i        = pkt_exe_i.ex_ctrl.alu_op;
+  assign branch_op_i     = pkt_exe_i.ex_ctrl.branch_op;
+  assign jump_op_i       = pkt_exe_i.ex_ctrl.jump_op;
+  assign mem_req_i       = pkt_exe_i.ex_ctrl.mem_req;
+  assign mem_we_i        = pkt_exe_i.ex_ctrl.mem_we;
+  assign mem_size_i      = pkt_exe_i.ex_ctrl.mem_size;
+  assign mem_unsigned_i  = pkt_exe_i.ex_ctrl.mem_unsigned;
+  assign wb_sel_i        = pkt_exe_i.ex_ctrl.wb_sel;
+  assign muldiv_valid_i  = pkt_exe_i.ex_ctrl.muldiv_valid;
+  assign muldiv_op_i     = pkt_exe_i.ex_ctrl.muldiv_op;
+  assign illegal_instr_i = pkt_exe_i.exc.illegal_instr;
+  assign ecall_i         = pkt_exe_i.exc.ecall;
+  assign ebreak_i        = pkt_exe_i.exc.ebreak;
+
   // Keep instr_i referenced for debug-oriented flows.
   logic [DW-1:0] instr_dbg_unused;
   assign instr_dbg_unused = instr_i;
@@ -283,6 +289,14 @@ module execute #(
       ecall_i |
       ebreak_i |
       mem_misaligned;
+
+  logic          wb_valid_o, wb_rf_wen_o, wb_illegal_instr_o, wb_ecall_o, wb_ebreak_o, wb_mem_misaligned_o;
+  logic [4:0]    wb_rf_waddr_o;
+  wb_sel_e       wb_sel_o;
+  logic [DW-1:0] wb_alu_data_o, wb_pc4_data_o;
+  mem_size_e     wb_mem_size_o;
+  logic          wb_mem_unsigned_o;
+  logic [1:0]    wb_load_offset_o;
   always_comb begin
     wb_valid_o          = valid_i;
     wb_rf_wen_o         = 1'b0;
@@ -348,6 +362,21 @@ module execute #(
       wb_sel_o    = WB_NONE;
     end
   end
+
+  assign pkt_exe_o.valid          = wb_valid_o;
+  assign pkt_exe_o.rf.we          = wb_rf_wen_o;
+  assign pkt_exe_o.rf.addr        = wb_rf_waddr_o;
+  assign pkt_exe_o.wb_sel         = wb_sel_o;
+  assign pkt_exe_o.alu_data       = wb_alu_data_o;
+  assign pkt_exe_o.pc4_data       = wb_pc4_data_o;
+  assign pkt_exe_o.mem_info.mem_size    = wb_mem_size_o;
+  assign pkt_exe_o.mem_info.mem_unsigned = wb_mem_unsigned_o;
+  assign pkt_exe_o.mem_info.load_offset = wb_load_offset_o;
+  assign pkt_exe_o.mem_misaligned = wb_mem_misaligned_o;
+  assign pkt_exe_o.exc.illegal_instr = wb_illegal_instr_o;
+  assign pkt_exe_o.exc.ecall         = wb_ecall_o;
+  assign pkt_exe_o.exc.ebreak        = wb_ebreak_o;
+
 `ifndef SYNTHESIS
   always_comb begin
     if (valid_i && mem_misaligned) begin

@@ -45,164 +45,83 @@ module riscv #(
       $fatal(1, "Current core supports only RV32. RV64 is reserved for future extension.");
     end
   end
+
   // ============================================================
-  // IF
+  // Pipeline Payload Structures (Vertical Data Flow)
+  // ============================================================
+  fetch_pkt_t if2id_pkt;
+  fetch_pkt_t if2id_pkt_out;
+  
+  id_ex_pkt_t id2ex_pkt;
+  id_ex_pkt_t id2ex_pkt_out;
+  
+  ex_wb_pkt_t ex2wb_pkt_in;
+  ex_wb_pkt_t ex2wb_pkt_in_safe;
+  ex_wb_pkt_t ex2wb_pkt_out;
+
+  // ============================================================
+  // Horizontal Control & Bus Signals
   // ============================================================
   logic [AW-1:0] if_pc;
   logic [AW-1:0] if_resp_pc_q;
   logic          if_resp_valid_q;
   logic          fetch_kill_q;
-  // ============================================================
-  // IF/ID
-  // ============================================================
-  logic          id_valid;
-  logic [AW-1:0] id_pc;
-  logic [DW-1:0] id_instr;
-  // ============================================================
-  // Decode / Regfile
-  // ============================================================
+
+  // Regfile interface
   logic [4:0]    id_rs1_raddr;
   logic [4:0]    id_rs2_raddr;
   logic [DW-1:0] id_rs1_rdata;
   logic [DW-1:0] id_rs2_rdata;
-  logic [DW-1:0] id_op1;
-  logic [DW-1:0] id_op2;
-  logic [DW-1:0] id_store_data;
-  logic          id_use_rs1;
-  logic          id_use_rs2;
-  logic [4:0]    id_rd;
-  logic          id_rf_we;
-  logic [DW-1:0] id_imm;
-  alu_op_e       id_alu_op;
-  branch_op_e    id_branch_op;
-  jump_op_e      id_jump_op;
-  logic          id_mem_req;
-  logic          id_mem_we;
-  mem_size_e     id_mem_size;
-  logic          id_mem_unsigned;
-  wb_sel_e       id_wb_sel;
-  logic          id_muldiv_valid;
-  muldiv_op_e    id_muldiv_op;
-  logic          id_illegal_instr;
-  logic          id_ecall;
-  logic          id_ebreak;
-  // ============================================================
-  // ID/EX
-  // ============================================================
-  logic          ex_valid;
-  logic [AW-1:0] ex_pc;
-  logic [DW-1:0] ex_instr;
-  logic [DW-1:0] ex_op1;
-  logic [DW-1:0] ex_op2;
-  logic [DW-1:0] ex_store_data;
-  logic [4:0]    ex_rd;
-  logic          ex_rf_we;
-  logic [DW-1:0] ex_imm;
-  alu_op_e       ex_alu_op;
-  branch_op_e    ex_branch_op;
-  jump_op_e      ex_jump_op;
-  logic          ex_mem_req;
-  logic          ex_mem_we;
-  mem_size_e     ex_mem_size;
-  logic          ex_mem_unsigned;
-  wb_sel_e       ex_wb_sel;
-  logic          ex_muldiv_valid;
-  muldiv_op_e    ex_muldiv_op;
-  logic          ex_illegal_instr;
-  logic          ex_ecall;
-  logic          ex_ebreak;
-  // ============================================================
+  logic          wb_rf_wen;
+  logic [4:0]    wb_rf_waddr;
+  logic [DW-1:0] wb_rf_wdata;
+
   // EX outputs
-  // ============================================================
-  logic          ex_wb_valid;
-  logic          ex_wb_rf_wen;
-  logic [4:0]    ex_wb_rf_waddr;
-  wb_sel_e       ex_wb_sel_out;
-  logic [DW-1:0] ex_wb_alu_data;
-  logic [DW-1:0] ex_wb_pc4_data;
-  mem_size_e     ex_wb_mem_size;
-  logic          ex_wb_mem_unsigned;
-  logic [1:0]    ex_wb_load_offset;
-  logic          ex_wb_illegal_instr;
-  logic          ex_wb_ecall;
-  logic          ex_wb_ebreak;
-  logic          ex_wb_mem_misaligned;
   logic          ex_redirect_en;
   logic [AW-1:0] ex_redirect_pc;
   logic          ex_flush_req;
-  // ============================================================
-  // Data memory
-  // ============================================================
+
+  // Data memory interface
   logic            dmem_ren;
   logic            dmem_wen;
   logic [DW/8-1:0] dmem_wstrb;
   logic [AW-1:0]   dmem_addr;
   logic [DW-1:0]   dmem_wdata;
   logic [DW-1:0]   dmem_rdata;
-  // ============================================================
-  // EX/WB
-  // ============================================================
-  logic          wb_valid;
-  logic          wb_rf_wen_pre;
-  logic [4:0]    wb_rf_waddr_pre;
-  wb_sel_e       wb_sel;
-  logic [DW-1:0] wb_alu_data;
-  logic [DW-1:0] wb_pc4_data;
-  mem_size_e     wb_mem_size;
-  logic          wb_mem_unsigned;
-  logic [1:0]    wb_load_offset;
-  logic          wb_illegal_instr;
-  logic          wb_ecall;
-  logic          wb_ebreak;
-  logic          wb_mem_misaligned;
-  // ============================================================
-  // Final WB to regfile
-  // ============================================================
-  logic          wb_rf_wen;
-  logic [4:0]    wb_rf_waddr;
-  logic [DW-1:0] wb_rf_wdata;
-  // ============================================================
-  // Add trap/halt kill signals
-  // ============================================================
+
+
+  // Trap/Halt logic
   logic trap_event;
   logic pipe_kill;
-  assign trap_event = 
-      wb_valid && (wb_illegal_instr || wb_ecall || wb_ebreak || wb_mem_misaligned);
-  assign pipe_kill = trap_event | halt_q;
-  // ============================================================
-  // Minimal halt/exception handling
-  // ============================================================
   logic halt_q;
   logic exception_event;
+
+  assign trap_event = 
+    ex2wb_pkt_out.valid && 
+    (ex2wb_pkt_out.exc.illegal_instr || ex2wb_pkt_out.exc.ecall || ex2wb_pkt_out.exc.ebreak || ex2wb_pkt_out.mem_misaligned);
+  assign pipe_kill = trap_event | halt_q;
   assign exception_event = trap_event;
 
   always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (!rst_ni) begin
-      halt_q <= 1'b0;
-    end
-    else if (exception_event) begin
-      halt_q <= 1'b1;
-    end
+    if (!rst_ni) halt_q <= 1'b0;
+    else if (exception_event) halt_q <= 1'b1;
   end
+
   assign halt_o          = halt_q;
-  assign illegal_instr_o = wb_valid && wb_illegal_instr && !halt_q;
+  assign illegal_instr_o = ex2wb_pkt_out.valid && ex2wb_pkt_out.exc.illegal_instr && !halt_q;
   assign exception_o     = exception_event && !halt_q;
+
 `ifndef SYNTHESIS
   always_ff @(posedge clk_i) begin
-  //避免halt后重復打印，後續可能考慮從源頭保證wb_valid 在 halt 后为 0，而不是只屏蔽打印。
     if (!halt_q) begin 
-      if (wb_valid && wb_illegal_instr) begin
+      if (ex2wb_pkt_out.valid && ex2wb_pkt_out.exc.illegal_instr)
         $error("RV32IM core illegal instruction detected at WB stage");
-      end
-      if (wb_valid && wb_ecall) begin
+      if (ex2wb_pkt_out.valid && ex2wb_pkt_out.exc.ecall)
         $error("RV32IM core ECALL detected; halting core");
-      end
-      if (wb_valid && wb_ebreak) begin
+      if (ex2wb_pkt_out.valid && ex2wb_pkt_out.exc.ebreak)
         $info("RV32IM core EBREAK detected; halting core");
-      end
-      if (wb_valid && wb_mem_misaligned) begin
+      if (ex2wb_pkt_out.valid && ex2wb_pkt_out.mem_misaligned)
         $error("RV32IM core memory misaligned access detected");
-      end
     end
   end
 `endif
@@ -212,15 +131,17 @@ module riscv #(
   logic hazard_stall;
   logic ex_stall;
   assign ex_stall = 1'b0; // Reserved for future multi-cycle mul/div.
+
   assign hazard_stall =
-      id_valid &&
-      ex_valid &&
-      ex_rf_we &&
-      ex_rd != 5'd0 &&
+      id2ex_pkt.valid &&               // ID stage has valid instruction
+      id2ex_pkt_out.valid &&           // EX stage has valid instruction
+      id2ex_pkt_out.rf.we &&           // EX stage will write back
+      id2ex_pkt_out.rf.addr != 5'd0 && // Not x0
       (
-        (id_use_rs1 && id_rs1_raddr == ex_rd) ||
-        (id_use_rs2 && id_rs2_raddr == ex_rd)
+        (id2ex_pkt.use_rs1 && id_rs1_raddr == id2ex_pkt_out.rf.addr) ||
+        (id2ex_pkt.use_rs2 && id_rs2_raddr == id2ex_pkt_out.rf.addr)
       );
+
   // ============================================================
   // Pipeline control
   // ============================================================
@@ -264,58 +185,33 @@ module riscv #(
       end
     end
   end
+
+
+  // Pack IF packet
+  assign if2id_pkt.valid = if_resp_valid_q;
+  assign if2id_pkt.pc    = if_resp_pc_q;
+  assign if2id_pkt.instr = instr_rdata_i;
   // ============================================================
-  // IF/ID
+  // IF/ID Pipeline Register
   // ============================================================
-  if2id #(
-    .AW(AW),
-    .DW(DW)
-  ) u_if2id (
+  if2id u_if2id (
     .clk_i   (clk_i),
     .rst_ni  (rst_ni),
     .flush_i (ifid_flush),
     .stall_i (ifid_stall),
-    .valid_i (if_resp_valid_q),
-    .pc_i    (if_resp_pc_q),
-    .instr_i (instr_rdata_i),
-    .valid_o (id_valid),
-    .pc_o    (id_pc),
-    .instr_o (id_instr)
+    .pkt2id_i   (if2id_pkt),
+    .pkt2id_o   (if2id_pkt_out)
   );
   // ============================================================
   // Decode
   // ============================================================
-  decode #(
-    .AW(AW),
-    .DW(DW)
-  ) u_decode (
-    .pc_i             (id_pc),
-    .instr_i          (id_instr),
-    .rf_rs1_raddr_o   (id_rs1_raddr),
-    .rf_rs2_raddr_o   (id_rs2_raddr),
-    .rf_rs1_rdata_i   (id_rs1_rdata),
-    .rf_rs2_rdata_i   (id_rs2_rdata),
-    .op1_o            (id_op1),
-    .op2_o            (id_op2),
-    .store_data_o     (id_store_data),
-    .use_rs1_o        (id_use_rs1),
-    .use_rs2_o        (id_use_rs2),
-    .rd_o             (id_rd),
-    .rf_we_o          (id_rf_we),
-    .imm_o            (id_imm),
-    .alu_op_o         (id_alu_op),
-    .branch_op_o      (id_branch_op),
-    .jump_op_o        (id_jump_op),
-    .mem_req_o        (id_mem_req),
-    .mem_we_o         (id_mem_we),
-    .mem_size_o       (id_mem_size),
-    .mem_unsigned_o   (id_mem_unsigned),
-    .wb_sel_o         (id_wb_sel),
-    .muldiv_valid_o   (id_muldiv_valid),
-    .muldiv_op_o      (id_muldiv_op),
-    .illegal_instr_o  (id_illegal_instr),
-    .ecall_o          (id_ecall),
-    .ebreak_o         (id_ebreak)
+  decode u_decode (
+    .pktd_i          (if2id_pkt_out),
+    .rf_rs1_raddr_o (id_rs1_raddr),
+    .rf_rs2_raddr_o (id_rs2_raddr),
+    .rf_rs1_rdata_i (id_rs1_rdata),
+    .rf_rs2_rdata_i (id_rs2_rdata),
+    .pktd_o          (id2ex_pkt)
   );
   // ============================================================
   // Regfile
@@ -342,110 +238,42 @@ module riscv #(
   // ============================================================
   // ID/EX
   // ============================================================
-  id2ex #(
-    .AW(AW),
-    .DW(DW)
-  ) u_id2ex (
-    .clk_i           (clk_i),
-    .rst_ni          (rst_ni),
-    .flush_i         (idex_flush),
-    .stall_i         (idex_stall),
-    .valid_i         (id_valid),
-    .pc_i            (id_pc),
-    .instr_i         (id_instr),
-    .op1_i           (id_op1),
-    .op2_i           (id_op2),
-    .store_data_i    (id_store_data),
-    .rd_i            (id_rd),
-    .rf_we_i         (id_rf_we),
-    .imm_i           (id_imm),
-    .alu_op_i        (id_alu_op),
-    .branch_op_i     (id_branch_op),
-    .jump_op_i       (id_jump_op),
-    .mem_req_i       (id_mem_req),
-    .mem_we_i        (id_mem_we),
-    .mem_size_i      (id_mem_size),
-    .mem_unsigned_i  (id_mem_unsigned),
-    .wb_sel_i        (id_wb_sel),
-    .muldiv_valid_i  (id_muldiv_valid),
-    .muldiv_op_i     (id_muldiv_op),
-    .illegal_instr_i (id_illegal_instr),
-    .ecall_i         (id_ecall),
-    .ebreak_i        (id_ebreak),
-    .valid_o         (ex_valid),
-    .pc_o            (ex_pc),
-    .instr_o         (ex_instr),
-    .op1_o           (ex_op1),
-    .op2_o           (ex_op2),
-    .store_data_o    (ex_store_data),
-    .rd_o            (ex_rd),
-    .rf_we_o         (ex_rf_we),
-    .imm_o           (ex_imm),
-    .alu_op_o        (ex_alu_op),
-    .branch_op_o     (ex_branch_op),
-    .jump_op_o       (ex_jump_op),
-    .mem_req_o       (ex_mem_req),
-    .mem_we_o        (ex_mem_we),
-    .mem_size_o      (ex_mem_size),
-    .mem_unsigned_o  (ex_mem_unsigned),
-    .wb_sel_o        (ex_wb_sel),
-    .muldiv_valid_o  (ex_muldiv_valid),
-    .muldiv_op_o     (ex_muldiv_op),
-    .illegal_instr_o (ex_illegal_instr),
-    .ecall_o         (ex_ecall),
-    .ebreak_o        (ex_ebreak)
+  id2ex u_id2ex (
+    .clk_i   (clk_i),
+    .rst_ni  (rst_ni),
+    .flush_i (idex_flush),
+    .stall_i (idex_stall),
+    .pkt2ex_i   (id2ex_pkt),
+    .pkt2ex_o   (id2ex_pkt_out)
   );
   // ============================================================
   // Execute
   // ============================================================
-  execute #(
-    .AW(AW),
-    .DW(DW)
-  ) u_execute (
-    .valid_i              (ex_valid),
-    .pc_i                 (ex_pc),
-    .instr_i              (ex_instr),
-    .op1_i                (ex_op1),
-    .op2_i                (ex_op2),
-    .store_data_i         (ex_store_data),
-    .rd_i                 (ex_rd),
-    .rf_we_i              (ex_rf_we),
-    .imm_i                (ex_imm),
-    .alu_op_i             (ex_alu_op),
-    .branch_op_i          (ex_branch_op),
-    .jump_op_i            (ex_jump_op),
-    .mem_req_i            (ex_mem_req),
-    .mem_we_i             (ex_mem_we),
-    .mem_size_i           (ex_mem_size),
-    .mem_unsigned_i       (ex_mem_unsigned),
-    .wb_sel_i             (ex_wb_sel),
-    .muldiv_valid_i       (ex_muldiv_valid),
-    .muldiv_op_i          (ex_muldiv_op),
-    .illegal_instr_i      (ex_illegal_instr),
-    .ecall_i              (ex_ecall),
-    .ebreak_i             (ex_ebreak),
-    .wb_valid_o           (ex_wb_valid),
-    .wb_rf_wen_o          (ex_wb_rf_wen),
-    .wb_rf_waddr_o        (ex_wb_rf_waddr),
-    .wb_sel_o             (ex_wb_sel_out),
-    .wb_alu_data_o        (ex_wb_alu_data),
-    .wb_pc4_data_o        (ex_wb_pc4_data),
-    .wb_mem_size_o        (ex_wb_mem_size),
-    .wb_mem_unsigned_o    (ex_wb_mem_unsigned),
-    .wb_load_offset_o     (ex_wb_load_offset),
-    .wb_illegal_instr_o   (ex_wb_illegal_instr),
-    .wb_ecall_o           (ex_wb_ecall),
-    .wb_ebreak_o          (ex_wb_ebreak),
-    .wb_mem_misaligned_o  (ex_wb_mem_misaligned),
-    .redirect_en_o        (ex_redirect_en),
-    .redirect_pc_o        (ex_redirect_pc),
-    .flush_req_o          (ex_flush_req),
-    .dmem_ren_o           (dmem_ren),
-    .dmem_wen_o           (dmem_wen),
-    .dmem_wstrb_o         (dmem_wstrb),
-    .dmem_addr_o          (dmem_addr),
-    .dmem_wdata_o         (dmem_wdata)
+  execute u_execute (
+    .pkt_exe_i        (id2ex_pkt_out),
+    .redirect_en_o(ex_redirect_en),
+    .redirect_pc_o(ex_redirect_pc),
+    .flush_req_o  (ex_flush_req),
+    .dmem_ren_o   (dmem_ren),
+    .dmem_wen_o   (dmem_wen),
+    .dmem_wstrb_o (dmem_wstrb),
+    .dmem_addr_o  (dmem_addr),
+    .dmem_wdata_o (dmem_wdata),
+    .pkt_exe_o        (ex2wb_pkt_in)
   );
+
+  // Trap masking before EX/WB register
+  always_comb begin
+    ex2wb_pkt_in_safe = ex2wb_pkt_in;
+    if (pipe_kill) begin
+      ex2wb_pkt_in_safe.valid             = 1'b0;
+      ex2wb_pkt_in_safe.rf.we             = 1'b0;
+      ex2wb_pkt_in_safe.exc.illegal_instr = 1'b0;
+      ex2wb_pkt_in_safe.exc.ecall         = 1'b0;
+      ex2wb_pkt_in_safe.exc.ebreak        = 1'b0;
+      ex2wb_pkt_in_safe.mem_misaligned    = 1'b0;
+    end
+  end
   // ============================================================
   // Data RAM
   // ============================================================
@@ -468,68 +296,26 @@ module riscv #(
     .wdata_i (dmem_wdata),
     .rdata_o (dmem_rdata)
   );
+
   // ============================================================
-  // EX/WB
+  // EX/WB Pipeline Register
   // ============================================================
-  logic ex2wb_valid_i;
-  logic ex2wb_rf_wen_i;
-  assign ex2wb_valid_i = ex_wb_valid && !pipe_kill;
-  assign ex2wb_rf_wen_i = ex_wb_rf_wen && !pipe_kill;
-  ex2wb #(
-    .DW(DW)
-  ) u_ex2wb (
-    .clk_i             (clk_i),
-    .rst_ni            (rst_ni),
-    .valid_i           (ex2wb_valid_i),
-    .rf_wen_i          (ex2wb_rf_wen_i),
-    .rf_waddr_i        (ex_wb_rf_waddr),
-    .wb_sel_i          (ex_wb_sel_out),
-    .alu_data_i        (ex_wb_alu_data),
-    .pc4_data_i        (ex_wb_pc4_data),
-    .mem_size_i        (ex_wb_mem_size),
-    .mem_unsigned_i    (ex_wb_mem_unsigned),
-    .load_offset_i     (ex_wb_load_offset),
-    .illegal_instr_i   (ex_wb_illegal_instr && !pipe_kill),
-    .ecall_i           (ex_wb_ecall && !pipe_kill),
-    .ebreak_i          (ex_wb_ebreak && !pipe_kill),
-    .mem_misaligned_i  (ex_wb_mem_misaligned && !pipe_kill),
-    .valid_o           (wb_valid),
-    .rf_wen_o          (wb_rf_wen_pre),
-    .rf_waddr_o        (wb_rf_waddr_pre),
-    .wb_sel_o          (wb_sel),
-    .alu_data_o        (wb_alu_data),
-    .pc4_data_o        (wb_pc4_data),
-    .mem_size_o        (wb_mem_size),
-    .mem_unsigned_o    (wb_mem_unsigned),
-    .load_offset_o     (wb_load_offset),
-    .illegal_instr_o   (wb_illegal_instr),
-    .ecall_o           (wb_ecall),
-    .ebreak_o          (wb_ebreak),
-    .mem_misaligned_o  (wb_mem_misaligned)
+  ex2wb u_ex2wb (
+    .clk_i   (clk_i),
+    .rst_ni  (rst_ni),
+    .stall_i (1'b0), // Currently no stall source for EX/WB
+    .pkt2wb_i   (ex2wb_pkt_in_safe),
+    .pkt2wb_o   (ex2wb_pkt_out)
   );
   // ============================================================
   // WB
   // ============================================================
-  wb_stage #(
-    .DW(DW)
-  ) u_wb_stage (
-    .valid_i          (wb_valid),
-    .rf_wen_i         (wb_rf_wen_pre),
-    .rf_waddr_i       (wb_rf_waddr_pre),
-    .wb_sel_i         (wb_sel),
-    .alu_data_i       (wb_alu_data),
-    .pc4_data_i       (wb_pc4_data),
-    .mem_size_i       (wb_mem_size),
-    .mem_unsigned_i   (wb_mem_unsigned),
-    .load_offset_i    (wb_load_offset),
-    .dmem_rdata_i     (dmem_rdata),
-    .illegal_instr_i  (wb_illegal_instr),
-    .ecall_i          (wb_ecall),
-    .ebreak_i         (wb_ebreak),
-    .mem_misaligned_i (wb_mem_misaligned),
-    .rf_wen_o         (wb_rf_wen),
-    .rf_waddr_o       (wb_rf_waddr),
-    .rf_wdata_o       (wb_rf_wdata)
+  wb_stage u_wb_stage (
+    .pkt_wb_i         (ex2wb_pkt_out),
+    .dmem_rdata_i  (dmem_rdata),
+    .rf_wen_o      (wb_rf_wen),
+    .rf_waddr_o    (wb_rf_waddr),
+    .rf_wdata_o    (wb_rf_wdata)
   );
 endmodule
 `default_nettype wire

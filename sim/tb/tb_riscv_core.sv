@@ -5,27 +5,6 @@ import riscv_pkg::*;
 // Module: tb_riscv
 // Description:
 //   Simple top-level testbench for the reconstructed RV32IM CPU.
-//
-// Structure:
-//   tb_riscv
-//     |- riscv
-//     |- prog_ram
-//
-// Program:
-//   prog_ram loads "prog.hex" by $readmemh.
-//
-// Pass/fail convention:
-//   PASS:
-//     dbg_x10_o == 1
-//     dbg_x11_o == 0
-//
-//   FAIL:
-//     dbg_x10_o == 0
-//     dbg_x11_o contains failure code.
-//
-// Notes:
-//   - Program ends with EBREAK.
-//   - The CPU treats EBREAK as halt/exception.
 // ============================================================
 module tb_riscv_core;
   localparam int AW = 32;
@@ -34,22 +13,25 @@ module tb_riscv_core;
   localparam int DATA_RAM_DEPTH = 4096;
   localparam int CLK_PERIOD_NS = 10;
   localparam int TIMEOUT_CYCLES = 20000;
+
   // ------------------------------------------------------------
   // Clock / reset
   // ------------------------------------------------------------
   logic clk;
   logic rst_n;
-  logic  seen_illegal;
+  //logic  seen_illegal;
+
   // ------------------------------------------------------------
   // Sticky illegal instruction monitor
   // ------------------------------------------------------------
-  always_ff @(posedge clk or negedge rst_n) begin
-    if (!rst_n) begin
-      seen_illegal <= 1'b0;
-    end else if (illegal_instr) begin
-      seen_illegal <= 1'b1;
-    end
-  end
+  //always_ff @(posedge clk or negedge rst_n) begin
+  //  if (!rst_n) begin
+  //    seen_illegal <= 1'b0;
+  //  end else if (illegal_instr) begin
+  //    seen_illegal <= 1'b1;
+  //  end
+  //end
+
   initial begin
     clk = 1'b0;
     forever #(CLK_PERIOD_NS / 2) clk = ~clk;
@@ -59,12 +41,14 @@ module tb_riscv_core;
     repeat (10) @(posedge clk);
     rst_n = 1'b1;
   end
+
   // ------------------------------------------------------------
   // Instruction interface between CPU and prog_ram
   // ------------------------------------------------------------
   logic          instr_ren;
   logic [AW-1:0] instr_addr;
   logic [DW-1:0] instr_rdata;
+
   // ------------------------------------------------------------
   // Debug outputs
   // ------------------------------------------------------------
@@ -74,6 +58,7 @@ module tb_riscv_core;
   logic halt;
   logic illegal_instr;
   logic exception;
+
   // ------------------------------------------------------------
   // DUT
   // ------------------------------------------------------------
@@ -95,6 +80,7 @@ module tb_riscv_core;
     .illegal_instr_o (illegal_instr),
     .exception_o     (exception)
   );
+
   // ------------------------------------------------------------
   // Program RAM
   // ------------------------------------------------------------
@@ -113,6 +99,7 @@ module tb_riscv_core;
     .waddr_i      ('0),
     .wdata_i      ('0)
   );
+
   // ------------------------------------------------------------
   // Wave dump
   // ------------------------------------------------------------
@@ -120,6 +107,7 @@ module tb_riscv_core;
     $dumpfile("tb_riscv.vcd");
     $dumpvars(0, tb_riscv_core);
   end
+
   // ------------------------------------------------------------
   // Timeout watchdog
   // ------------------------------------------------------------
@@ -156,6 +144,7 @@ module tb_riscv_core;
       end
     end
   end
+
   // ------------------------------------------------------------
   // Finish on halt
   // ------------------------------------------------------------
@@ -166,8 +155,6 @@ module tb_riscv_core;
     $display("============================================================");
     $display("[TB] CPU halted");
     $display("[TB] cycle          = %0d", cycle_count);
-    //instr_addr是取指地址，並非“最后提交执行的指令地址”
-    //想知道最后真正触发 halt 的 PC，最好 CPU 内部暴露一个调试信号,在wb階段輸出
     $display("[TB] instr_addr     = 0x%08h", instr_addr);
     $display("[TB] dbg_x3         = 0x%08h", dbg_x3);
     $display("[TB] dbg_x10        = 0x%08h", dbg_x10);
@@ -175,7 +162,7 @@ module tb_riscv_core;
     $display("[TB] illegal_instr  = %0b",illegal_instr);
     $display("[TB] exception      = %0b", exception);
 
-    if (dbg_x10 == 32'd1 && dbg_x11 == 32'd0 && !seen_illegal) begin
+    if (dbg_x10 == 32'd1 && dbg_x11 == 32'd0 && !illegal_instr) begin
       $display("[TB] RESULT: PASS");
       $display("============================================================");
       $finish;
@@ -183,11 +170,12 @@ module tb_riscv_core;
     else begin
       $display("[TB] RESULT: FAIL");
       $display("[TB] Failure code in x11 = %0d / 0x%08h", dbg_x11, dbg_x11);
-      $display("[TB] seen_illegal = %0b", seen_illegal);
+      $display("[TB] seen_illegal = %0b", illegal_instr);
       $display("============================================================");
       $fatal(1, "[TB] RV32IM test failed");
     end
   end
+
   // ------------------------------------------------------------
   // Optional monitor
   // ------------------------------------------------------------
@@ -203,69 +191,83 @@ module tb_riscv_core;
     end
   end
 `endif
-//WB monitor
-always_ff @(posedge clk) begin
-  if (rst_n) begin
-    $display("[WBPATH] cycle=%0d | ex_wb_valid=%0b ex_wb_rf_wen=%0b ex_wb_rd=%0d ex_wb_sel=%0d ex_wb_alu=0x%08h | wb_valid=%0b wb_pre_wen=%0b wb_pre_rd=%0d wb_sel=%0d wb_alu=0x%08h | wb_wen=%0b wb_rd=%0d wb_wdata=0x%08h",
-             cycle_count,
-             u_riscv.ex_wb_valid,
-             u_riscv.ex_wb_rf_wen,
-             u_riscv.ex_wb_rf_waddr,
-             u_riscv.ex_wb_sel_out,
-             u_riscv.ex_wb_alu_data,
-             u_riscv.wb_valid,
-             u_riscv.wb_rf_wen_pre,
-             u_riscv.wb_rf_waddr_pre,
-             u_riscv.wb_sel,
-             u_riscv.wb_alu_data,
-             u_riscv.wb_rf_wen,
-             u_riscv.wb_rf_waddr,
-             u_riscv.wb_rf_wdata);
-  end
-end
-//ID/EX monitor
-always_ff @(posedge clk) begin
-  if (rst_n) begin
-    if (u_riscv.id_valid) begin
-      $display("[ID] cycle=%0d pc=0x%08h instr=0x%08h rd=%0d rf_we=%0b illegal=%0b ebreak=%0b",
+
+  // ------------------------------------------------------------
+  // WB Monitor (Updated for struct hierarchy)
+  // ------------------------------------------------------------
+  always_ff @(posedge clk) begin
+    if (rst_n) begin
+      $display("[WBPATH] cycle=%0d | ex2wb_in: valid=%0b we=%0b rd=%0d sel=%0d alu=0x%08h | ex2wb_out: valid=%0b we=%0b rd=%0d sel=%0d alu=0x%08h | final_wb: wen=%0b rd=%0d wdata=0x%08h",
                cycle_count,
-               u_riscv.id_pc,
-               u_riscv.id_instr,
-               u_riscv.id_rd,
-               u_riscv.id_rf_we,
-               u_riscv.id_illegal_instr,
-               u_riscv.id_ebreak);
-    end
-    if (u_riscv.ex_valid) begin
-      $display("[EX] cycle=%0d pc=0x%08h instr=0x%08h rd=%0d rf_we=%0b illegal=%0b ebreak=%0b",
-               cycle_count,
-               u_riscv.ex_pc,
-               u_riscv.ex_instr,
-               u_riscv.ex_rd,
-               u_riscv.ex_rf_we,
-               u_riscv.ex_illegal_instr,
-               u_riscv.ex_ebreak);
+               u_riscv.ex2wb_pkt_in.valid,
+               u_riscv.ex2wb_pkt_in.rf.we,
+               u_riscv.ex2wb_pkt_in.rf.addr,
+               u_riscv.ex2wb_pkt_in.wb_sel,
+               u_riscv.ex2wb_pkt_in.alu_data,
+               u_riscv.ex2wb_pkt_out.valid,
+               u_riscv.ex2wb_pkt_out.rf.we,
+               u_riscv.ex2wb_pkt_out.rf.addr,
+               u_riscv.ex2wb_pkt_out.wb_sel,
+               u_riscv.ex2wb_pkt_out.alu_data,
+               u_riscv.wb_rf_wen,
+               u_riscv.wb_rf_waddr,
+               u_riscv.wb_rf_wdata);
     end
   end
-end
 
-//some check
-always @(posedge clk) begin
-  #1ps;
-  if (rst_n &&  u_riscv.id_valid) begin
-    assert ( u_riscv.id_instr[31:0] === u_prog_ram.mem[ u_riscv.id_pc[31:2]])
-      else $error("ID PC/INSTR mismatch: pc=%08h instr=%08h expected=%08h",
-                   u_riscv.id_pc,
-                   u_riscv.id_instr[31:0],
-                   u_prog_ram.mem[ u_riscv.id_pc[31:2]]);
+  // ------------------------------------------------------------
+  // ID/EX Monitor (Updated for struct hierarchy)
+  // ------------------------------------------------------------
+  always_ff @(posedge clk) begin
+    if (rst_n) begin
+      // 监控 ID 级输出 (即 id2ex 寄存器的输入)
+      if (u_riscv.id2ex_pkt.valid) begin
+        $display("[ID] cycle=%0d pc=0x%08h instr=0x%08h rd=%0d rf_we=%0b illegal=%0b ebreak=%0b",
+                 cycle_count,
+                 u_riscv.id2ex_pkt.pc,
+                 u_riscv.id2ex_pkt.instr,
+                 u_riscv.id2ex_pkt.rf.addr,
+                 u_riscv.id2ex_pkt.rf.we,
+                 u_riscv.id2ex_pkt.exc.illegal_instr,
+                 u_riscv.id2ex_pkt.exc.ebreak);
+      end
+      // 监控 EX 级输入 (即 id2ex 寄存器的输出)
+      if (u_riscv.id2ex_pkt_out.valid) begin
+        $display("[EX] cycle=%0d pc=0x%08h instr=0x%08h rd=%0d rf_we=%0b illegal=%0b ebreak=%0b",
+                 cycle_count,
+                 u_riscv.id2ex_pkt_out.pc,
+                 u_riscv.id2ex_pkt_out.instr,
+                 u_riscv.id2ex_pkt_out.rf.addr,
+                 u_riscv.id2ex_pkt_out.rf.we,
+                 u_riscv.id2ex_pkt_out.exc.illegal_instr,
+                 u_riscv.id2ex_pkt_out.exc.ebreak);
+      end
+    end
   end
-end
 
-always_ff @(posedge clk) begin
-  if (rst_n && instr_ren) begin
-    $display("[IF] cycle=%0d pc=0x%08h instr=0x%08h",
-             cycle_count, instr_addr, instr_rdata);
+  // ------------------------------------------------------------
+  // Some check (Updated for struct hierarchy)
+  // ------------------------------------------------------------
+  always @(posedge clk) begin
+    #1ps;
+    if (rst_n && u_riscv.if2id_pkt_out.valid) begin
+      assert (u_riscv.if2id_pkt_out.instr[31:0] === u_prog_ram.mem[u_riscv.if2id_pkt_out.pc[31:2]])
+        else $error("ID PC/INSTR mismatch: pc=%08h instr=%08h expected=%08h",
+                     u_riscv.if2id_pkt_out.pc,
+                     u_riscv.if2id_pkt_out.instr[31:0],
+                     u_prog_ram.mem[u_riscv.if2id_pkt_out.pc[31:2]]);
+    end
   end
-end
+
+  // ------------------------------------------------------------
+  // IF Monitor
+  // ------------------------------------------------------------
+  always_ff @(posedge clk) begin
+    if (rst_n && instr_ren) begin
+      $display("[IF] cycle=%0d pc=0x%08h instr=0x%08h",
+               cycle_count, instr_addr, instr_rdata);
+    end
+  end
+
 endmodule
 `default_nettype wire

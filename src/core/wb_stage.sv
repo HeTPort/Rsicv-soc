@@ -18,24 +18,39 @@ import riscv_pkg::*;
 module wb_stage #(
   parameter int DW = riscv_pkg::DW
 )(
-  input  logic          valid_i,
-  input  logic          rf_wen_i,
-  input  logic [4:0]    rf_waddr_i,
-  input  wb_sel_e       wb_sel_i,
-  input  logic [DW-1:0] alu_data_i,
-  input  logic [DW-1:0] pc4_data_i,
-  input  mem_size_e     mem_size_i,
-  input  logic          mem_unsigned_i,
-  input  logic [1:0]    load_offset_i,
-  input  logic [DW-1:0] dmem_rdata_i,
-  input  logic          illegal_instr_i,
-  input  logic          ecall_i,
-  input  logic          ebreak_i,
-  input  logic          mem_misaligned_i,
+  input  ex_wb_pkt_t   pkt_wb_i,
+  input  logic [DW-1:0] dmem_rdata_i, // 横向总线读数据依然独立
+  
+  // 寄存器堆写回接口依然独立
   output logic          rf_wen_o,
   output logic [4:0]    rf_waddr_o,
   output logic [DW-1:0] rf_wdata_o
 );
+
+
+  logic          valid_i, rf_wen_i, illegal_instr_i, ecall_i, ebreak_i, mem_misaligned_i;
+  logic [4:0]    rf_waddr_i;
+  wb_sel_e       wb_sel_i;
+  logic [DW-1:0] alu_data_i, pc4_data_i;
+  mem_size_e     mem_size_i;
+  logic          mem_unsigned_i;
+  logic [1:0]    load_offset_i;
+
+  assign valid_i          = pkt_wb_i.valid;
+  assign rf_wen_i         = pkt_wb_i.rf.we;
+  assign rf_waddr_i       = pkt_wb_i.rf.addr;
+  assign wb_sel_i         = pkt_wb_i.wb_sel;
+  assign alu_data_i       = pkt_wb_i.alu_data;
+  assign pc4_data_i       = pkt_wb_i.pc4_data;
+  assign mem_size_i       = pkt_wb_i.mem_info.mem_size;
+  assign mem_unsigned_i   = pkt_wb_i.mem_info.mem_unsigned;
+  assign load_offset_i    = pkt_wb_i.mem_info.load_offset;
+  assign illegal_instr_i  = pkt_wb_i.exc.illegal_instr;
+  assign ecall_i          = pkt_wb_i.exc.ecall;
+  assign ebreak_i         = pkt_wb_i.exc.ebreak;
+  assign mem_misaligned_i = pkt_wb_i.mem_misaligned;
+
+
   logic [7:0]  load_byte;
   logic [15:0] load_half;
   logic [DW-1:0] load_extend_data;

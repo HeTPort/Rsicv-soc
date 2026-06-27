@@ -12,137 +12,90 @@ import riscv_pkg::*;
 //   - On reset/flush, insert a safe bubble.
 //
 // Bubble safety:
-//   - No register write.
-//   - No memory write.
-//   - No branch/jump redirect.
-//   - No false exception/halt trigger.
+//   - No register write (rf.we = 0).
+//   - No memory write (mem_req = 0).
+//   - No branch/jump redirect (branch/jump = NONE).
+//   - No false exception/halt trigger (exc = 0).
+//   - Inject INST_NOP to prevent illegal instruction decoding downstream.
 // ============================================================
-module id2ex #(
-  parameter int AW = riscv_pkg::AW,
-  parameter int DW = riscv_pkg::DW
-)(
-  input  logic          clk_i,
-  input  logic          rst_ni,
-  input  logic          flush_i,
-  input  logic          stall_i,
-  input  logic          valid_i,
-  input  logic [AW-1:0] pc_i,
-  input  logic [DW-1:0] instr_i,
-  input  logic [DW-1:0] op1_i,
-  input  logic [DW-1:0] op2_i,
-  input  logic [DW-1:0] store_data_i,
-  input  logic [4:0]    rd_i,
-  input  logic          rf_we_i,
-  input  logic [DW-1:0] imm_i,
-  input  alu_op_e       alu_op_i,
-  input  branch_op_e    branch_op_i,
-  input  jump_op_e      jump_op_i,
-  input  logic          mem_req_i,
-  input  logic          mem_we_i,
-  input  mem_size_e     mem_size_i,
-  input  logic          mem_unsigned_i,
-  input  wb_sel_e       wb_sel_i,
-  input  logic          muldiv_valid_i,
-  input  muldiv_op_e    muldiv_op_i,
-  input  logic          illegal_instr_i,
-  input  logic          ecall_i,
-  input  logic          ebreak_i,
-  output logic          valid_o,
-  output logic [AW-1:0] pc_o,
-  output logic [DW-1:0] instr_o,
-  output logic [DW-1:0] op1_o,
-  output logic [DW-1:0] op2_o,
-  output logic [DW-1:0] store_data_o,
-  output logic [4:0]    rd_o,
-  output logic          rf_we_o,
-  output logic [DW-1:0] imm_o,
-  output alu_op_e       alu_op_o,
-  output branch_op_e    branch_op_o,
-  output jump_op_e      jump_op_o,
-  output logic          mem_req_o,
-  output logic          mem_we_o,
-  output mem_size_e     mem_size_o,
-  output logic          mem_unsigned_o,
-  output wb_sel_e       wb_sel_o,
-  output logic          muldiv_valid_o,
-  output muldiv_op_e    muldiv_op_o,
-  output logic          illegal_instr_o,
-  output logic          ecall_o,
-  output logic          ebreak_o
+module id2ex (
+  input  logic        clk_i,
+  input  logic        rst_ni,
+  input  logic        flush_i,
+  input  logic        stall_i,
+  
+  // 结构体输入：替代原本的几十根散线
+  input  id_ex_pkt_t  pkt2ex_i,
+  
+  // 结构体输出
+  output id_ex_pkt_t  pkt2ex_o
 );
+
+  id_ex_pkt_t pkt2ex_q;
+
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) begin
-      valid_o         <= 1'b0;
-      pc_o            <= '0;
-      instr_o         <= INST_NOP;
-      op1_o           <= '0;
-      op2_o           <= '0;
-      store_data_o    <= '0;
-      rd_o            <= 5'd0;
-      rf_we_o         <= 1'b0;
-      imm_o           <= '0;
-      alu_op_o        <= ALU_NONE;
-      branch_op_o     <= BR_NONE;
-      jump_op_o       <= JMP_NONE;
-      mem_req_o       <= 1'b0;
-      mem_we_o        <= 1'b0;
-      mem_size_o      <= MEM_SIZE_WORD;
-      mem_unsigned_o  <= 1'b0;
-      wb_sel_o        <= WB_NONE;
-      muldiv_valid_o  <= 1'b0;
-      muldiv_op_o     <= MULDIV_NONE;
-      illegal_instr_o <= 1'b0;
-      ecall_o         <= 1'b0;
-      ebreak_o        <= 1'b0;
+      // ------------------ 复位：注入安全气泡 ------------------
+      pkt2ex_q.valid             <= 1'b0;
+      pkt2ex_q.pc                <= '0;
+      pkt2ex_q.instr             <= INST_NOP;  // 安全的 NOP 指令
+      pkt2ex_q.rf.we             <= 1'b0;      // 禁止写寄存器
+      pkt2ex_q.rf.addr           <= 5'd0;
+      pkt2ex_q.ex_data           <= '0;        // op1, op2, imm, store_data 清零
+      
+      // 控制信号全部置为安全的无效状态
+      pkt2ex_q.ex_ctrl.alu_op    <= ALU_NONE;
+      pkt2ex_q.ex_ctrl.branch_op <= BR_NONE;
+      pkt2ex_q.ex_ctrl.jump_op   <= JMP_NONE;
+      pkt2ex_q.ex_ctrl.mem_req   <= 1'b0;
+      pkt2ex_q.ex_ctrl.mem_we    <= 1'b0;
+      pkt2ex_q.ex_ctrl.mem_size  <= MEM_SIZE_WORD;
+      pkt2ex_q.ex_ctrl.mem_unsigned <= 1'b0;
+      pkt2ex_q.ex_ctrl.wb_sel    <= WB_NONE;
+      pkt2ex_q.ex_ctrl.muldiv_valid <= 1'b0;
+      pkt2ex_q.ex_ctrl.muldiv_op <= MULDIV_NONE;
+      
+      // 异常信号清零
+      pkt2ex_q.exc.illegal_instr <= 1'b0;
+      pkt2ex_q.exc.ecall         <= 1'b0;
+      pkt2ex_q.exc.ebreak        <= 1'b0;
+      
+      // 冒险辅助信号清零
+      pkt2ex_q.use_rs1           <= 1'b0;
+      pkt2ex_q.use_rs2           <= 1'b0;
     end
     else if (flush_i) begin
-      valid_o         <= 1'b0;
-      pc_o            <= '0;
-      instr_o         <= INST_NOP;
-      op1_o           <= '0;
-      op2_o           <= '0;
-      store_data_o    <= '0;
-      rd_o            <= 5'd0;
-      rf_we_o         <= 1'b0;
-      imm_o           <= '0;
-      alu_op_o        <= ALU_NONE;
-      branch_op_o     <= BR_NONE;
-      jump_op_o       <= JMP_NONE;
-      mem_req_o       <= 1'b0;
-      mem_we_o        <= 1'b0;
-      mem_size_o      <= MEM_SIZE_WORD;
-      mem_unsigned_o  <= 1'b0;
-      wb_sel_o        <= WB_NONE;
-      muldiv_valid_o  <= 1'b0;
-      muldiv_op_o     <= MULDIV_NONE;
-      illegal_instr_o <= 1'b0;
-      ecall_o         <= 1'b0;
-      ebreak_o        <= 1'b0;
+      // ------------------ 冲刷：同样注入安全气泡 ------------------
+      pkt2ex_q.valid             <= 1'b0;
+      pkt2ex_q.pc                <= '0;
+      pkt2ex_q.instr             <= INST_NOP;
+      pkt2ex_q.rf.we             <= 1'b0;
+      pkt2ex_q.rf.addr           <= 5'd0;
+      pkt2ex_q.ex_data           <= '0;
+      pkt2ex_q.ex_ctrl.alu_op    <= ALU_NONE;
+      pkt2ex_q.ex_ctrl.branch_op <= BR_NONE;
+      pkt2ex_q.ex_ctrl.jump_op   <= JMP_NONE;
+      pkt2ex_q.ex_ctrl.mem_req   <= 1'b0;
+      pkt2ex_q.ex_ctrl.mem_we    <= 1'b0;
+      pkt2ex_q.ex_ctrl.mem_size  <= MEM_SIZE_WORD;
+      pkt2ex_q.ex_ctrl.mem_unsigned <= 1'b0;
+      pkt2ex_q.ex_ctrl.wb_sel    <= WB_NONE;
+      pkt2ex_q.ex_ctrl.muldiv_valid <= 1'b0;
+      pkt2ex_q.ex_ctrl.muldiv_op <= MULDIV_NONE;
+      pkt2ex_q.exc.illegal_instr <= 1'b0;
+      pkt2ex_q.exc.ecall         <= 1'b0;
+      pkt2ex_q.exc.ebreak        <= 1'b0;
+      pkt2ex_q.use_rs1           <= 1'b0;
+      pkt2ex_q.use_rs2           <= 1'b0;
     end
     else if (!stall_i) begin
-      valid_o         <= valid_i;
-      pc_o            <= pc_i;
-      instr_o         <= instr_i;
-      op1_o           <= op1_i;
-      op2_o           <= op2_i;
-      store_data_o    <= store_data_i;
-      rd_o            <= rd_i;
-      rf_we_o         <= rf_we_i;
-      imm_o           <= imm_i;
-      alu_op_o        <= alu_op_i;
-      branch_op_o     <= branch_op_i;
-      jump_op_o       <= jump_op_i;
-      mem_req_o       <= mem_req_i;
-      mem_we_o        <= mem_we_i;
-      mem_size_o      <= mem_size_i;
-      mem_unsigned_o  <= mem_unsigned_i;
-      wb_sel_o        <= wb_sel_i;
-      muldiv_valid_o  <= muldiv_valid_i;
-      muldiv_op_o     <= muldiv_op_i;
-      illegal_instr_o <= illegal_instr_i;
-      ecall_o         <= ecall_i;
-      ebreak_o        <= ebreak_i;
+      // ------------------ 正常流动：整体打包锁存 ------------------
+      // 一行代码替代原本几十行的 assign
+      pkt2ex_q <= pkt2ex_i;           
     end
   end
+
+  assign pkt2ex_o = pkt2ex_q;
+
 endmodule
 `default_nettype wire
