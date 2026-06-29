@@ -19,18 +19,6 @@ module tb_riscv_core;
   // ------------------------------------------------------------
   logic clk;
   logic rst_n;
-  //logic  seen_illegal;
-
-  // ------------------------------------------------------------
-  // Sticky illegal instruction monitor
-  // ------------------------------------------------------------
-  //always_ff @(posedge clk or negedge rst_n) begin
-  //  if (!rst_n) begin
-  //    seen_illegal <= 1'b0;
-  //  end else if (illegal_instr) begin
-  //    seen_illegal <= 1'b1;
-  //  end
-  //end
 
   initial begin
     clk = 1'b0;
@@ -266,6 +254,26 @@ module tb_riscv_core;
     if (rst_n && instr_ren) begin
       $display("[IF] cycle=%0d pc=0x%08h instr=0x%08h",
                cycle_count, instr_addr, instr_rdata);
+    end
+  end
+
+  // ------------------------------------------------------------
+  // >>> 新增：Core Ctrl Monitor (用于观测抽离出的控制信号) <<<
+  // ------------------------------------------------------------
+  always_ff @(posedge clk) begin
+    if (rst_n) begin
+      // 只有当控制信号有效（非全0）时才打印，避免刷屏
+      if (u_riscv.u_core_ctrl.pc_stall || u_riscv.u_core_ctrl.ifid_flush || 
+          u_riscv.u_core_ctrl.idex_flush || u_riscv.u_core_ctrl.pipe_kill) begin
+        $display("[CTRL ] cycle=%0d | stall: pc=%0b ifid=%0b idex=%0b | flush: ifid=%0b idex=%0b | kill=%0b",
+                 cycle_count,
+                 u_riscv.u_core_ctrl.pc_stall,
+                 u_riscv.u_core_ctrl.ifid_stall,
+                 u_riscv.u_core_ctrl.idex_stall,
+                 u_riscv.u_core_ctrl.ifid_flush,
+                 u_riscv.u_core_ctrl.idex_flush,
+                 u_riscv.u_core_ctrl.pipe_kill);
+      end
     end
   end
 
