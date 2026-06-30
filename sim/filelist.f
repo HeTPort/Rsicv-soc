@@ -1,4 +1,4 @@
-./../src/core/define.sv
+./../src/core/riscv_pkg.sv
 ./../src/core/pc_counter.sv
 ./../src/core/if2id.sv
 ./../src/core/decode.sv
