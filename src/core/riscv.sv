@@ -54,13 +54,19 @@ module riscv #(
   logic [AW-1:0] ex_redirect_pc;
   logic          ex_flush_req;
 
-  // Data memory interface
-  logic            dmem_ren;
-  logic            dmem_wen;
-  logic [DW/8-1:0] dmem_wstrb;
-  logic [AW-1:0]   dmem_addr;
-  logic [DW-1:0]   dmem_wdata;
-  logic [DW-1:0]   dmem_rdata;
+  // LSU <-> Data RAM interface
+  logic            ram_req_valid;
+  logic            ram_we;
+  logic [DW/8-1:0] ram_wstrb;
+  logic [AW-1:0]   ram_addr;
+  logic [DW-1:0]   ram_wdata;
+  logic [DW-1:0]   ram_rdata;
+
+  // LSU <-> Pipeline interface
+  mem_pkt_t       lsu_mem_info;
+  logic           lsu_mem_misaligned;
+  logic [DW-1:0]  lsu_load_data;
+  logic           ex_kill;
 
   // ============================================================
   // 3. Control Unit Interface Signals
@@ -69,7 +75,6 @@ module riscv #(
   logic ifid_flush, idex_flush, pipe_kill;
   logic halt_q;
 
-  // 为控制单元解包异常事件 (避免控制单元依赖具体结构体)
   logic wb_trap_event;
   assign wb_trap_event = ex2wb_pkt_out.valid && 
       (ex2wb_pkt_out.exc.illegal_instr || ex2wb_pkt_out.exc.ecall || 
@@ -81,27 +86,22 @@ module riscv #(
   core_ctrl u_core_ctrl (
     .clk_i          (clk_i),
     .rst_ni         (rst_ni),
-    // ID 级观测 (注意：use_rs 连接的是Decode输出，不是流水线寄存器输出！)
     .id_valid       (if2id_pkt_out.valid),
     .id_rs1_addr    (id_rs1_raddr),
     .id_rs2_addr    (id_rs2_raddr),
     .id_use_rs1     (id2ex_pkt.use_rs1),
     .id_use_rs2     (id2ex_pkt.use_rs2),
-    // EX 级观测
     .ex_valid       (id2ex_pkt_out.valid),
     .ex_rd_addr     (id2ex_pkt_out.rf.addr),
     .ex_rf_we       (id2ex_pkt_out.rf.we),
     .ex_mem_req     (id2ex_pkt_out.ex_ctrl.mem_req),
     .ex_mem_we      (id2ex_pkt_out.ex_ctrl.mem_we),
-    // WB 级观测 (预留)
     .wb_valid       (ex2wb_pkt_out.valid),
     .wb_rd_addr     (ex2wb_pkt_out.rf.addr),
     .wb_rf_we       (ex2wb_pkt_out.rf.we),
-    // 异常与重定向
     .ex_redirect_en (ex_redirect_en),
     .ex_flush_req   (ex_flush_req),
     .wb_trap_event  (wb_trap_event),
-    // 控制输出
     .pc_stall       (pc_stall),
     .ifid_stall     (ifid_stall),
     .idex_stall     (idex_stall),
@@ -112,7 +112,6 @@ module riscv #(
     .halt_o         (halt_q)
   );
 
-  // 顶层输出映射
   assign halt_o          = halt_q;
   assign illegal_instr_o = ex2wb_pkt_out.valid && ex2wb_pkt_out.exc.illegal_instr && !halt_q;
   assign exception_o     = wb_trap_event && !halt_q;
@@ -150,7 +149,6 @@ module riscv #(
   assign instr_ren_o  = !pipe_kill && (!pc_stall || ex_redirect_en);
   assign instr_addr_o = if_pc;
 
-  // IF 响应打拍 (处理取指延迟)
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) begin
       if_resp_pc_q    <= '0;
@@ -163,7 +161,6 @@ module riscv #(
     end
   end
 
-  // 打包 IF 包
   assign if2id_pkt.valid = if_resp_valid_q;
   assign if2id_pkt.pc    = if_resp_pc_q;
   assign if2id_pkt.instr = instr_rdata_i;
@@ -198,22 +195,60 @@ module riscv #(
     .pkt2ex_o (id2ex_pkt_out)
   );
 
+  // EX kill for LSU: pipe_kill or any EX-stage exception
+  assign ex_kill = pipe_kill |
+                   id2ex_pkt_out.exc.illegal_instr |
+                   id2ex_pkt_out.exc.ecall |
+                   id2ex_pkt_out.exc.ebreak;
+
+  // ============================================================
+  // 7. Execute (no longer drives data_ram directly)
+  // ============================================================
   execute u_execute (
     .pkt_exe_i        (id2ex_pkt_out),
-    .redirect_en_o(ex_redirect_en),
-    .redirect_pc_o(ex_redirect_pc),
-    .flush_req_o  (ex_flush_req),
-    .dmem_ren_o   (dmem_ren),
-    .dmem_wen_o   (dmem_wen),
-    .dmem_wstrb_o (dmem_wstrb),
-    .dmem_addr_o  (dmem_addr),
-    .dmem_wdata_o (dmem_wdata),
+    .mem_misaligned_i (lsu_mem_misaligned), // Feedback from LSU
+    .redirect_en_o    (ex_redirect_en),
+    .redirect_pc_o    (ex_redirect_pc),
+    .flush_req_o      (ex_flush_req),
     .pkt_exe_o        (ex2wb_pkt_in)
   );
 
-  // Trap 屏蔽组合逻辑
+  // ============================================================
+  // 8. LSU (Load/Store Unit) — sole interface to data_ram
+  // ============================================================
+  lsu #(
+    .AW(AW),
+    .DW(DW)
+  ) u_lsu (
+    // EX stage inputs
+    .pkt_ex_i         (id2ex_pkt_out),
+    .ex_kill_i        (ex_kill),
+    // WB stage inputs
+    .wb_mem_info_i    (ex2wb_pkt_out.mem_info),
+    .ram_rdata_i      (ram_rdata),
+    // Data RAM interface
+    .ram_req_valid_o  (ram_req_valid),
+    .ram_req_ready_i  (),       // Direct RAM always ready
+    .ram_we_o         (ram_we),
+    .ram_wstrb_o      (ram_wstrb),
+    .ram_addr_o       (ram_addr),
+    .ram_wdata_o      (ram_wdata),
+    .ram_resp_valid_i (),       // Direct RAM 1-cycle response
+    // Pipeline outputs
+    .mem_info_o       (lsu_mem_info),
+    .mem_misaligned_o (lsu_mem_misaligned),
+    .load_data_o      (lsu_load_data),
+    .load_fault_o     (),           // Unconnected for now
+    .store_fault_o    ()            // Unconnected for now
+  );
+
+  // ============================================================
+  // 9. ex2wb_pkt_in_safe assembly
+  //    Override mem_info with LSU's output; apply pipe_kill.
+  // ============================================================
   always_comb begin
     ex2wb_pkt_in_safe = ex2wb_pkt_in;
+    ex2wb_pkt_in_safe.mem_info = lsu_mem_info; // Overwrite by LSU
     if (pipe_kill) begin
       ex2wb_pkt_in_safe.valid             = 1'b0;
       ex2wb_pkt_in_safe.rf.we             = 1'b0;
@@ -224,12 +259,12 @@ module riscv #(
     end
   end
 
-  // Data RAM
-  logic dmem_ren_safe;
-  logic dmem_wen_safe;
-  assign dmem_ren_safe = dmem_ren && !pipe_kill;
-  assign dmem_wen_safe = dmem_wen && !pipe_kill;
-  
+  // ============================================================
+  // 10. Data RAM (only LSU talks to it)
+  // ============================================================
+  logic ram_ren;
+  assign ram_ren = ram_req_valid & !ram_we; // Read enable is valid & not write
+
   data_ram #(
     .AW(AW),
     .DW(DW),
@@ -238,23 +273,28 @@ module riscv #(
   ) u_data_ram (
     .clk_i   (clk_i),
     .rst_ni  (rst_ni),
-    .ren_i   (dmem_ren_safe),
-    .wen_i   (dmem_wen_safe),
-    .wstrb_i (dmem_wstrb),
-    .addr_i  (dmem_addr),
-    .wdata_i (dmem_wdata),
-    .rdata_o (dmem_rdata)
+    .ren_i   (ram_ren),
+    .wen_i   (ram_we),
+    .wstrb_i (ram_wstrb),
+    .addr_i  (ram_addr),
+    .wdata_i (ram_wdata),
+    .rdata_o (ram_rdata)
   );
 
+  // ============================================================
+  // 11. EX/WB Pipeline Register
+  // ============================================================
   ex2wb u_ex2wb (
-    .clk_i   (clk_i),
-    .rst_ni  (rst_ni),
-    .stall_i (exwb_stall),
+    .clk_i    (clk_i),
+    .rst_ni   (rst_ni),
+    .stall_i  (exwb_stall),
     .pkt2wb_i (ex2wb_pkt_in_safe),
     .pkt2wb_o (ex2wb_pkt_out)
   );
 
-  // Regfile 安全写使能
+  // ============================================================
+  // 12. Regfile
+  // ============================================================
   logic wb_rf_wen_safe;
   assign wb_rf_wen_safe = wb_rf_wen && !halt_q && !wb_trap_event;
 
@@ -275,12 +315,15 @@ module riscv #(
     .dbg_x11_o   (dbg_x11_o)
   );
 
+  // ============================================================
+  // 13. WB Stage (load_data from LSU)
+  // ============================================================
   wb_stage u_wb_stage (
-    .pkt_wb_i         (ex2wb_pkt_out),
-    .dmem_rdata_i  (dmem_rdata),
-    .rf_wen_o      (wb_rf_wen),
-    .rf_waddr_o    (wb_rf_waddr),
-    .rf_wdata_o    (wb_rf_wdata)
+    .pkt_wb_i    (ex2wb_pkt_out),
+    .load_data_i (lsu_load_data),
+    .rf_wen_o    (wb_rf_wen),
+    .rf_waddr_o  (wb_rf_waddr),
+    .rf_wdata_o  (wb_rf_wdata)
   );
 
 endmodule

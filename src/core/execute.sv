@@ -4,50 +4,26 @@ import riscv_pkg::*;
 // ============================================================
 // Module: execute
 // Description:
-//   RV32IM execute stage.
-//
-// Responsibilities:
-//   - Execute ALU operation according to alu_op_i.
-//   - Evaluate branch condition according to branch_op_i.
-//   - Generate jump/branch redirect.
-//   - Generate load/store memory request.
-//   - Generate store byte enable and shifted write data.
-//   - Execute RV32M multiply/divide operations.
-//   - Check load/store alignment.
-//   - Propagate illegal/ecall/ebreak information.
-//
-// Important:
-//   - This module does not perform full instruction decode.
-//   - instr_i is kept only for debug/exception reporting.
-//   - Main behavior is controlled by decode-generated signals.
-//
-// RV32M notes:
-//   - Current implementation is combinational.
-//   - Division by zero and signed overflow follow RISC-V spec.
-//   - Future multi-cycle mul/div can replace the combinational
-//     logic and assert ex_stall_o at top level.
+//   RV32IM execute stage (memory interaction moved to LSU).
 // ============================================================
 module execute #(
   parameter int AW = riscv_pkg::AW,
   parameter int DW = riscv_pkg::DW
 )(
   input  id_ex_pkt_t   pkt_exe_i,
-  
-  // 横向输出信号保持独立
+
+  // LSU feedback: misalignment result (computed in LSU)
+  input  logic          mem_misaligned_i,
+
+  // 横向输出信号
   output logic          redirect_en_o,
   output logic [AW-1:0] redirect_pc_o,
   output logic          flush_req_o,
-  output logic            dmem_ren_o,
-  output logic            dmem_wen_o,
-  output logic [DW/8-1:0] dmem_wstrb_o,
-  output logic [AW-1:0]   dmem_addr_o,
-  output logic [DW-1:0]   dmem_wdata_o,
-  
+
   // 输出结构体
   output ex_wb_pkt_t   pkt_exe_o
 );
-  localparam int BYTE_NUM = DW / 8;
-  localparam int SHAMT_W  = (DW == 64) ? 6 : 5;
+  localparam int SHAMT_W = (DW == 64) ? 6 : 5;
 
   logic          valid_i;
   logic [AW-1:0] pc_i;
@@ -87,18 +63,22 @@ module execute #(
   assign ecall_i         = pkt_exe_i.exc.ecall;
   assign ebreak_i        = pkt_exe_i.exc.ebreak;
 
-  // Keep instr_i referenced for debug-oriented flows.
+  // Suppress unused warnings for signals now handled by LSU
+  logic _unused_mem;
+  assign _unused_mem = mem_req_i | mem_we_i | (&store_data_i) | mem_unsigned_i | (mem_size_i == MEM_SIZE_BYTE);
+
   logic [DW-1:0] instr_dbg_unused;
   assign instr_dbg_unused = instr_i;
+
   // ------------------------------------------------------------
-  // Common derived values
+  // Effective address (still needed for JALR target)
   // ------------------------------------------------------------
   logic [AW-1:0] eff_addr;
-  logic [1:0]    byte_offset;
-  assign eff_addr    = op1_i[AW-1:0] + imm_i[AW-1:0];
-  assign byte_offset = eff_addr[1:0];
+  assign eff_addr = op1_i[AW-1:0] + imm_i[AW-1:0];
+
   logic [DW-1:0] pc4_data;
   assign pc4_data = DW'(pc_i) + DW'(4);
+
   // ------------------------------------------------------------
   // ALU
   // ------------------------------------------------------------
@@ -121,6 +101,7 @@ module execute #(
       default:    alu_result = '0;
     endcase
   end
+
   // ------------------------------------------------------------
   // Branch compare
   // ------------------------------------------------------------
@@ -138,6 +119,7 @@ module execute #(
       default: branch_taken = 1'b0;
     endcase
   end
+
   // ------------------------------------------------------------
   // RV32M combinational multiply/divide
   // ------------------------------------------------------------
@@ -231,55 +213,7 @@ module execute #(
       end
     endcase
   end
-  // ------------------------------------------------------------
-  // Memory alignment check
-  // ------------------------------------------------------------
-  logic mem_misaligned;
-  always_comb begin
-    mem_misaligned = 1'b0;
-    if (mem_req_i) begin
-      unique case (mem_size_i)
-        MEM_SIZE_BYTE: mem_misaligned = 1'b0;
-        MEM_SIZE_HALF: mem_misaligned = byte_offset[0];
-        MEM_SIZE_WORD: mem_misaligned = |byte_offset;
-        default:       mem_misaligned = 1'b1;
-      endcase
-    end
-  end
-  // ------------------------------------------------------------
-  // Store byte enable and shifted write data
-  // ------------------------------------------------------------
-  always_comb begin
-    dmem_wstrb_o = '0;
-    dmem_wdata_o = '0;
-    if (valid_i && mem_req_i && mem_we_i && !mem_misaligned &&
-        !illegal_instr_i && !ecall_i && !ebreak_i) begin
-      unique case (mem_size_i)
-        MEM_SIZE_BYTE: begin
-          dmem_wstrb_o[byte_offset] = 1'b1;
-          dmem_wdata_o[8*byte_offset +: 8] = store_data_i[7:0];
-        end
-        MEM_SIZE_HALF: begin
-          if (byte_offset[1] == 1'b0) begin
-            dmem_wstrb_o[1:0] = 2'b11;
-            dmem_wdata_o[15:0] = store_data_i[15:0];
-          end
-          else begin
-            dmem_wstrb_o[3:2] = 2'b11;
-            dmem_wdata_o[31:16] = store_data_i[15:0];
-          end
-        end
-        MEM_SIZE_WORD: begin
-          dmem_wstrb_o = {BYTE_NUM{1'b1}};
-          dmem_wdata_o = store_data_i;
-        end
-        default: begin
-          dmem_wstrb_o = '0;
-          dmem_wdata_o = '0;
-        end
-      endcase
-    end
-  end
+
   // ------------------------------------------------------------
   // Main output control
   // ------------------------------------------------------------
@@ -288,7 +222,7 @@ module execute #(
       illegal_instr_i |
       ecall_i |
       ebreak_i |
-      mem_misaligned;
+      mem_misaligned_i;
 
   logic          wb_valid_o, wb_rf_wen_o, wb_illegal_instr_o, wb_ecall_o, wb_ebreak_o, wb_mem_misaligned_o;
   logic [4:0]    wb_rf_waddr_o;
@@ -296,7 +230,7 @@ module execute #(
   logic [DW-1:0] wb_alu_data_o, wb_pc4_data_o;
   mem_size_e     wb_mem_size_o;
   logic          wb_mem_unsigned_o;
-  logic [1:0]    wb_load_offset_o;
+
   always_comb begin
     wb_valid_o          = valid_i;
     wb_rf_wen_o         = 1'b0;
@@ -306,21 +240,17 @@ module execute #(
     wb_pc4_data_o       = pc4_data;
     wb_mem_size_o       = mem_size_i;
     wb_mem_unsigned_o   = mem_unsigned_i;
-    wb_load_offset_o    = byte_offset;
     wb_illegal_instr_o  = valid_i && illegal_instr_i;
     wb_ecall_o          = valid_i && ecall_i;
     wb_ebreak_o         = valid_i && ebreak_i;
-    wb_mem_misaligned_o = valid_i && mem_misaligned;
+    wb_mem_misaligned_o = valid_i && mem_misaligned_i;
     redirect_en_o       = 1'b0;
     redirect_pc_o       = '0;
     flush_req_o         = 1'b0;
-    dmem_ren_o          = 1'b0;
-    dmem_wen_o          = 1'b0;
-    dmem_addr_o         = eff_addr;
     if (valid_i && !exception_like) begin
       // Writeback enable
       wb_rf_wen_o = rf_we_i;
-      // MULDIV result currently reuses wb_alu_data_o path.
+      // MULDIV result reuses wb_alu_data_o path.
       if (muldiv_valid_i && wb_sel_i == WB_MULDIV) begin
         wb_alu_data_o = muldiv_result;
       end
@@ -345,17 +275,12 @@ module execute #(
           redirect_pc_o = {eff_addr[AW-1:1], 1'b0};
           flush_req_o   = 1'b1;
         end
-        default:begin
+        default: begin
           redirect_en_o = 1'b0;
           redirect_pc_o = '0;
           flush_req_o   = 1'b0;
         end
       endcase
-      // Memory request
-      if (mem_req_i) begin
-        dmem_ren_o = !mem_we_i;
-        dmem_wen_o = mem_we_i;
-      end
     end
     else begin
       wb_rf_wen_o = 1'b0;
@@ -363,28 +288,19 @@ module execute #(
     end
   end
 
-  assign pkt_exe_o.valid          = wb_valid_o;
-  assign pkt_exe_o.rf.we          = wb_rf_wen_o;
-  assign pkt_exe_o.rf.addr        = wb_rf_waddr_o;
-  assign pkt_exe_o.wb_sel         = wb_sel_o;
-  assign pkt_exe_o.alu_data       = wb_alu_data_o;
-  assign pkt_exe_o.pc4_data       = wb_pc4_data_o;
-  assign pkt_exe_o.mem_info.mem_size    = wb_mem_size_o;
+  assign pkt_exe_o.valid               = wb_valid_o;
+  assign pkt_exe_o.rf.we               = wb_rf_wen_o;
+  assign pkt_exe_o.rf.addr             = wb_rf_waddr_o;
+  assign pkt_exe_o.wb_sel              = wb_sel_o;
+  assign pkt_exe_o.alu_data            = wb_alu_data_o;
+  assign pkt_exe_o.pc4_data            = wb_pc4_data_o;
+  assign pkt_exe_o.mem_info.mem_size     = wb_mem_size_o;
   assign pkt_exe_o.mem_info.mem_unsigned = wb_mem_unsigned_o;
-  assign pkt_exe_o.mem_info.load_offset = wb_load_offset_o;
-  assign pkt_exe_o.mem_misaligned = wb_mem_misaligned_o;
-  assign pkt_exe_o.exc.illegal_instr = wb_illegal_instr_o;
-  assign pkt_exe_o.exc.ecall         = wb_ecall_o;
-  assign pkt_exe_o.exc.ebreak        = wb_ebreak_o;
+  assign pkt_exe_o.mem_info.load_offset  = '0;  // overridden by LSU in top
+  assign pkt_exe_o.mem_misaligned      = wb_mem_misaligned_o;
+  assign pkt_exe_o.exc.illegal_instr   = wb_illegal_instr_o;
+  assign pkt_exe_o.exc.ecall           = wb_ecall_o;
+  assign pkt_exe_o.exc.ebreak          = wb_ebreak_o;
 
-`ifndef SYNTHESIS
-  always_comb begin
-    if (valid_i && mem_misaligned) begin
-      // Combinational warning intentionally avoided here to prevent
-      // repeated messages in some simulators. Detailed check can be
-      // added as sequential assertion in top/testbench if desired.
-    end
-  end
-`endif
 endmodule
 `default_nettype wire
