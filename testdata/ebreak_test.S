@@ -2,46 +2,44 @@
  * ============================================================
  * File: ebreak_test.S
  * Description:
- *   Test EBREAK handling.
+ *   Test EBREAK trap handling.
  *
  * Expected CPU behavior:
- *   - decode should recognize EBREAK.
- *   - EBREAK should not be treated as NOP.
- *   - ebreak internal flag should be set.
- *   - exception_o should pulse high.
- *   - halt_o should become high.
- *   - illegal_instr_o should normally remain low if EBREAK is
- *     treated as a recognized system event.
+ *   - decode recognizes EBREAK.
+ *   - EBREAK enters M-mode trap to mtvec (mcause = 3).
+ *   - Handler writes PASS (1) to tohost at 0x0000_1000.
  *
  * Register markers:
- *   x10 = 106
- *   x11 = 6
+ *   x10 = 1
+ *   x11 = 0
  *
- * EBREAK encoding:
- *   0x00100073
- *
- * Notes:
- *   - This is also useful as the normal simulation stop instruction.
+ * PASS:  tohost write == 1
+ * FAIL:  tohost write != 1
  * ============================================================
  */
 .option norvc
 .section .text
 .globl _start
+
+#define TOHOST 0x1000
+
 _start:
-  /*
-   * Mark this test case.
-   */
-  addi x10, x0, 106
-  addi x11, x0, 6
-  /*
-   * Breakpoint.
-   * Current simple CPU has no full debug/trap system, so this
-   * should trigger halt/exception.
-   */
-  ebreak
-  /*
-   * If CPU reaches here, EBREAK was incorrectly ignored.
-   * This should not execute.
-   */
-  addi x11, x, 0x7ff
-  ebreak
+    la   x5, _trap_handler
+    csrw mtvec, x5
+
+    li   x10, 1
+    li   x11, 0
+    ebreak
+
+    /* Should not reach here. */
+    li   x10, 2
+    li   x6, TOHOST
+    sw   x10, 0(x6)
+1:  j    1b
+
+    .align 8
+_trap_handler:
+    li   x10, 1
+    li   x6, TOHOST
+    sw   x10, 0(x6)
+1:  j    1b

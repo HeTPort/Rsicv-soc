@@ -15,6 +15,10 @@ module execute #(
   // LSU feedback: misalignment result (computed in LSU)
   input  logic          mem_misaligned_i,
 
+  // CSR feedback
+  input  logic [DW-1:0] csr_rdata_i,
+  input  logic [AW-1:0] mepc_i,
+
   // 横向输出信号
   output logic          redirect_en_o,
   output logic [AW-1:0] redirect_pc_o,
@@ -39,6 +43,8 @@ module execute #(
   logic          muldiv_valid_i;
   muldiv_op_e    muldiv_op_i;
   logic          illegal_instr_i, ecall_i, ebreak_i;
+  logic          is_mret_i, is_wfi_i;
+  csr_pkt_t      csr_i;
 
   assign valid_i         = pkt_exe_i.valid;
   assign pc_i            = pkt_exe_i.pc;
@@ -62,6 +68,9 @@ module execute #(
   assign illegal_instr_i = pkt_exe_i.exc.illegal_instr;
   assign ecall_i         = pkt_exe_i.exc.ecall;
   assign ebreak_i        = pkt_exe_i.exc.ebreak;
+  assign is_mret_i       = pkt_exe_i.is_mret;
+  assign is_wfi_i        = pkt_exe_i.is_wfi;
+  assign csr_i           = pkt_exe_i.csr;
 
   // Suppress unused warnings for signals now handled by LSU
   logic _unused_mem;
@@ -215,6 +224,20 @@ module execute #(
   end
 
   // ------------------------------------------------------------
+  // CSR write data computation
+  // ------------------------------------------------------------
+  logic [DW-1:0] csr_wdata_final;
+  always_comb begin
+    csr_wdata_final = csr_i.wdata;
+    unique case (csr_i.op)
+      CSR_OP_RW, CSR_OP_RWI: csr_wdata_final = csr_i.wdata;
+      CSR_OP_RS, CSR_OP_RSI: csr_wdata_final = csr_rdata_i | csr_i.wdata;
+      CSR_OP_RC, CSR_OP_RCI: csr_wdata_final = csr_rdata_i & ~csr_i.wdata;
+      default:               csr_wdata_final = csr_i.wdata;
+    endcase
+  end
+
+  // ------------------------------------------------------------
   // Main output control
   // ------------------------------------------------------------
   logic exception_like;
@@ -230,6 +253,11 @@ module execute #(
   logic [DW-1:0] wb_alu_data_o, wb_pc4_data_o;
   mem_size_e     wb_mem_size_o;
   logic          wb_mem_unsigned_o;
+  logic [AW-1:0] wb_trap_pc_o;
+  logic [DW-1:0] wb_trap_cause_o;
+  logic [DW-1:0] wb_trap_val_o;
+  logic          wb_is_mret_o;
+  csr_pkt_t      wb_csr_o;
 
   always_comb begin
     wb_valid_o          = valid_i;
@@ -244,47 +272,82 @@ module execute #(
     wb_ecall_o          = valid_i && ecall_i;
     wb_ebreak_o         = valid_i && ebreak_i;
     wb_mem_misaligned_o = valid_i && mem_misaligned_i;
+    wb_trap_pc_o        = pc_i;
+    wb_trap_cause_o     = '0;
+    wb_trap_val_o       = '0;
+    wb_is_mret_o        = valid_i && is_mret_i;
+    wb_csr_o            = '0;
     redirect_en_o       = 1'b0;
     redirect_pc_o       = '0;
     flush_req_o         = 1'b0;
+
     if (valid_i && !exception_like) begin
-      // Writeback enable
-      wb_rf_wen_o = rf_we_i;
+      // CSR instruction
+      if (csr_i.valid) begin
+        wb_rf_wen_o   = rf_we_i;
+        wb_alu_data_o = csr_rdata_i;   // CSR read data goes to RF
+        wb_csr_o      = csr_i;
+        wb_csr_o.wdata = csr_wdata_final;
+      end
       // MULDIV result reuses wb_alu_data_o path.
-      if (muldiv_valid_i && wb_sel_i == WB_MULDIV) begin
+      else if (muldiv_valid_i && wb_sel_i == WB_MULDIV) begin
         wb_alu_data_o = muldiv_result;
       end
+
+      // MRET redirect
+      if (is_mret_i) begin
+        redirect_en_o = 1'b1;
+        redirect_pc_o = mepc_i;
+        flush_req_o   = 1'b1;
+      end
       // Branch redirect
-      if (branch_taken) begin
+      else if (branch_taken) begin
         redirect_en_o = 1'b1;
         redirect_pc_o = pc_i + imm_i[AW-1:0];
         flush_req_o   = 1'b1;
       end
       // Jump redirect
-      unique case (jump_op_i)
-        JMP_NONE: begin
-          // no jump
-        end
-        JMP_JAL: begin
-          redirect_en_o = 1'b1;
-          redirect_pc_o = pc_i + imm_i[AW-1:0];
-          flush_req_o   = 1'b1;
-        end
-        JMP_JALR: begin
-          redirect_en_o = 1'b1;
-          redirect_pc_o = {eff_addr[AW-1:1], 1'b0};
-          flush_req_o   = 1'b1;
-        end
-        default: begin
-          redirect_en_o = 1'b0;
-          redirect_pc_o = '0;
-          flush_req_o   = 1'b0;
-        end
-      endcase
-    end
-    else begin
+      else begin
+        unique case (jump_op_i)
+          JMP_NONE: begin
+            // no jump
+          end
+          JMP_JAL: begin
+            redirect_en_o = 1'b1;
+            redirect_pc_o = pc_i + imm_i[AW-1:0];
+            flush_req_o   = 1'b1;
+          end
+          JMP_JALR: begin
+            redirect_en_o = 1'b1;
+            redirect_pc_o = {eff_addr[AW-1:1], 1'b0};
+            flush_req_o   = 1'b1;
+          end
+          default: begin
+            redirect_en_o = 1'b0;
+            redirect_pc_o = '0;
+            flush_req_o   = 1'b0;
+          end
+        endcase
+      end
+    end else begin
       wb_rf_wen_o = 1'b0;
       wb_sel_o    = WB_NONE;
+      // Compute trap cause / val for exception-like instructions
+      if (valid_i) begin
+        if (illegal_instr_i) begin
+          wb_trap_cause_o = MCAUSE_ILLEGAL_INST;
+          wb_trap_val_o   = instr_i;
+        end else if (ebreak_i) begin
+          wb_trap_cause_o = MCAUSE_BREAKPOINT;
+          wb_trap_val_o   = DW'(pc_i);
+        end else if (ecall_i) begin
+          wb_trap_cause_o = MCAUSE_ECALL_M;
+          wb_trap_val_o   = '0;
+        end else if (mem_misaligned_i) begin
+          wb_trap_cause_o = mem_we_i ? MCAUSE_STORE_MISALIGNED : MCAUSE_LOAD_MISALIGNED;
+          wb_trap_val_o   = DW'(op1_i[AW-1:0] + imm_i[AW-1:0]);
+        end
+      end
     end
   end
 
@@ -301,6 +364,11 @@ module execute #(
   assign pkt_exe_o.exc.illegal_instr   = wb_illegal_instr_o;
   assign pkt_exe_o.exc.ecall           = wb_ecall_o;
   assign pkt_exe_o.exc.ebreak          = wb_ebreak_o;
+  assign pkt_exe_o.csr                 = wb_csr_o;
+  assign pkt_exe_o.trap_pc             = wb_trap_pc_o;
+  assign pkt_exe_o.trap_cause          = wb_trap_cause_o;
+  assign pkt_exe_o.trap_val            = wb_trap_val_o;
+  assign pkt_exe_o.is_mret             = wb_is_mret_o;
 
 endmodule
 `default_nettype wire

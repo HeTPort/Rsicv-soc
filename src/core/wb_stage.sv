@@ -14,7 +14,17 @@ module wb_stage #(
 
   output logic          rf_wen_o,
   output logic [4:0]    rf_waddr_o,
-  output logic [DW-1:0] rf_wdata_o
+  output logic [DW-1:0] rf_wdata_o,
+
+  // CSR write interface to csr_regfile
+  output logic          csr_we_o,
+  output logic [11:0]   csr_addr_o,
+  output logic [DW-1:0] csr_wdata_o,
+
+  // Trap / mret info to top level
+  output logic          mret_o,
+  output logic [DW-1:0] trap_cause_o,
+  output logic [DW-1:0] trap_val_o
 );
 
   logic          valid_i, rf_wen_i, illegal_instr_i, ecall_i, ebreak_i, mem_misaligned_i;
@@ -32,6 +42,14 @@ module wb_stage #(
   assign ecall_i          = pkt_wb_i.exc.ecall;
   assign ebreak_i         = pkt_wb_i.exc.ebreak;
   assign mem_misaligned_i = pkt_wb_i.mem_misaligned;
+
+  // CSR / trap outputs
+  assign csr_we_o    = valid_i && pkt_wb_i.csr.valid;
+  assign csr_addr_o  = pkt_wb_i.csr.addr;
+  assign csr_wdata_o = pkt_wb_i.csr.wdata;
+  assign mret_o      = valid_i && pkt_wb_i.is_mret;
+  assign trap_cause_o = pkt_wb_i.trap_cause;
+  assign trap_val_o   = pkt_wb_i.trap_val;
 
   // ------------------------------------------------------------
   // Final writeback mux
@@ -67,6 +85,10 @@ module wb_stage #(
         WB_MULDIV: begin
           rf_wen_o   = 1'b1;
           rf_wdata_o = alu_data_i;
+        end
+        WB_CSR: begin
+          rf_wen_o   = 1'b1;
+          rf_wdata_o = alu_data_i;   // CSR read data
         end
         default: begin
           rf_wen_o   = 1'b0;

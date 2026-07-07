@@ -13,12 +13,13 @@
 **Goal**: Make the existing RV32IM core correct, clean, and well-verified before adding major features.
 
 **Current deficiencies**:
-- `sim/filelist.f` references non-existent files (`define.sv`, `register.sv`).
+- `sim/filelist.f` references non-existent `register.sv` and is missing new `lsu.sv`/`core_ctrl.sv`.
 - Testbench uses a hard-coded Windows hex path.
 - No forwarding: RAW hazards always stall, even when the result is already computed.
 - Hazard detection only covers ID-vs-EX, missing load-use and WB-stage dependencies.
 - RV32M multiply/divide is combinational, creating a long critical path.
 - Verification is one manual test; no regression or ISA reference.
+- LSU is new and needs directed tests for byte/halfword aligned stores and loads, plus misaligned exceptions.
 
 **What industry does**:
 - Maintains clean, portable build scripts and filelists.
@@ -31,9 +32,11 @@
 2. How RAW hazards are detected and why forwarding eliminates most stalls.
 3. Why combinational MULDIV is bad for timing/area and how multi-cycle state machines fix it.
 4. How to run ModelSim/QuestaSim and read waveforms.
+5. How the LSU isolates memory access: address generation, store strobe alignment, load alignment/sign-extension, and misalignment detection.
 
-- [ ] Fix `sim/filelist.f`: replace `define.sv`/`register.sv` with `riscv_pkg.sv`/`regfile.sv`.
-- [ ] Fix `tb_riscv_core.sv` hex file path to be portable (relative path).
+- [x] Fix `sim/filelist.f`: replace `register.sv` with `regfile.sv`, and add `./../src/core/core_ctrl.sv` and `./../src/core/lsu.sv`.
+- [x] Fix `tb_riscv_core.sv` hex file path to be portable (relative path).
+- [ ] Add directed LSU tests for byte/halfword stores/loads at all alignments and misaligned exception reporting.
 - [ ] Add forwarding/bypass network to eliminate unnecessary RAW stalls.
 - [ ] Extend hazard detection to cover load-use and multi-stage hazards.
 - [ ] Convert combinational RV32M multiply/divide to multi-cycle unit and assert `ex_stall` correctly.
@@ -65,9 +68,9 @@
 4. Difference between exceptions (synchronous) and interrupts (asynchronous).
 5. How `mtime`/`mtimecmp` work and why timer interrupts are essential for preemptive OS.
 
-- [ ] Add CSR register file (`mstatus`, `mie`, `mip`, `mtvec`, `mepc`, `mcause`, `mtval`, `mscratch`, `mideleg`, `medeleg`, etc.).
-- [ ] Implement `csr*`, `mret`, `wfi` instructions.
-- [ ] Replace the simple `halt_q` mechanism with proper trap entry/exit:
+- [x] Add CSR register file (`mstatus`, `mie`, `mip`, `mtvec`, `mepc`, `mcause`, `mtval`, `mscratch`, `mideleg`, `medeleg`, etc.).
+- [x] Implement `csr*`, `mret`, `wfi` instructions.
+- [x] Replace the simple `halt_q` mechanism with proper trap entry/exit:
   - Save PC to `mepc`.
   - Write cause to `mcause`.
   - Write badaddr/inst to `mtval`.
@@ -75,7 +78,7 @@
 - [ ] Implement M-mode timer interrupt (`mtime`/`mtimecmp` via CLINT).
 - [ ] Implement M-mode software interrupt.
 - [ ] Implement external interrupt path from PLIC (wire through SoC).
-- [ ] Update exception detection to set `mcause` correctly (illegal inst, ecall, ebreak, misaligned, etc.).
+- [x] Update exception detection to set `mcause` correctly (illegal inst, ecall, ebreak, misaligned, etc.).
 
 ---
 

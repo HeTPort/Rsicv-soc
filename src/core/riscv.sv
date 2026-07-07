@@ -54,6 +54,22 @@ module riscv #(
   logic [AW-1:0] ex_redirect_pc;
   logic          ex_flush_req;
 
+  // CSR interface
+  logic [DW-1:0] csr_rdata;
+  logic [AW-1:0] csr_mtvec;
+  logic [AW-1:0] csr_mepc;
+  logic [DW-1:0] csr_mstatus;
+  logic [DW-1:0] csr_mie;
+  logic [DW-1:0] csr_mip;
+
+  // Trap / mret controls
+  logic          wb_trap_event;
+  logic          wb_mret_event;
+  logic          trap_redirect_en;
+  logic [AW-1:0] trap_redirect_pc;
+  logic          pc_redirect_en;
+  logic [AW-1:0] pc_redirect_pc;
+
   // LSU <-> Data RAM interface
   logic            ram_req_valid;
   logic            ram_we;
@@ -73,12 +89,16 @@ module riscv #(
   // ============================================================
   logic pc_stall, ifid_stall, idex_stall, exwb_stall;
   logic ifid_flush, idex_flush, pipe_kill;
-  logic halt_q;
 
-  logic wb_trap_event;
-  assign wb_trap_event = ex2wb_pkt_out.valid && 
-      (ex2wb_pkt_out.exc.illegal_instr || ex2wb_pkt_out.exc.ecall || 
+  assign wb_trap_event = ex2wb_pkt_out.valid &&
+      (ex2wb_pkt_out.exc.illegal_instr || ex2wb_pkt_out.exc.ecall ||
        ex2wb_pkt_out.exc.ebreak || ex2wb_pkt_out.mem_misaligned);
+  assign wb_mret_event = ex2wb_pkt_out.valid && ex2wb_pkt_out.is_mret;
+
+  assign trap_redirect_en = wb_trap_event;
+  assign trap_redirect_pc = csr_mtvec;
+  assign pc_redirect_en   = ex_redirect_en || trap_redirect_en;
+  assign pc_redirect_pc   = trap_redirect_en ? trap_redirect_pc : ex_redirect_pc;
 
   // ============================================================
   // 4. Core Control Unit Instantiation
@@ -101,6 +121,7 @@ module riscv #(
     .wb_rf_we       (ex2wb_pkt_out.rf.we),
     .ex_redirect_en (ex_redirect_en),
     .ex_flush_req   (ex_flush_req),
+    .trap_redirect_en(trap_redirect_en),
     .wb_trap_event  (wb_trap_event),
     .pc_stall       (pc_stall),
     .ifid_stall     (ifid_stall),
@@ -108,26 +129,64 @@ module riscv #(
     .exwb_stall     (exwb_stall),
     .ifid_flush     (ifid_flush),
     .idex_flush     (idex_flush),
-    .pipe_kill      (pipe_kill),
-    .halt_o         (halt_q)
+    .pipe_kill      (pipe_kill)
   );
 
-  assign halt_o          = halt_q;
-  assign illegal_instr_o = ex2wb_pkt_out.valid && ex2wb_pkt_out.exc.illegal_instr && !halt_q;
-  assign exception_o     = wb_trap_event && !halt_q;
+  assign halt_o          = 1'b0; // No longer halt; tests use tohost exit
+  assign illegal_instr_o = ex2wb_pkt_out.valid && ex2wb_pkt_out.exc.illegal_instr;
+  assign exception_o     = wb_trap_event;
+
+  // ============================================================
+  // 4.5 CSR Register File
+  // ============================================================
+  logic wb_csr_we;
+  logic [11:0] wb_csr_addr;
+  logic [DW-1:0] wb_csr_wdata;
+
+  assign wb_csr_we    = wb_trap_event ? 1'b0 : ex2wb_pkt_out.csr.valid;
+  assign wb_csr_addr  = ex2wb_pkt_out.csr.addr;
+  assign wb_csr_wdata = ex2wb_pkt_out.csr.wdata;
+
+  csr_regfile #(
+    .AW(AW),
+    .DW(DW)
+  ) u_csr_regfile (
+    .clk_i        (clk_i),
+    .rst_ni       (rst_ni),
+    // Read port (used in EX stage)
+    .csr_addr_i   (id2ex_pkt_out.csr.addr),
+    .csr_rdata_o  (csr_rdata),
+    // Write port (from WB stage)
+    .csr_we_i     (wb_csr_we),
+    .csr_waddr_i  (wb_csr_addr),
+    .csr_wdata_i  (wb_csr_wdata),
+    // Trap entry
+    .trap_entry_i (wb_trap_event),
+    .trap_pc_i    (ex2wb_pkt_out.trap_pc),
+    .trap_cause_i (ex2wb_pkt_out.trap_cause),
+    .trap_val_i   (ex2wb_pkt_out.trap_val),
+    // MRET
+    .mret_i       (wb_mret_event),
+    // Retire
+    .instret_i    (ex2wb_pkt_out.valid),
+    // Outputs
+    .mtvec_o      (csr_mtvec),
+    .mepc_o       (csr_mepc),
+    .mstatus_o    (csr_mstatus),
+    .mie_o        (csr_mie),
+    .mip_o        (csr_mip)
+  );
 
 `ifndef SYNTHESIS
   always_ff @(posedge clk_i) begin
-    if (!halt_q) begin 
-      if (ex2wb_pkt_out.valid && ex2wb_pkt_out.exc.illegal_instr)
-        $error("RV32IM core illegal instruction detected at WB stage");
-      if (ex2wb_pkt_out.valid && ex2wb_pkt_out.exc.ecall)
-        $error("RV32IM core ECALL detected; halting core");
-      if (ex2wb_pkt_out.valid && ex2wb_pkt_out.exc.ebreak)
-        $info("RV32IM core EBREAK detected; halting core");
-      if (ex2wb_pkt_out.valid && ex2wb_pkt_out.mem_misaligned)
-        $error("RV32IM core memory misaligned access detected");
-    end
+    if (ex2wb_pkt_out.valid && ex2wb_pkt_out.exc.illegal_instr)
+      $error("RV32IM core illegal instruction detected at WB stage");
+    if (ex2wb_pkt_out.valid && ex2wb_pkt_out.exc.ecall)
+      $info("RV32IM core ECALL detected; entering trap handler");
+    if (ex2wb_pkt_out.valid && ex2wb_pkt_out.exc.ebreak)
+      $info("RV32IM core EBREAK detected; entering trap handler");
+    if (ex2wb_pkt_out.valid && ex2wb_pkt_out.mem_misaligned)
+      $error("RV32IM core memory misaligned access detected");
   end
 `endif
 
@@ -141,12 +200,12 @@ module riscv #(
     .clk_i        (clk_i),
     .rst_ni       (rst_ni),
     .stall_i      (pc_stall),
-    .redirect_en_i(ex_redirect_en),
-    .redirect_pc_i(ex_redirect_pc),
+    .redirect_en_i(pc_redirect_en),
+    .redirect_pc_i(pc_redirect_pc),
     .pc_o         (if_pc)
   );
 
-  assign instr_ren_o  = !pipe_kill && (!pc_stall || ex_redirect_en);
+  assign instr_ren_o  = !pipe_kill && (!pc_stall || pc_redirect_en);
   assign instr_addr_o = if_pc;
 
   always_ff @(posedge clk_i or negedge rst_ni) begin
@@ -154,9 +213,9 @@ module riscv #(
       if_resp_pc_q    <= '0;
       if_resp_valid_q <= 1'b0;
     end else begin
-      if (!pc_stall || ex_redirect_en) begin
+      if (!pc_stall || pc_redirect_en) begin
         if_resp_pc_q    <= if_pc;
-        if_resp_valid_q <= !halt_q;
+        if_resp_valid_q <= 1'b1;
       end
     end
   end
@@ -207,6 +266,8 @@ module riscv #(
   execute u_execute (
     .pkt_exe_i        (id2ex_pkt_out),
     .mem_misaligned_i (lsu_mem_misaligned), // Feedback from LSU
+    .csr_rdata_i      (csr_rdata),
+    .mepc_i           (csr_mepc),
     .redirect_en_o    (ex_redirect_en),
     .redirect_pc_o    (ex_redirect_pc),
     .flush_req_o      (ex_flush_req),
@@ -296,7 +357,7 @@ module riscv #(
   // 12. Regfile
   // ============================================================
   logic wb_rf_wen_safe;
-  assign wb_rf_wen_safe = wb_rf_wen && !halt_q && !wb_trap_event;
+  assign wb_rf_wen_safe = wb_rf_wen && !wb_trap_event;
 
   regfile #(
     .DW(DW)
@@ -323,7 +384,13 @@ module riscv #(
     .load_data_i (lsu_load_data),
     .rf_wen_o    (wb_rf_wen),
     .rf_waddr_o  (wb_rf_waddr),
-    .rf_wdata_o  (wb_rf_wdata)
+    .rf_wdata_o  (wb_rf_wdata),
+    .csr_we_o    (/* tied off in top; csr write handled above */),
+    .csr_addr_o  (),
+    .csr_wdata_o (),
+    .mret_o      (),
+    .trap_cause_o(),
+    .trap_val_o  ()
   );
 
 endmodule

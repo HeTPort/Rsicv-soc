@@ -1,10 +1,15 @@
 ./../src/core/riscv_pkg.sv
 ./../src/core/pc_counter.sv
 ./../src/core/if2id.sv
-./../src/core/decode.sv
 ./../src/core/id2ex.sv
+./../src/core/ex2wb.sv
+./../src/core/decode.sv
 ./../src/core/execute.sv
-./../src/core/register.sv
+./../src/core/lsu.sv
+./../src/core/wb_stage.sv
+./../src/core/csr_regfile.sv
+./../src/core/regfile.sv
+./../src/core/core_ctrl.sv
 ./../src/core/riscv.sv
 ./../src/mem/prog_ram.sv
 ./../src/mem/data_ram.sv

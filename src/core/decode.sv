@@ -93,6 +93,8 @@ module decode #(
   logic          muldiv_valid_o;
   muldiv_op_e    muldiv_op_o;
   logic          illegal_instr_o, ecall_o, ebreak_o;
+  logic          is_mret_o, is_wfi_o;
+  csr_pkt_t      csr_o;
 
   // ============================================================
   // 性能优化核心区：数据通路提前，物理直连
@@ -157,6 +159,9 @@ module decode #(
     illegal_instr_o = 1'b0;
     ecall_o         = 1'b0;
     ebreak_o        = 1'b0;
+    is_mret_o       = 1'b0;
+    is_wfi_o        = 1'b0;
+    csr_o           = '0;
 
     unique case (opcode)
       // --------------------------------------------------------
@@ -374,9 +379,63 @@ module decode #(
       // SYSTEM
       // --------------------------------------------------------
       OPCODE_SYSTEM: begin
-        if (instr32 == INST_ECALL)       ecall_o = 1'b1;
-        else if (instr32 == INST_EBREAK) ebreak_o = 1'b1;
-        else                             illegal_instr_o = 1'b1;
+        if (instr32 == INST_ECALL) begin
+          ecall_o = 1'b1;
+        end else if (instr32 == INST_EBREAK) begin
+          ebreak_o = 1'b1;
+        end else if (instr32 == INST_MRET) begin
+          is_mret_o = 1'b1;
+        end else if (funct3 == 3'b000 && instr32[31:20] == 12'h105) begin
+          // WFI — treated as NOP for now
+          is_wfi_o = 1'b1;
+        end else begin
+          unique case (funct3)
+            3'b001, // CSRRW
+            3'b010, // CSRRS
+            3'b011, // CSRRC
+            3'b101, // CSRRWI
+            3'b110, // CSRRSI
+            3'b111: // CSRRCI
+            begin
+              rf_we_o    = 1'b1;
+              wb_sel_o   = WB_CSR;
+              csr_o.valid = 1'b1;
+              csr_o.addr  = instr32[31:20];
+              csr_o.rd    = rd;
+              unique case (funct3)
+                3'b001: begin
+                  csr_o.op    = CSR_OP_RW;
+                  csr_o.wdata = rf_rs1_rdata_i;
+                  use_rs1_o   = 1'b1;
+                end
+                3'b010: begin
+                  csr_o.op    = CSR_OP_RS;
+                  csr_o.wdata = rf_rs1_rdata_i;
+                  use_rs1_o   = 1'b1;
+                end
+                3'b011: begin
+                  csr_o.op    = CSR_OP_RC;
+                  csr_o.wdata = rf_rs1_rdata_i;
+                  use_rs1_o   = 1'b1;
+                end
+                3'b101: begin
+                  csr_o.op    = CSR_OP_RWI;
+                  csr_o.wdata = DW'(instr32[19:15]);
+                end
+                3'b110: begin
+                  csr_o.op    = CSR_OP_RSI;
+                  csr_o.wdata = DW'(instr32[19:15]);
+                end
+                3'b111: begin
+                  csr_o.op    = CSR_OP_RCI;
+                  csr_o.wdata = DW'(instr32[19:15]);
+                end
+                default: ;
+              endcase
+            end
+            default: illegal_instr_o = 1'b1;
+          endcase
+        end
       end
 
       // --------------------------------------------------------
@@ -391,6 +450,8 @@ module decode #(
   assign pktd_o.instr    = instr_i;
   assign pktd_o.use_rs1  = use_rs1_o;
   assign pktd_o.use_rs2  = use_rs2_o;
+  assign pktd_o.is_mret  = is_mret_o;
+  assign pktd_o.is_wfi   = is_wfi_o;
 
   // rf_pkt_t
   assign pktd_o.rf.we    = rf_we_o;
@@ -418,6 +479,9 @@ module decode #(
   assign pktd_o.exc.illegal_instr    = illegal_instr_o;
   assign pktd_o.exc.ecall            = ecall_o;
   assign pktd_o.exc.ebreak           = ebreak_o;
+
+  // csr_pkt_t
+  assign pktd_o.csr                  = csr_o;
 
 
 endmodule

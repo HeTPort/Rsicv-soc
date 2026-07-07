@@ -196,9 +196,46 @@ package riscv_pkg;
     WB_ALU    = 3'd1,
     WB_MEM    = 3'd2,
     WB_PC4    = 3'd3,
-    WB_MULDIV = 3'd4
-    // WB_CSR    = 3'd5 // [扩展] 后续支持 CSR 时启用
+    WB_MULDIV = 3'd4,
+    WB_CSR    = 3'd5
   } wb_sel_e;
+
+  // ------------------------------------------------------------
+  // Section 10a: CSR addresses
+  // ------------------------------------------------------------
+  localparam logic [11:0] CSR_MSTATUS   = 12'h300;
+  localparam logic [11:0] CSR_MISA      = 12'h301;
+  localparam logic [11:0] CSR_MEDELEG   = 12'h302;
+  localparam logic [11:0] CSR_MIDELEG   = 12'h303;
+  localparam logic [11:0] CSR_MIE       = 12'h304;
+  localparam logic [11:0] CSR_MTVEC     = 12'h305;
+  localparam logic [11:0] CSR_MSCRATCH  = 12'h340;
+  localparam logic [11:0] CSR_MEPC      = 12'h341;
+  localparam logic [11:0] CSR_MCAUSE    = 12'h342;
+  localparam logic [11:0] CSR_MTVAL     = 12'h343;
+  localparam logic [11:0] CSR_MIP       = 12'h344;
+  localparam logic [11:0] CSR_MCYCLE    = 12'hB00;
+  localparam logic [11:0] CSR_MINSTRET  = 12'hB02;
+
+  // ------------------------------------------------------------
+  // Section 10b: mcause exception / interrupt codes
+  // ------------------------------------------------------------
+  // Interrupt bit is at MSB (bit XLEN-1)
+  localparam logic [DW-1:0] MCAUSE_INST_MISALIGNED  = {1'b0, 31'd0};
+  localparam logic [DW-1:0] MCAUSE_INST_ACCESS      = {1'b0, 31'd1};
+  localparam logic [DW-1:0] MCAUSE_ILLEGAL_INST     = {1'b0, 31'd2};
+  localparam logic [DW-1:0] MCAUSE_BREAKPOINT       = {1'b0, 31'd3};
+  localparam logic [DW-1:0] MCAUSE_LOAD_MISALIGNED  = {1'b0, 31'd4};
+  localparam logic [DW-1:0] MCAUSE_LOAD_ACCESS      = {1'b0, 31'd5};
+  localparam logic [DW-1:0] MCAUSE_STORE_MISALIGNED = {1'b0, 31'd6};
+  localparam logic [DW-1:0] MCAUSE_STORE_ACCESS     = {1'b0, 31'd7};
+  localparam logic [DW-1:0] MCAUSE_ECALL_U          = {1'b0, 31'd8};
+  localparam logic [DW-1:0] MCAUSE_ECALL_S          = {1'b0, 31'd9};
+  localparam logic [DW-1:0] MCAUSE_ECALL_M          = {1'b0, 31'd11};
+
+  localparam logic [DW-1:0] MCAUSE_IRQ_M_SOFT       = {1'b1, 31'd3};
+  localparam logic [DW-1:0] MCAUSE_IRQ_M_TIMER      = {1'b1, 31'd7};
+  localparam logic [DW-1:0] MCAUSE_IRQ_M_EXT        = {1'b1, 31'd11};
 
   // Multiply/divide operation type
   typedef enum logic [3:0] {
@@ -213,12 +250,23 @@ package riscv_pkg;
     MULDIV_REMU   = 4'd8
   } muldiv_op_e;
 
-  // [扩展] 特权模式 (后续支持特权架构时取消注释)
-  // typedef enum logic [1:0] {
-  //   PRIV_MODE_U = 2'd0,
-  //   PRIV_MODE_S = 2'd1,
-  //   PRIV_MODE_M = 2'd3
-  // } priv_mode_e;
+  // Privilege modes
+  typedef enum logic [1:0] {
+    PRIV_MODE_U = 2'd0,
+    PRIV_MODE_S = 2'd1,
+    PRIV_MODE_M = 2'd3
+  } priv_mode_e;
+
+  // CSR operation type (matches SYSTEM funct3)
+  typedef enum logic [2:0] {
+    CSR_OP_NONE = 3'b000,
+    CSR_OP_RW   = 3'b001,
+    CSR_OP_RS   = 3'b010,
+    CSR_OP_RC   = 3'b011,
+    CSR_OP_RWI  = 3'b101,
+    CSR_OP_RSI  = 3'b110,
+    CSR_OP_RCI  = 3'b111
+  } csr_op_e;
 
    // ============================================================
   // Section 11: Pipeline Payload Structures
@@ -276,13 +324,14 @@ package riscv_pkg;
     logic [1:0]    load_offset; 
   } mem_pkt_t;
 
-  // 11.7 [扩展] CSR Packet (后续支持特权架构时取消注释)
-  // typedef struct packed {
-  //   logic          csr_we;
-  //   logic [11:0]   csr_addr;
-  //   logic [DW-1:0] csr_wdata;
-  //   logic [2:0]    csr_op;
-  // } csr_pkt_t;
+  // 11.7 CSR Packet
+  typedef struct packed {
+    logic          valid;     // This instruction is a CSR operation
+    csr_op_e       op;        // CSR sub-operation
+    logic [11:0]   addr;      // CSR address
+    logic [DW-1:0] wdata;     // Source data (rs1 or zero-extended uimm)
+    logic [4:0]    rd;        // Destination register
+  } csr_pkt_t;
 
   // ============================================================
   // Section 12: Aggregate Pipeline Packets
@@ -297,6 +346,9 @@ package riscv_pkg;
     ex_data_pkt_t  ex_data;     // 包含 op1, op2, imm, store_data
     ex_ctrl_pkt_t  ex_ctrl;     // 包含 alu_op, branch_op, mem_req 等
     exc_pkt_t      exc;         // 包含 illegal_instr, ecall, ebreak
+    csr_pkt_t      csr;         // CSR 指令信息
+    logic          is_mret;     // Instruction is mret
+    logic          is_wfi;      // Instruction is wfi
     logic          use_rs1;
     logic          use_rs2;
   } id_ex_pkt_t;
@@ -311,6 +363,11 @@ package riscv_pkg;
     mem_pkt_t      mem_info;    // 包含 mem_size, mem_unsigned, load_offset
     logic          mem_misaligned; // EX 阶段新增的异常
     exc_pkt_t      exc;         // 包含 illegal_instr, ecall, ebreak
+    csr_pkt_t      csr;         // CSR 指令信息
+    logic [AW-1:0] trap_pc;     // Trapping instruction PC
+    logic [DW-1:0] trap_cause;  // mcause value
+    logic [DW-1:0] trap_val;    // mtval value
+    logic          is_mret;     // Instruction is mret
   } ex_wb_pkt_t;
 endpackage
 `default_nettype wire

@@ -76,7 +76,7 @@ module tb_riscv_core;
     .AW(AW),
     .DW(DW),
     .DEPTH(PROG_RAM_DEPTH),
-    .FILE("D:/Rsicv-soc/testdata/prog.hex"),
+    .FILE("../testdata/prog.hex"),
     .INVALID_RDATA(32'h0010_0073) // ebreak on invalid fetch
   ) u_prog_ram (
     .clk_i        (clk),
@@ -134,31 +134,52 @@ module tb_riscv_core;
   end
 
   // ------------------------------------------------------------
-  // Finish on halt
+  // Memory-mapped tohost exit monitor (standard RISC-V test convention)
+  // ------------------------------------------------------------
+  localparam logic [AW-1:0] TOHOST_ADDR = 32'h0000_1000;
+  logic [DW-1:0] tohost_val;
+  logic          tohost_seen;
+
+  initial begin
+    tohost_val  = '0;
+    tohost_seen = 1'b0;
+  end
+
+  always_ff @(posedge clk) begin
+    if (rst_n) begin
+      if (u_riscv.u_lsu.ram_we_o && (u_riscv.u_lsu.ram_addr_o == TOHOST_ADDR)) begin
+        tohost_val  <= u_riscv.u_lsu.ram_wdata_o;
+        tohost_seen <= 1'b1;
+      end
+    end
+  end
+
+  // ------------------------------------------------------------
+  // Finish on tohost write
   // ------------------------------------------------------------
   initial begin
     wait (rst_n == 1'b1);
-    wait (halt == 1'b1);
+    wait (tohost_seen == 1'b1);
     repeat (2) @(posedge clk);
     $display("============================================================");
-    $display("[TB] CPU halted");
+    $display("[TB] tohost write detected");
     $display("[TB] cycle          = %0d", cycle_count);
     $display("[TB] instr_addr     = 0x%08h", instr_addr);
     $display("[TB] dbg_x3         = 0x%08h", dbg_x3);
     $display("[TB] dbg_x10        = 0x%08h", dbg_x10);
     $display("[TB] dbg_x11        = 0x%08h", dbg_x11);
-    $display("[TB] illegal_instr  = %0b",illegal_instr);
+    $display("[TB] illegal_instr  = %0b", illegal_instr);
     $display("[TB] exception      = %0b", exception);
+    $display("[TB] tohost         = 0x%08h", tohost_val);
 
-    if (dbg_x10 == 32'd1 && dbg_x11 == 32'd0 && !illegal_instr) begin
+    if (tohost_val == 32'd1) begin
       $display("[TB] RESULT: PASS");
       $display("============================================================");
       $finish;
     end
     else begin
       $display("[TB] RESULT: FAIL");
-      $display("[TB] Failure code in x11 = %0d / 0x%08h", dbg_x11, dbg_x11);
-      $display("[TB] seen_illegal = %0b", illegal_instr);
+      $display("[TB] Failure code in tohost = %0d / 0x%08h", tohost_val, tohost_val);
       $display("============================================================");
       $fatal(1, "[TB] RV32IM test failed");
     end
