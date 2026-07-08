@@ -5,7 +5,7 @@ module prog_ram #(
   parameter int    DW            = 32,          // 数据宽度，单位：bit
   parameter int    DEPTH         = 4096,        // RAM 深度，单位：word
   parameter string FILE          = "D:/Rsicv-soc/testdata/prog.hex",  // 初始化文件
-  parameter logic [DW-1:0] INVALID_RDATA = '0   // 非法读时返回的数据
+  parameter logic [DW-1:0] INVALID_RDATA = 32'h0010_0073   // 非法读时返回的数据
 )(
   input  wire logic          clk_i,
   // 读端口，一般用于取指
@@ -94,7 +94,7 @@ module prog_ram #(
   initial begin
   //把整个RAM先初始化为NOP，避免少量指令测试后多读的指令全是未知值
     for (init_i = 0; init_i < DEPTH_SAFE; init_i = init_i + 1) begin
-      mem[init_i] = 32'h0000_0013; // NOP: addi x0,x0,0
+      mem[init_i] = INVALID_RDATA; 
     end
     if (FILE != "") begin
       $display("[prog_ram] Loading program file: %s", FILE);
@@ -228,23 +228,27 @@ module prog_ram #(
         $error("write_word_addr failed");
       end
     end
+  end
     // ----------------------------
     // 读逻辑
     // ----------------------------
+  always_comb begin
     if (ren_i) begin
       if (fetch_valid) begin
         // 同周期读写同一个合法 word 地址，直接旁路写数据
         if (wen_i &&
             write_valid &&
             write_word_addr_full == fetch_word_addr_full) begin
-          instr_data_o <= wdata_i;
+          instr_data_o = wdata_i;
         end else begin
-          instr_data_o <= mem[fetch_word_addr];
+          instr_data_o = mem[fetch_word_addr];
         end
       end else begin
         //rerr_o       <= 1'b1;
-        instr_data_o <= INVALID_RDATA;
+        instr_data_o = INVALID_RDATA;
       end
+    end else begin
+      instr_data_o = instr_data_o;
     end
   end
   // ------------------------------------------------------------

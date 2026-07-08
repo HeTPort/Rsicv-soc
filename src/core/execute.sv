@@ -282,6 +282,7 @@ module execute #(
     flush_req_o         = 1'b0;
 
     if (valid_i && !exception_like) begin
+      wb_rf_wen_o = rf_we_i;
       // CSR instruction
       if (csr_i.valid) begin
         wb_rf_wen_o   = rf_we_i;

@@ -204,7 +204,7 @@ module riscv #(
     .redirect_pc_i(pc_redirect_pc),
     .pc_o         (if_pc)
   );
-
+  logic [DW-1:0] if_resp_instr_q;
   assign instr_ren_o  = !pipe_kill && (!pc_stall || pc_redirect_en);
   assign instr_addr_o = if_pc;
 
@@ -212,17 +212,19 @@ module riscv #(
     if (!rst_ni) begin
       if_resp_pc_q    <= '0;
       if_resp_valid_q <= 1'b0;
+      if_resp_instr_q <= '0;
     end else begin
       if (!pc_stall || pc_redirect_en) begin
         if_resp_pc_q    <= if_pc;
         if_resp_valid_q <= 1'b1;
+        if_resp_instr_q <= instr_rdata_i;
       end
     end
   end
 
   assign if2id_pkt.valid = if_resp_valid_q;
   assign if2id_pkt.pc    = if_resp_pc_q;
-  assign if2id_pkt.instr = instr_rdata_i;
+  assign if2id_pkt.instr = if_resp_instr_q;
 
   // ============================================================
   // 6. Pipeline Registers & Datapath

@@ -76,7 +76,7 @@ module tb_riscv_core;
     .AW(AW),
     .DW(DW),
     .DEPTH(PROG_RAM_DEPTH),
-    .FILE("../testdata/prog.hex"),
+    .FILE("D:/Rsicv-soc/testdata/prog.hex"),
     .INVALID_RDATA(32'h0010_0073) // ebreak on invalid fetch
   ) u_prog_ram (
     .clk_i        (clk),
@@ -140,13 +140,13 @@ module tb_riscv_core;
   logic [DW-1:0] tohost_val;
   logic          tohost_seen;
 
-  initial begin
-    tohost_val  = '0;
-    tohost_seen = 1'b0;
-  end
+
 
   always_ff @(posedge clk) begin
-    if (rst_n) begin
+    if (!rst_n) begin
+      tohost_val <= '0;
+      tohost_seen <= 1'b0;
+    end else begin
       if (u_riscv.u_lsu.ram_we_o && (u_riscv.u_lsu.ram_addr_o == TOHOST_ADDR)) begin
         tohost_val  <= u_riscv.u_lsu.ram_wdata_o;
         tohost_seen <= 1'b1;
@@ -295,6 +295,27 @@ module tb_riscv_core;
                  u_riscv.u_core_ctrl.idex_flush,
                  u_riscv.u_core_ctrl.pipe_kill);
       end
+    end
+  end
+
+  always @(posedge clk) begin
+    // 当流水线的 EX 级（执行级）正好在处理 0x1dc 这条指令时触发
+    if (rst_n && u_riscv.id2ex_pkt_out.pc == 32'h0000_01dc) begin
+      $display("===========================================");
+      $display("[SNIPER] Caught PC 0x1dc (BNE t0, sp)");
+      $display("[SNIPER] Cycle = %0d", cycle_count);
+      
+      // 注意：这里的信号路径需要根据你实际的 regfile 模块名稍微调整
+      // 通常是 u_riscv.u_regfile.regs[寄存器编号] 或者 u_riscv.u_regfile.rf_mem[编号]
+      // 如果下面两句报错说找不到信号，请去你的 riscv.sv 里找 regfile 的实例名和数组名
+      $display("[SNIPER] t0 (x5) = 0x%08h", u_riscv.u_regfile.regs[5]); 
+      $display("[SNIPER] sp (x2) = 0x%08h", u_riscv.u_regfile.regs[2]); 
+      
+      $display("===========================================");
+      
+      // 打印完直接停机，不用等 20000 个周期了
+      #100;
+      $finish;
     end
   end
 
