@@ -4,7 +4,7 @@ module prog_ram #(
   parameter int    AW            = 32,          // 地址宽度，单位：bit
   parameter int    DW            = 32,          // 数据宽度，单位：bit
   parameter int    DEPTH         = 4096,        // RAM 深度，单位：word
-  parameter string FILE          = "D:/Rsicv-soc/testdata/prog.hex",  // 初始化文件
+  parameter string FILE          = "",  // optional initialization file
   parameter logic [DW-1:0] INVALID_RDATA = 32'h0010_0073   // 非法读时返回的数据
 )(
   input  wire logic          clk_i,
@@ -214,7 +214,9 @@ module prog_ram #(
   // 5. 同周期读写同一个地址：
   //    返回 wdata_i，避免读到旧值。
   //
-  always_ff @(posedge clk_i) begin
+  // Plain clocked process is intentional: mem is also initialized in an
+  // initial block, which is incompatible with always_ff's single-writer rule.
+  always @(posedge clk_i) begin
     // 默认每个周期清零错误标志
    // rerr_o <= 1'b0;
     //werr_o <= 1'b0;
@@ -248,7 +250,7 @@ module prog_ram #(
         instr_data_o = INVALID_RDATA;
       end
     end else begin
-      instr_data_o = instr_data_o;
+      instr_data_o = INVALID_RDATA;
     end
   end
   // ------------------------------------------------------------

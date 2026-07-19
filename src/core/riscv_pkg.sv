@@ -44,9 +44,9 @@ package riscv_pkg;
   // Section 2: Common instruction constants
   // ------------------------------------------------------------
   localparam logic [XLEN-1:0] INST_NOP    = {{(XLEN-12){1'b0}}, 12'h013}; // addi x0,x0,0
-  localparam logic [XLEN-1:0] INST_ECALL  = {{(XLEN-12){1'b0}}, 12'h073};
-  localparam logic [XLEN-1:0] INST_EBREAK = {{(XLEN-12){1'b0}}, 12'h173};
-  localparam logic [XLEN-1:0] INST_MRET   = {{(XLEN-12){1'b0}}, 12'h302}; // 特权架构返回
+  localparam logic [31:0] INST_ECALL  = 32'h0000_0073;
+  localparam logic [31:0] INST_EBREAK = 32'h0010_0073;
+  localparam logic [31:0] INST_MRET   = 32'h3020_0073; // 特权架构返回
 
   // ------------------------------------------------------------
   // Section 3: Opcodes
@@ -356,11 +356,18 @@ package riscv_pkg;
   // 12.2 EX/WB Pipeline Register Payload (精确对应 ex2wb 模块的数据接口)
   typedef struct packed {
     logic          valid;
+    logic [AW-1:0] pc;
+    logic [31:0]   instr;
     rf_pkt_t       rf;          // 包含 rf_wen, rf_waddr
     wb_sel_e       wb_sel;
     logic [DW-1:0] alu_data;
     logic [DW-1:0] pc4_data;
     mem_pkt_t      mem_info;    // 包含 mem_size, mem_unsigned, load_offset
+    logic          mem_valid;   // Memory request was actually issued
+    logic          mem_we;      // 1: store, 0: load
+    logic [AW-1:0] mem_addr;
+    logic [DW-1:0] mem_wdata;
+    logic [DW/8-1:0] mem_wstrb;
     logic          mem_misaligned; // EX 阶段新增的异常
     exc_pkt_t      exc;         // 包含 illegal_instr, ecall, ebreak
     csr_pkt_t      csr;         // CSR 指令信息
@@ -369,5 +376,27 @@ package riscv_pkg;
     logic [DW-1:0] trap_val;    // mtval value
     logic          is_mret;     // Instruction is mret
   } ex_wb_pkt_t;
+
+  // Stable architectural completion record for verification/co-simulation.
+  // A trapped instruction is reported with valid=1, trap=1, and rd_we=0.
+  typedef struct packed {
+    logic             valid;
+    logic [63:0]      order;
+    logic [AW-1:0]    pc;
+    logic [31:0]      instr;
+    logic             rd_we;
+    logic [4:0]       rd_addr;
+    logic [DW-1:0]    rd_data;
+    logic             mem_valid;
+    logic             mem_we;
+    logic [AW-1:0]    mem_addr;
+    logic [DW/8-1:0]  mem_rmask;
+    logic [DW/8-1:0]  mem_wmask;
+    logic [DW-1:0]    mem_rdata;
+    logic [DW-1:0]    mem_wdata;
+    logic             trap;
+    logic [DW-1:0]    trap_cause;
+    logic [DW-1:0]    trap_val;
+  } commit_pkt_t;
 endpackage
 `default_nettype wire

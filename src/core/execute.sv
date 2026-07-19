@@ -353,6 +353,8 @@ module execute #(
   end
 
   assign pkt_exe_o.valid               = wb_valid_o;
+  assign pkt_exe_o.pc                  = pc_i;
+  assign pkt_exe_o.instr               = instr_i[31:0];
   assign pkt_exe_o.rf.we               = wb_rf_wen_o;
   assign pkt_exe_o.rf.addr             = wb_rf_waddr_o;
   assign pkt_exe_o.wb_sel              = wb_sel_o;
@@ -361,6 +363,11 @@ module execute #(
   assign pkt_exe_o.mem_info.mem_size     = wb_mem_size_o;
   assign pkt_exe_o.mem_info.mem_unsigned = wb_mem_unsigned_o;
   assign pkt_exe_o.mem_info.load_offset  = '0;  // overridden by LSU in top
+  assign pkt_exe_o.mem_valid           = 1'b0;  // overridden by LSU in top
+  assign pkt_exe_o.mem_we              = 1'b0;
+  assign pkt_exe_o.mem_addr            = '0;
+  assign pkt_exe_o.mem_wdata           = '0;
+  assign pkt_exe_o.mem_wstrb           = '0;
   assign pkt_exe_o.mem_misaligned      = wb_mem_misaligned_o;
   assign pkt_exe_o.exc.illegal_instr   = wb_illegal_instr_o;
   assign pkt_exe_o.exc.ecall           = wb_ecall_o;

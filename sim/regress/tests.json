@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "defaults": {
+    "timeout_cycles": 20000
+  },
+  "tests": [
+    {
+      "name": "rv32im",
+      "image": "testdata/prog.hex",
+      "timeout_cycles": 20000,
+      "tags": ["all", "smoke", "rv32i", "rv32m"]
+    },
+    {
+      "name": "ebreak",
+      "image": "testdata/ebreak_test.hex",
+      "timeout_cycles": 1000,
+      "tags": ["all", "smoke", "trap", "csr"]
+    },
+    {
+      "name": "ecall",
+      "image": "testdata/ecall_test.hex",
+      "timeout_cycles": 1000,
+      "tags": ["all", "smoke", "trap", "csr"]
+    },
+    {
+      "name": "illegal_opcode",
+      "image": "testdata/illegal_opcode_test.hex",
+      "timeout_cycles": 1000,
+      "tags": ["all", "smoke", "trap", "decode"]
+    },
+    {
+      "name": "misaligned_lw",
+      "image": "testdata/misaligned_lw_test.hex",
+      "timeout_cycles": 1000,
+      "tags": ["all", "smoke", "trap", "lsu"]
+    },
+    {
+      "name": "misaligned_sw",
+      "image": "testdata/misaligned_sw_test.hex",
+      "timeout_cycles": 1000,
+      "tags": ["all", "smoke", "trap", "lsu"]
+    },
+    {
+      "name": "mret",
+      "image": "testdata/m_trap_test.hex",
+      "timeout_cycles": 2000,
+      "tags": ["all", "smoke", "trap", "csr", "mret"]
+    }
+  ]
+}

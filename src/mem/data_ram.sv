@@ -51,7 +51,9 @@ module data_ram #(
   // ---------------------------------------------------------
   // 核心时序逻辑：纯净的 BRAM 模板
   // ---------------------------------------------------------
-  always_ff @(posedge clk_i) begin
+  // Plain clocked process is intentional: mem is also initialized in an
+  // initial block, which is incompatible with always_ff's single-writer rule.
+  always @(posedge clk_i) begin
     // 1. 同步写操作 (支持字节写使能)
     if (wen_i) begin
       for (int i = 0; i < BYTE_NUM; i++) begin

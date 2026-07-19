@@ -1,0 +1,11 @@
+# ModelSim/Questa generated files
+sim/build/
+sim/logs/
+sim/work/
+sim/transcript
+sim/*.vcd
+sim/*.wlf
+
+# Test build artifacts
+build/
+

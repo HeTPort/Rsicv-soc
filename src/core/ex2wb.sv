@@ -32,24 +32,9 @@ module ex2wb (
 
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) begin
-      // ------------------ 复位：安全气泡 ------------------
-      pkt2wb_q.valid             <= 1'b0;
-      pkt2wb_q.rf.we             <= 1'b0;       // 禁止写寄存器
-      pkt2wb_q.rf.addr           <= 5'd0;
-      pkt2wb_q.wb_sel            <= WB_NONE;    // 无写回
-      pkt2wb_q.alu_data          <= '0;
-      pkt2wb_q.pc4_data          <= '0;
-      
-      // 访存控制信息复位
-      pkt2wb_q.mem_info.mem_size    <= MEM_SIZE_WORD;
-      pkt2wb_q.mem_info.mem_unsigned <= 1'b0;
-      pkt2wb_q.mem_info.load_offset <= 2'd0;
-      
-      // 异常标志复位
-      pkt2wb_q.mem_misaligned    <= 1'b0;
-      pkt2wb_q.exc.illegal_instr <= 1'b0;
-      pkt2wb_q.exc.ecall         <= 1'b0;
-      pkt2wb_q.exc.ebreak        <= 1'b0;
+      // One assignment keeps every packet field, including future additions,
+      // in a known safe bubble state after reset.
+      pkt2wb_q <= '0;
     end
     // 新增 stall 逻辑：只有在不停顿时才更新寄存器
     else if (!stall_i) begin

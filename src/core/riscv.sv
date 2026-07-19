@@ -18,7 +18,8 @@ module riscv #(
   output logic [DW-1:0] dbg_x11_o,
   output logic          halt_o,
   output logic          illegal_instr_o,
-  output logic          exception_o
+  output logic          exception_o,
+  output commit_pkt_t   commit_o
 );
   initial begin
     if (DW != 32) begin
@@ -142,10 +143,15 @@ module riscv #(
   logic wb_csr_we;
   logic [11:0] wb_csr_addr;
   logic [DW-1:0] wb_csr_wdata;
+  logic [AW-1:0] csr_mepc_for_ex;
 
   assign wb_csr_we    = wb_trap_event ? 1'b0 : ex2wb_pkt_out.csr.valid;
   assign wb_csr_addr  = ex2wb_pkt_out.csr.addr;
   assign wb_csr_wdata = ex2wb_pkt_out.csr.wdata;
+  // MRET may immediately follow a write to mepc. Forward the WB value so
+  // redirect generation does not use the previous CSR contents.
+  assign csr_mepc_for_ex =
+      (wb_csr_we && (wb_csr_addr == CSR_MEPC)) ? AW'(wb_csr_wdata) : csr_mepc;
 
   csr_regfile #(
     .AW(AW),
@@ -168,7 +174,7 @@ module riscv #(
     // MRET
     .mret_i       (wb_mret_event),
     // Retire
-    .instret_i    (ex2wb_pkt_out.valid),
+    .instret_i    (ex2wb_pkt_out.valid && !wb_trap_event),
     // Outputs
     .mtvec_o      (csr_mtvec),
     .mepc_o       (csr_mepc),
@@ -180,13 +186,13 @@ module riscv #(
 `ifndef SYNTHESIS
   always_ff @(posedge clk_i) begin
     if (ex2wb_pkt_out.valid && ex2wb_pkt_out.exc.illegal_instr)
-      $error("RV32IM core illegal instruction detected at WB stage");
+      $info("RV32IM core illegal instruction detected; entering trap handler");
     if (ex2wb_pkt_out.valid && ex2wb_pkt_out.exc.ecall)
       $info("RV32IM core ECALL detected; entering trap handler");
     if (ex2wb_pkt_out.valid && ex2wb_pkt_out.exc.ebreak)
       $info("RV32IM core EBREAK detected; entering trap handler");
     if (ex2wb_pkt_out.valid && ex2wb_pkt_out.mem_misaligned)
-      $error("RV32IM core memory misaligned access detected");
+      $info("RV32IM core memory misaligned access detected; entering trap handler");
   end
 `endif
 
@@ -269,7 +275,7 @@ module riscv #(
     .pkt_exe_i        (id2ex_pkt_out),
     .mem_misaligned_i (lsu_mem_misaligned), // Feedback from LSU
     .csr_rdata_i      (csr_rdata),
-    .mepc_i           (csr_mepc),
+    .mepc_i           (csr_mepc_for_ex),
     .redirect_en_o    (ex_redirect_en),
     .redirect_pc_o    (ex_redirect_pc),
     .flush_req_o      (ex_flush_req),
@@ -312,6 +318,11 @@ module riscv #(
   always_comb begin
     ex2wb_pkt_in_safe = ex2wb_pkt_in;
     ex2wb_pkt_in_safe.mem_info = lsu_mem_info; // Overwrite by LSU
+    ex2wb_pkt_in_safe.mem_valid = ram_req_valid;
+    ex2wb_pkt_in_safe.mem_we    = ram_we;
+    ex2wb_pkt_in_safe.mem_addr  = ram_addr;
+    ex2wb_pkt_in_safe.mem_wdata = ram_wdata;
+    ex2wb_pkt_in_safe.mem_wstrb = ram_wstrb;
     if (pipe_kill) begin
       ex2wb_pkt_in_safe.valid             = 1'b0;
       ex2wb_pkt_in_safe.rf.we             = 1'b0;
@@ -319,6 +330,7 @@ module riscv #(
       ex2wb_pkt_in_safe.exc.ecall         = 1'b0;
       ex2wb_pkt_in_safe.exc.ebreak        = 1'b0;
       ex2wb_pkt_in_safe.mem_misaligned    = 1'b0;
+      ex2wb_pkt_in_safe.mem_valid         = 1'b0;
     end
   end
 
@@ -394,6 +406,53 @@ module riscv #(
     .trap_cause_o(),
     .trap_val_o  ()
   );
+
+  // ============================================================
+  // 14. Architectural Commit Interface
+  // ============================================================
+  logic [63:0] commit_order_q;
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
+      commit_order_q <= '0;
+    end else if (ex2wb_pkt_out.valid) begin
+      commit_order_q <= commit_order_q + 64'd1;
+    end
+  end
+
+  always_comb begin
+    commit_o = '0;
+    commit_o.valid      = ex2wb_pkt_out.valid;
+    commit_o.order      = commit_order_q;
+    commit_o.pc         = ex2wb_pkt_out.pc;
+    commit_o.instr      = ex2wb_pkt_out.instr;
+    commit_o.rd_we      = wb_rf_wen_safe;
+    commit_o.rd_addr    = wb_rf_wen_safe ? wb_rf_waddr : '0;
+    commit_o.rd_data    = wb_rf_wen_safe ? wb_rf_wdata : '0;
+    commit_o.mem_valid  = ex2wb_pkt_out.mem_valid;
+    commit_o.mem_we     = ex2wb_pkt_out.mem_we;
+    commit_o.mem_addr   = ex2wb_pkt_out.mem_valid ? ex2wb_pkt_out.mem_addr : '0;
+    commit_o.mem_wmask  = ex2wb_pkt_out.mem_we ? ex2wb_pkt_out.mem_wstrb : '0;
+    commit_o.mem_rdata  = (ex2wb_pkt_out.mem_valid && !ex2wb_pkt_out.mem_we) ? ram_rdata : '0;
+    commit_o.mem_wdata  = (ex2wb_pkt_out.mem_valid && ex2wb_pkt_out.mem_we) ?
+                          ex2wb_pkt_out.mem_wdata : '0;
+    commit_o.trap       = wb_trap_event;
+    commit_o.trap_cause = ex2wb_pkt_out.trap_cause;
+    commit_o.trap_val   = ex2wb_pkt_out.trap_val;
+
+    if (ex2wb_pkt_out.mem_valid && !ex2wb_pkt_out.mem_we) begin
+      unique case (ex2wb_pkt_out.mem_info.mem_size)
+        MEM_SIZE_BYTE:
+          commit_o.mem_rmask = 4'b0001 << ex2wb_pkt_out.mem_info.load_offset;
+        MEM_SIZE_HALF:
+          commit_o.mem_rmask = 4'b0011 << ex2wb_pkt_out.mem_info.load_offset;
+        MEM_SIZE_WORD:
+          commit_o.mem_rmask = 4'b1111;
+        default:
+          commit_o.mem_rmask = '0;
+      endcase
+    end
+  end
 
 endmodule
 `default_nettype wire

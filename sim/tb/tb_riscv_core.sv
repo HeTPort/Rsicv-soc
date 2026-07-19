@@ -6,13 +6,17 @@ import riscv_pkg::*;
 // Description:
 //   Simple top-level testbench for the reconstructed RV32IM CPU.
 // ============================================================
-module tb_riscv_core;
+module tb_riscv_core #(
+  parameter string PROGRAM_FILE = "../testdata/prog.hex",
+  parameter bit TRACE_ENABLE = 1'b0,
+  parameter bit DUMP_WAVES = 1'b0,
+  parameter int TIMEOUT_CYCLES = 20000
+);
   localparam int AW = 32;
   localparam int DW = 32;
   localparam int PROG_RAM_DEPTH = 4096;
   localparam int DATA_RAM_DEPTH = 4096;
   localparam int CLK_PERIOD_NS = 10;
-  localparam int TIMEOUT_CYCLES = 20000;
 
   // ------------------------------------------------------------
   // Clock / reset
@@ -46,6 +50,7 @@ module tb_riscv_core;
   logic halt;
   logic illegal_instr;
   logic exception;
+  commit_pkt_t commit;
 
   // ------------------------------------------------------------
   // DUT
@@ -66,7 +71,8 @@ module tb_riscv_core;
     .dbg_x11_o       (dbg_x11),
     .halt_o          (halt),
     .illegal_instr_o (illegal_instr),
-    .exception_o     (exception)
+    .exception_o     (exception),
+    .commit_o        (commit)
   );
 
   // ------------------------------------------------------------
@@ -76,7 +82,7 @@ module tb_riscv_core;
     .AW(AW),
     .DW(DW),
     .DEPTH(PROG_RAM_DEPTH),
-    .FILE("D:/Rsicv-soc/testdata/prog.hex"),
+    .FILE(PROGRAM_FILE),
     .INVALID_RDATA(32'h0010_0073) // ebreak on invalid fetch
   ) u_prog_ram (
     .clk_i        (clk),
@@ -92,14 +98,17 @@ module tb_riscv_core;
   // Wave dump
   // ------------------------------------------------------------
   initial begin
-    $dumpfile("tb_riscv.vcd");
-    $dumpvars(0, tb_riscv_core);
+    if (DUMP_WAVES) begin
+      $dumpfile("tb_riscv.vcd");
+      $dumpvars(0, tb_riscv_core);
+    end
   end
 
   // ------------------------------------------------------------
   // Timeout watchdog
   // ------------------------------------------------------------
   integer cycle_count;
+  logic [63:0] expected_commit_order;
   initial begin
     #1ns;
     $display("[TB] Check program RAM content");
@@ -112,6 +121,41 @@ module tb_riscv_core;
     $display("[TB] u_prog_ram.mem[6] = 0x%08h", u_prog_ram.mem[6]);
     $display("[TB] u_prog_ram.mem[7] = 0x%08h", u_prog_ram.mem[7]);
     $display("[TB] u_prog_ram.mem[253] = 0x%08h", u_prog_ram.mem[253]);
+  end
+
+  // ------------------------------------------------------------
+  // Architectural commit interface checks
+  // ------------------------------------------------------------
+  always_ff @(posedge clk or negedge rst_n) begin
+    if (!rst_n) begin
+      expected_commit_order <= '0;
+    end else if (commit.valid) begin
+      assert (commit.order == expected_commit_order)
+        else $fatal(1, "Commit order mismatch: got=%0d expected=%0d",
+                    commit.order, expected_commit_order);
+      assert (commit.pc[1:0] == 2'b00)
+        else $fatal(1, "Committed PC is misaligned: pc=0x%08h", commit.pc);
+      assert (!commit.rd_we || (commit.rd_addr != 5'd0))
+        else $fatal(1, "Commit interface attempted to write x0");
+      assert (!commit.trap || !commit.rd_we)
+        else $fatal(1, "Trapping instruction reported a register write");
+      assert (!commit.mem_we || (commit.mem_wmask != '0))
+        else $fatal(1, "Committed store has an empty write mask");
+      assert (!commit.mem_valid || commit.mem_we || (commit.mem_rmask != '0))
+        else $fatal(1, "Committed load has an empty read mask");
+      assert (!(commit.mem_rmask != '0 && commit.mem_wmask != '0))
+        else $fatal(1, "Commit record reports a simultaneous load and store");
+
+      expected_commit_order <= expected_commit_order + 64'd1;
+
+      if (TRACE_ENABLE) begin
+        $display("[COMMIT] order=%0d pc=0x%08h instr=0x%08h rd_we=%0b rd=%0d data=0x%08h mem=%0b/%0b addr=0x%08h trap=%0b cause=0x%08h",
+                 commit.order, commit.pc, commit.instr,
+                 commit.rd_we, commit.rd_addr, commit.rd_data,
+                 commit.mem_valid, commit.mem_we, commit.mem_addr,
+                 commit.trap, commit.trap_cause);
+      end
+    end
   end
   initial begin
     cycle_count = 0;
@@ -205,7 +249,7 @@ module tb_riscv_core;
   // WB Monitor (Updated for struct hierarchy)
   // ------------------------------------------------------------
   always_ff @(posedge clk) begin
-    if (rst_n) begin
+    if (rst_n && TRACE_ENABLE) begin
       $display("[WBPATH] cycle=%0d | ex2wb_in: valid=%0b we=%0b rd=%0d sel=%0d alu=0x%08h | ex2wb_out: valid=%0b we=%0b rd=%0d sel=%0d alu=0x%08h | final_wb: wen=%0b rd=%0d wdata=0x%08h",
                cycle_count,
                u_riscv.ex2wb_pkt_in.valid,
@@ -228,7 +272,7 @@ module tb_riscv_core;
   // ID/EX Monitor (Updated for struct hierarchy)
   // ------------------------------------------------------------
   always_ff @(posedge clk) begin
-    if (rst_n) begin
+    if (rst_n && TRACE_ENABLE) begin
       // 监控 ID 级输出 (即 id2ex 寄存器的输入)
       if (u_riscv.id2ex_pkt.valid) begin
         $display("[ID] cycle=%0d pc=0x%08h instr=0x%08h rd=%0d rf_we=%0b illegal=%0b ebreak=%0b",
@@ -272,7 +316,7 @@ module tb_riscv_core;
   // IF Monitor
   // ------------------------------------------------------------
   always_ff @(posedge clk) begin
-    if (rst_n && instr_ren) begin
+    if (rst_n && instr_ren && TRACE_ENABLE) begin
       $display("[IF] cycle=%0d pc=0x%08h instr=0x%08h",
                cycle_count, instr_addr, instr_rdata);
     end
@@ -284,8 +328,8 @@ module tb_riscv_core;
   always_ff @(posedge clk) begin
     if (rst_n) begin
       // 只有当控制信号有效（非全0）时才打印，避免刷屏
-      if (u_riscv.u_core_ctrl.pc_stall || u_riscv.u_core_ctrl.ifid_flush || 
-          u_riscv.u_core_ctrl.idex_flush || u_riscv.u_core_ctrl.pipe_kill) begin
+      if (TRACE_ENABLE && (u_riscv.u_core_ctrl.pc_stall || u_riscv.u_core_ctrl.ifid_flush ||
+          u_riscv.u_core_ctrl.idex_flush || u_riscv.u_core_ctrl.pipe_kill)) begin
         $display("[CTRL ] cycle=%0d | stall: pc=%0b ifid=%0b idex=%0b | flush: ifid=%0b idex=%0b | kill=%0b",
                  cycle_count,
                  u_riscv.u_core_ctrl.pc_stall,
@@ -295,27 +339,6 @@ module tb_riscv_core;
                  u_riscv.u_core_ctrl.idex_flush,
                  u_riscv.u_core_ctrl.pipe_kill);
       end
-    end
-  end
-
-  always @(posedge clk) begin
-    // 当流水线的 EX 级（执行级）正好在处理 0x1dc 这条指令时触发
-    if (rst_n && u_riscv.id2ex_pkt_out.pc == 32'h0000_01dc) begin
-      $display("===========================================");
-      $display("[SNIPER] Caught PC 0x1dc (BNE t0, sp)");
-      $display("[SNIPER] Cycle = %0d", cycle_count);
-      
-      // 注意：这里的信号路径需要根据你实际的 regfile 模块名稍微调整
-      // 通常是 u_riscv.u_regfile.regs[寄存器编号] 或者 u_riscv.u_regfile.rf_mem[编号]
-      // 如果下面两句报错说找不到信号，请去你的 riscv.sv 里找 regfile 的实例名和数组名
-      $display("[SNIPER] t0 (x5) = 0x%08h", u_riscv.u_regfile.regs[5]); 
-      $display("[SNIPER] sp (x2) = 0x%08h", u_riscv.u_regfile.regs[2]); 
-      
-      $display("===========================================");
-      
-      // 打印完直接停机，不用等 20000 个周期了
-      #100;
-      $finish;
     end
   end
 
