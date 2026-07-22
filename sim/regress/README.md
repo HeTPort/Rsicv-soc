@@ -12,6 +12,10 @@ logs, and returns a nonzero process status if any test fails.
 - `run_regression.cmd` - Command Prompt wrapper that bypasses script policy only
   for this one PowerShell process.
 - `build_tests_wsl.sh` - optional GNU-toolchain builder for assembly tests in WSL.
+- `elf_to_mem.py` - address-aware RV32 ELF to instruction/data RAM converter.
+- `import_act4.py` - converts ACT4 ELF directories and generates a manifest.
+- `build_act4_wsl.sh` - generates/imports ACT4 tests in WSL.
+- `run_act4.ps1` - convenience wrapper for imported ACT4 ELF directories.
 
 Generated files are kept outside the source directories:
 
@@ -97,6 +101,8 @@ Important JSON rules:
 - Commas separate properties and array elements, but JSON forbids a trailing
   comma after the final item.
 - `image` is relative to the repository root, not the launch directory.
+- Optional `data_image` initializes data RAM independently from instruction RAM.
+- Optional `tohost_addr` overrides the completion address for that test.
 - `timeout_cycles` bounds the test independently of host execution time.
 - Tags describe capabilities and allow one test to belong to several suites.
 
@@ -200,9 +206,11 @@ The corresponding SystemVerilog parameter declaration is:
 ```systemverilog
 module tb_riscv_core #(
   parameter string PROGRAM_FILE = "../testdata/prog.hex",
+  parameter string DATA_FILE = "",
   parameter bit TRACE_ENABLE = 1'b0,
   parameter bit DUMP_WAVES = 1'b0,
-  parameter int TIMEOUT_CYCLES = 20000
+  parameter int TIMEOUT_CYCLES = 20000,
+  parameter logic [31:0] TOHOST_ADDR = 32'h0000_1000
 );
 ```
 
@@ -271,8 +279,7 @@ Example:
 
 ## Scope and future adapters
 
-This runner is orchestration, not an official ISA test set. Future adapters can
-feed it ACT4/riscv-arch-test ELFs, legacy `riscv-tests`, randomized riscv-dv
-programs, or Spike comparison results. Those sources need a linker/memory-map
-adapter and, for differential checking, a richer RVFI-compatible commit trace.
-The basic compile/run/log/report layer should remain the same.
+This runner is orchestration, not an official ISA test set. The ACT4 adapter is
+documented in `verif/act4/README.md`. Future sources can include legacy
+`riscv-tests`, randomized riscv-dv programs, or Spike comparison results. The
+basic compile/run/log/report layer remains the same.

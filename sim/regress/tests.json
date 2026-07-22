@@ -1,7 +1,8 @@
 {
   "schema_version": 1,
   "defaults": {
-    "timeout_cycles": 20000
+    "timeout_cycles": 20000,
+    "tohost_addr": 4096
   },
   "tests": [
     {
@@ -39,6 +40,20 @@
       "image": "testdata/misaligned_sw_test.hex",
       "timeout_cycles": 1000,
       "tags": ["all", "smoke", "trap", "lsu"]
+    },
+    {
+      "name": "misa",
+      "image": "testdata/misa_test.hex",
+      "data_image": "testdata/misa_test_data.hex",
+      "timeout_cycles": 1000,
+      "tags": ["all", "smoke", "csr", "act4-readiness"]
+    },
+    {
+      "name": "act4_harness",
+      "image": "testdata/act4_harness_test.hex",
+      "timeout_cycles": 1000,
+      "tohost_addr": 16380,
+      "tags": ["all", "smoke", "act4-readiness"]
     },
     {
       "name": "mret",

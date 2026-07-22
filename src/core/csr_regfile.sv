@@ -53,9 +53,10 @@ module csr_regfile #(
   localparam logic [DW-1:0] MSTATUS_MPP_M = 2'b11 << MSTATUS_MPP_LO;
   localparam logic [DW-1:0] MSTATUS_RESET = MSTATUS_MPP_M;
 
-  // misa value: RV32IM
-  localparam logic [DW-1:0] MISA_VALUE = {2'b01, 4'b0000, 20'b0, 1'b0, 1'b0, 1'b0, 1'b1, 1'b0, 1'b0, 1'b0, 1'b1};
-  // Bit mapping: 31:30 MXL=01 (32-bit), 12=M, 8=I
+  // misa value: MXL=01 (RV32), M bit 12, I bit 8.
+  // Keep this explicit: the previous concatenation was 34 bits wide and was
+  // silently truncated when assigned to a 32-bit CSR.
+  localparam logic [DW-1:0] MISA_VALUE = DW'(32'h4000_1100);
 
   // ------------------------------------------------------------
   // CSR state
@@ -153,9 +154,11 @@ module csr_regfile #(
           CSR_MSTATUS:  mstatus_q  <= csr_wdata_i;
           CSR_MIE:      mie_q      <= csr_wdata_i;
           CSR_MIP:      mip_q      <= csr_wdata_i;
-          CSR_MTVEC:    mtvec_q    <= AW'(csr_wdata_i);
+          // This core supports mtvec direct mode only. IALIGN is 32 bits, so
+          // both mtvec and mepc retain word-aligned addresses.
+          CSR_MTVEC:    mtvec_q    <= {csr_wdata_i[AW-1:2], 2'b00};
           CSR_MSCRATCH: mscratch_q <= csr_wdata_i;
-          CSR_MEPC:     mepc_q     <= AW'(csr_wdata_i);
+          CSR_MEPC:     mepc_q     <= {csr_wdata_i[AW-1:2], 2'b00};
           CSR_MCAUSE:   mcause_q   <= csr_wdata_i;
           CSR_MTVAL:    mtval_q    <= csr_wdata_i;
           default: ; // read-only or unimplemented

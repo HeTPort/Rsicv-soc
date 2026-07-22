@@ -1,0 +1,13 @@
+name: rsicv-soc-rv32im
+compiler_exe: riscv64-unknown-elf-gcc
+objdump_exe: riscv64-unknown-elf-objdump
+ref_model_exe: sail_riscv_sim
+ref_model_type: sail
+udb_config: rv32im_core.yaml
+linker_script: link.ld
+dut_include_dir: .
+
+# The first integration milestone covers unprivileged I/M instructions.
+# Enable privileged tests only after CSR legality and interrupt behavior are
+# completed and reflected in the UDB configuration below.
+include_priv_tests: false

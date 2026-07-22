@@ -49,7 +49,8 @@ if ($manifestData.schema_version -ne 1) {
 $allTests = @($manifestData.tests)
 if ($List) {
     $allTests |
-        Select-Object name, image, timeout_cycles, @{Name="tags"; Expression={ $_.tags -join "," }} |
+        Select-Object name, image, data_image, timeout_cycles,
+            @{Name="tags"; Expression={ $_.tags -join "," }} |
         Format-Table -AutoSize
     exit 0
 }
@@ -129,10 +130,28 @@ try {
             throw "Test image not found for '$testName': $imagePath"
         }
 
+        $dataImagePath = ""
+        if ($null -ne $testCase.PSObject.Properties["data_image"] -and
+            -not [string]::IsNullOrWhiteSpace([string]$testCase.data_image)) {
+            $dataImagePath = [System.IO.Path]::GetFullPath(
+                (Join-Path $repoRoot ([string]$testCase.data_image)))
+            if (-not (Test-Path -LiteralPath $dataImagePath -PathType Leaf)) {
+                throw "Data image not found for '$testName': $dataImagePath"
+            }
+        }
+
         if ($null -ne $testCase.PSObject.Properties["timeout_cycles"]) {
             $timeoutCycles = [int]$testCase.timeout_cycles
         } else {
             $timeoutCycles = [int]$manifestData.defaults.timeout_cycles
+        }
+
+        if ($null -ne $testCase.PSObject.Properties["tohost_addr"]) {
+            $tohostAddr = [uint32]$testCase.tohost_addr
+        } elseif ($null -ne $manifestData.defaults.PSObject.Properties["tohost_addr"]) {
+            $tohostAddr = [uint32]$manifestData.defaults.tohost_addr
+        } else {
+            $tohostAddr = [uint32]4096
         }
 
         $modelSimImagePath = $imagePath.Replace("\", "/")
@@ -142,8 +161,15 @@ try {
             "-voptargs=+acc",
             "-gPROGRAM_FILE=$modelSimImagePath",
             "-gTIMEOUT_CYCLES=$timeoutCycles",
+            "-gTOHOST_ADDR=$tohostAddr",
             "-gTRACE_ENABLE=$([int][bool]$Trace)",
-            "-gDUMP_WAVES=$([int][bool]$DumpWaves)",
+            "-gDUMP_WAVES=$([int][bool]$DumpWaves)"
+        )
+        if (-not [string]::IsNullOrWhiteSpace($dataImagePath)) {
+            $modelSimDataImagePath = $dataImagePath.Replace("\", "/")
+            $vsimArgs += "-gDATA_FILE=$modelSimDataImagePath"
+        }
+        $vsimArgs += @(
             "work.tb_riscv_core",
             "-do", "run -all; quit -f"
         )

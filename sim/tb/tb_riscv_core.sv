@@ -8,9 +8,11 @@ import riscv_pkg::*;
 // ============================================================
 module tb_riscv_core #(
   parameter string PROGRAM_FILE = "../testdata/prog.hex",
+  parameter string DATA_FILE = "",
   parameter bit TRACE_ENABLE = 1'b0,
   parameter bit DUMP_WAVES = 1'b0,
-  parameter int TIMEOUT_CYCLES = 20000
+  parameter int TIMEOUT_CYCLES = 20000,
+  parameter logic [31:0] TOHOST_ADDR = 32'h0000_1000
 );
   localparam int AW = 32;
   localparam int DW = 32;
@@ -59,7 +61,7 @@ module tb_riscv_core #(
     .AW(AW),
     .DW(DW),
     .DATA_RAM_DEPTH(DATA_RAM_DEPTH),
-    .INIT_DATA_FILE("")
+    .INIT_DATA_FILE(DATA_FILE)
   ) u_riscv (
     .clk_i           (clk),
     .rst_ni          (rst_n),
@@ -180,7 +182,6 @@ module tb_riscv_core #(
   // ------------------------------------------------------------
   // Memory-mapped tohost exit monitor (standard RISC-V test convention)
   // ------------------------------------------------------------
-  localparam logic [AW-1:0] TOHOST_ADDR = 32'h0000_1000;
   logic [DW-1:0] tohost_val;
   logic          tohost_seen;
 
@@ -191,8 +192,9 @@ module tb_riscv_core #(
       tohost_val <= '0;
       tohost_seen <= 1'b0;
     end else begin
-      if (u_riscv.u_lsu.ram_we_o && (u_riscv.u_lsu.ram_addr_o == TOHOST_ADDR)) begin
-        tohost_val  <= u_riscv.u_lsu.ram_wdata_o;
+      if (commit.valid && commit.mem_valid && commit.mem_we &&
+          (commit.mem_addr == TOHOST_ADDR)) begin
+        tohost_val  <= commit.mem_wdata;
         tohost_seen <= 1'b1;
       end
     end
