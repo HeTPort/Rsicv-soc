@@ -102,14 +102,17 @@ Still missing:
 
 **Purpose:** make failures introduced by the SoC work easy to identify.
 
-- [ ] Review and checkpoint the current uncommitted regression, ACT4 adapter,
+- [x] Review and checkpoint the current uncommitted regression, ACT4 adapter,
   CSR, testbench, and test-image changes.
-- [ ] Run and archive the complete directed regression summary.
-- [ ] Run the ELF/importer unit tests and archive their summary.
-- [ ] Record the tool versions used: ModelSim/Questa, Python, WSL Ubuntu,
+- [x] Run and archive the complete directed regression summary.
+- [x] Run the ELF/importer unit tests and archive their summary.
+- [x] Record the tool versions used: ModelSim/Questa, Python, WSL Ubuntu,
   RISC-V GNU toolchain, Spike, and Vivado.
-- [ ] Remove generated build/log files from source control while retaining
+- [x] Remove generated build/log files from source control while retaining
   reproducible scripts and manifests.
+
+Baseline evidence is archived in
+[`doc/PHASE0_BASELINE_2026-07-24.md`](doc/PHASE0_BASELINE_2026-07-24.md).
 
 Baseline commands on Windows:
 
