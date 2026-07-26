@@ -78,6 +78,24 @@
       "image": "testdata/precise_trap_store_squash_test.hex",
       "timeout_cycles": 1000,
       "tags": ["all", "smoke", "trap", "lsu", "store", "precise"]
+    },
+    {
+      "name": "inst_misaligned_branch",
+      "image": "testdata/inst_misaligned_branch_test.hex",
+      "timeout_cycles": 1000,
+      "tags": ["development", "known-fail", "trap", "branch", "precise"]
+    },
+    {
+      "name": "inst_misaligned_jal",
+      "image": "testdata/inst_misaligned_jal_test.hex",
+      "timeout_cycles": 1000,
+      "tags": ["development", "known-fail", "trap", "jal", "precise"]
+    },
+    {
+      "name": "inst_misaligned_jalr",
+      "image": "testdata/inst_misaligned_jalr_test.hex",
+      "timeout_cycles": 1000,
+      "tags": ["development", "known-fail", "trap", "jalr", "precise"]
     }
   ]
 }
