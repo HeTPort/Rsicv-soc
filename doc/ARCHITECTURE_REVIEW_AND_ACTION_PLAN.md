@@ -67,6 +67,12 @@ Exit criteria:
 
 ### AR-001 — A killed CSR packet can still write a CSR
 
+**Progress:** the reproduced CSR corruption is fixed and retained as a smoke
+regression. See
+[`AR001_PRECISE_CSR_SQUASH_FIX.md`](AR001_PRECISE_CSR_SQUASH_FIX.md) for the
+RED/GREEN evidence. The broader GPR/store and retirement-ownership work below
+remains open.
+
 **Evidence**
 
 - [`wb_csr_we`](../src/core/riscv.sv#L148) uses `csr.valid` without also
@@ -88,8 +94,8 @@ Exit criteria:
 
 **Handling**
 
-- [ ] Define `wb_csr_we` as `packet.valid && packet.csr.valid && !trap`.
-- [ ] Prefer clearing the complete EX/WB packet on a kill rather than maintaining
+- [x] Define `wb_csr_we` as `packet.valid && packet.csr.valid && !trap`.
+- [x] Prefer clearing the complete EX/WB packet on a kill rather than maintaining
       a growing list of individually masked fields.
 - [ ] Route CSR write information through one owner, either `wb_stage` or a new
       retirement block; remove the duplicate top-level derivation.
@@ -98,9 +104,14 @@ Exit criteria:
 
 **Required tests**
 
-- [ ] Trap followed by younger `csrw`; confirm the CSR is unchanged.
+- [x] Trap followed by younger `csrw`; confirm the CSR is unchanged.
 - [ ] Trap followed by younger GPR write and store; confirm both are suppressed.
 - [ ] Assertion: an invalid EX/WB packet never enables RF, CSR, or memory writes.
+
+Implemented now: focused assertions prevent an invalid packet from enabling a
+CSR write and check that `pipe_kill` clears the younger packet's RF/CSR/memory
+side-effect controls and suppresses its LSU request. The broader common
+retirement assertion remains open with the GPR/store audit.
 
 ### AR-002 — Pipeline bubbles do not clear all packet fields
 

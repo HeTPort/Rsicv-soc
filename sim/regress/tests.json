@@ -65,7 +65,7 @@
       "name": "precise_trap_csr_squash",
       "image": "testdata/precise_trap_csr_squash_test.hex",
       "timeout_cycles": 1000,
-      "tags": ["development", "known-fail", "trap", "csr", "precise"]
+      "tags": ["all", "smoke", "trap", "csr", "precise"]
     }
   ]
 }

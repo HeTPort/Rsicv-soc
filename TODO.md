@@ -128,6 +128,28 @@ build directory.
 
 ---
 
+## Phase 0A — Make retirement and pipeline side effects precise
+
+**Purpose:** close the correctness gap identified by the architecture review
+before a wait-state bus or asynchronous interrupts make the same failures more
+difficult to isolate.
+
+- [x] Reproduce AR-001 with a trap immediately followed by a younger CSR write.
+- [x] Require packet validity for CSR writes and clear the complete younger
+  EX/WB packet on `pipe_kill`.
+- [x] Promote the precise CSR squash regression into the smoke suite.
+- [x] Record the RED/GREEN evidence in
+  [`doc/AR001_PRECISE_CSR_SQUASH_FIX.md`](doc/AR001_PRECISE_CSR_SQUASH_FIX.md).
+- [ ] Test a trap followed by a younger GPR write and a younger store.
+- [ ] Make every reset and flush produce a completely initialized packet bubble.
+- [ ] Complete the remaining Phase 0A exit criteria in
+  [`doc/ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md`](doc/ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md).
+
+Current verification after the AR-001 CSR fix: directed smoke **10/10 passed**
+and regression utility tests **4/4 passed**.
+
+---
+
 ## Continuous Track A — Finish official ACT4 RV32IM coverage
 
 **Purpose:** prove instruction semantics independently of FreeRTOS behavior.

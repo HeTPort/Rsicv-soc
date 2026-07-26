@@ -145,7 +145,9 @@ module riscv #(
   logic [DW-1:0] wb_csr_wdata;
   logic [AW-1:0] csr_mepc_for_ex;
 
-  assign wb_csr_we    = wb_trap_event ? 1'b0 : ex2wb_pkt_out.csr.valid;
+  assign wb_csr_we    = ex2wb_pkt_out.valid &&
+                        ex2wb_pkt_out.csr.valid &&
+                        !wb_trap_event;
   assign wb_csr_addr  = ex2wb_pkt_out.csr.addr;
   assign wb_csr_wdata = ex2wb_pkt_out.csr.wdata;
   // MRET may immediately follow a write to mepc. Forward the WB value so
@@ -323,16 +325,28 @@ module riscv #(
     ex2wb_pkt_in_safe.mem_addr  = ram_addr;
     ex2wb_pkt_in_safe.mem_wdata = ram_wdata;
     ex2wb_pkt_in_safe.mem_wstrb = ram_wstrb;
-    if (pipe_kill) begin
-      ex2wb_pkt_in_safe.valid             = 1'b0;
-      ex2wb_pkt_in_safe.rf.we             = 1'b0;
-      ex2wb_pkt_in_safe.exc.illegal_instr = 1'b0;
-      ex2wb_pkt_in_safe.exc.ecall         = 1'b0;
-      ex2wb_pkt_in_safe.exc.ebreak        = 1'b0;
-      ex2wb_pkt_in_safe.mem_misaligned    = 1'b0;
-      ex2wb_pkt_in_safe.mem_valid         = 1'b0;
+    if (pipe_kill)
+      ex2wb_pkt_in_safe = '0;
+  end
+
+`ifndef SYNTHESIS
+  always @(posedge clk_i) begin
+    if (rst_ni) begin
+      assert (!(wb_csr_we && !ex2wb_pkt_out.valid))
+        else $error("Invalid EX/WB packet enabled a CSR write");
+
+      if (pipe_kill) begin
+        assert (!(ex2wb_pkt_in_safe.valid ||
+                  ex2wb_pkt_in_safe.rf.we ||
+                  ex2wb_pkt_in_safe.csr.valid ||
+                  ex2wb_pkt_in_safe.mem_valid))
+          else $error("Pipeline kill did not clear EX/WB side effects");
+        assert (!ram_req_valid)
+          else $error("Pipeline kill did not suppress the LSU request");
+      end
     end
   end
+`endif
 
   // ============================================================
   // 10. Data RAM (only LSU talks to it)
