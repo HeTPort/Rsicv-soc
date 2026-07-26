@@ -140,12 +140,13 @@ difficult to isolate.
 - [x] Promote the precise CSR squash regression into the smoke suite.
 - [x] Record the RED/GREEN evidence in
   [`doc/AR001_PRECISE_CSR_SQUASH_FIX.md`](doc/AR001_PRECISE_CSR_SQUASH_FIX.md).
-- [ ] Test a trap followed by a younger GPR write and a younger store.
+- [x] Test a trap followed by a younger GPR write and a younger store.
 - [ ] Make every reset and flush produce a completely initialized packet bubble.
 - [ ] Complete the remaining Phase 0A exit criteria in
   [`doc/ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md`](doc/ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md).
 
-Current verification after the AR-001 CSR fix: directed smoke **10/10 passed**
+Current verification after the AR-001 side-effect tests: directed smoke
+**12/12 passed**
 and regression utility tests **4/4 passed**.
 
 ---

@@ -115,8 +115,11 @@ Full directed smoke regression:
 ./run_regression.ps1 -Tag smoke
 ```
 
-Result: **10/10 passed**, including the promoted
-`precise_trap_csr_squash` test.
+Result after adding the GPR/store squash coverage: **12/12 passed**, including:
+
+- `precise_trap_csr_squash`;
+- `precise_trap_gpr_squash`;
+- `precise_trap_store_squash`.
 
 Regression utility unit tests:
 
@@ -128,12 +131,11 @@ Result: **4/4 passed**.
 
 ## What this result proves
 
-For the reproduced AR-001 sequence, a trap-killed younger CSR instruction
-cannot update architectural CSR state. The focused test will run in every
-future smoke regression.
+For the reproduced AR-001 sequences, trap-killed younger instructions cannot
+update CSR state, a GPR, or data memory. All three focused tests will run in
+every future smoke regression.
 
-This result does not yet prove every Phase 0A side-effect case. The next
-directed work should cover a trap followed by a younger GPR write and a younger
-store, followed by consolidation of retirement-side-effect ownership. Those
-items remain open in
+This result does not yet prove every Phase 0A side-effect case. Consolidation of
+retirement-side-effect ownership and a common invalid-packet assertion remain
+open in
 [`ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md`](ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md).

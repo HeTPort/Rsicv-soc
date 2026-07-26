@@ -66,6 +66,18 @@
       "image": "testdata/precise_trap_csr_squash_test.hex",
       "timeout_cycles": 1000,
       "tags": ["all", "smoke", "trap", "csr", "precise"]
+    },
+    {
+      "name": "precise_trap_gpr_squash",
+      "image": "testdata/precise_trap_gpr_squash_test.hex",
+      "timeout_cycles": 1000,
+      "tags": ["all", "smoke", "trap", "gpr", "precise"]
+    },
+    {
+      "name": "precise_trap_store_squash",
+      "image": "testdata/precise_trap_store_squash_test.hex",
+      "timeout_cycles": 1000,
+      "tags": ["all", "smoke", "trap", "lsu", "store", "precise"]
     }
   ]
 }

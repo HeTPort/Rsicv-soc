@@ -70,8 +70,8 @@ Exit criteria:
 **Progress:** the reproduced CSR corruption is fixed and retained as a smoke
 regression. See
 [`AR001_PRECISE_CSR_SQUASH_FIX.md`](AR001_PRECISE_CSR_SQUASH_FIX.md) for the
-RED/GREEN evidence. The broader GPR/store and retirement-ownership work below
-remains open.
+RED/GREEN evidence. Directed CSR, GPR, and store squash cases are now covered;
+the broader retirement-ownership work below remains open.
 
 **Evidence**
 
@@ -105,13 +105,13 @@ remains open.
 **Required tests**
 
 - [x] Trap followed by younger `csrw`; confirm the CSR is unchanged.
-- [ ] Trap followed by younger GPR write and store; confirm both are suppressed.
+- [x] Trap followed by younger GPR write and store; confirm both are suppressed.
 - [ ] Assertion: an invalid EX/WB packet never enables RF, CSR, or memory writes.
 
 Implemented now: focused assertions prevent an invalid packet from enabling a
 CSR write and check that `pipe_kill` clears the younger packet's RF/CSR/memory
 side-effect controls and suppresses its LSU request. The broader common
-retirement assertion remains open with the GPR/store audit.
+retirement assertion remains open with the ownership audit.
 
 ### AR-002 — Pipeline bubbles do not clear all packet fields
 
