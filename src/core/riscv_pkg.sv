@@ -36,6 +36,8 @@ package riscv_pkg;
   localparam int unsigned REG_NUM    = 32;
   localparam int unsigned REG_ADDR_W = 5; // $clog2(32)
   localparam int unsigned BYTE_NUM   = DW / 8;
+  localparam int unsigned IALIGN_BITS = 32;
+  localparam int unsigned IALIGN_LSB  = $clog2(IALIGN_BITS / 8);
 
   // Shift amount width: 5 bits for RV32, 6 bits for RV64
   localparam int SHAMT_W    = (XLEN == 64) ? 6 : 5; // Shift amount width
@@ -368,6 +370,7 @@ package riscv_pkg;
     logic [AW-1:0] mem_addr;
     logic [DW-1:0] mem_wdata;
     logic [DW/8-1:0] mem_wstrb;
+    logic          instr_misaligned; // Taken control-flow target violates IALIGN
     logic          mem_misaligned; // EX 阶段新增的异常
     exc_pkt_t      exc;         // 包含 illegal_instr, ecall, ebreak
     csr_pkt_t      csr;         // CSR 指令信息

@@ -130,6 +130,44 @@ module execute #(
   end
 
   // ------------------------------------------------------------
+  // Resolved branch/jump target and IALIGN=32 check
+  // ------------------------------------------------------------
+  logic          control_transfer;
+  logic [AW-1:0] control_target;
+  logic          instr_misaligned;
+
+  always_comb begin
+    control_transfer = 1'b0;
+    control_target   = '0;
+
+    if (branch_taken) begin
+      control_transfer = 1'b1;
+      control_target   = pc_i + imm_i[AW-1:0];
+    end
+    else begin
+      unique case (jump_op_i)
+        JMP_JAL: begin
+          control_transfer = 1'b1;
+          control_target   = pc_i + imm_i[AW-1:0];
+        end
+        JMP_JALR: begin
+          control_transfer = 1'b1;
+          control_target   = {eff_addr[AW-1:1], 1'b0};
+        end
+        default: begin
+          control_transfer = 1'b0;
+          control_target   = '0;
+        end
+      endcase
+    end
+  end
+
+  assign instr_misaligned =
+      valid_i &&
+      control_transfer &&
+      (control_target[IALIGN_LSB-1:0] != '0);
+
+  // ------------------------------------------------------------
   // RV32M combinational multiply/divide
   // ------------------------------------------------------------
   logic signed [DW-1:0] signed_op1;
@@ -245,9 +283,11 @@ module execute #(
       illegal_instr_i |
       ecall_i |
       ebreak_i |
+      instr_misaligned |
       mem_misaligned_i;
 
-  logic          wb_valid_o, wb_rf_wen_o, wb_illegal_instr_o, wb_ecall_o, wb_ebreak_o, wb_mem_misaligned_o;
+  logic          wb_valid_o, wb_rf_wen_o, wb_illegal_instr_o, wb_ecall_o, wb_ebreak_o;
+  logic          wb_instr_misaligned_o, wb_mem_misaligned_o;
   logic [4:0]    wb_rf_waddr_o;
   wb_sel_e       wb_sel_o;
   logic [DW-1:0] wb_alu_data_o, wb_pc4_data_o;
@@ -271,6 +311,7 @@ module execute #(
     wb_illegal_instr_o  = valid_i && illegal_instr_i;
     wb_ecall_o          = valid_i && ecall_i;
     wb_ebreak_o         = valid_i && ebreak_i;
+    wb_instr_misaligned_o = instr_misaligned;
     wb_mem_misaligned_o = valid_i && mem_misaligned_i;
     wb_trap_pc_o        = pc_i;
     wb_trap_cause_o     = '0;
@@ -301,34 +342,12 @@ module execute #(
         redirect_pc_o = mepc_i;
         flush_req_o   = 1'b1;
       end
-      // Branch redirect
-      else if (branch_taken) begin
+      // Taken branch or jump redirect. A misaligned target is excluded by
+      // exception_like and therefore cannot redirect or write its link register.
+      else if (control_transfer) begin
         redirect_en_o = 1'b1;
-        redirect_pc_o = pc_i + imm_i[AW-1:0];
+        redirect_pc_o = control_target;
         flush_req_o   = 1'b1;
-      end
-      // Jump redirect
-      else begin
-        unique case (jump_op_i)
-          JMP_NONE: begin
-            // no jump
-          end
-          JMP_JAL: begin
-            redirect_en_o = 1'b1;
-            redirect_pc_o = pc_i + imm_i[AW-1:0];
-            flush_req_o   = 1'b1;
-          end
-          JMP_JALR: begin
-            redirect_en_o = 1'b1;
-            redirect_pc_o = {eff_addr[AW-1:1], 1'b0};
-            flush_req_o   = 1'b1;
-          end
-          default: begin
-            redirect_en_o = 1'b0;
-            redirect_pc_o = '0;
-            flush_req_o   = 1'b0;
-          end
-        endcase
       end
     end else begin
       wb_rf_wen_o = 1'b0;
@@ -338,6 +357,9 @@ module execute #(
         if (illegal_instr_i) begin
           wb_trap_cause_o = MCAUSE_ILLEGAL_INST;
           wb_trap_val_o   = instr_i;
+        end else if (instr_misaligned) begin
+          wb_trap_cause_o = MCAUSE_INST_MISALIGNED;
+          wb_trap_val_o   = DW'(control_target);
         end else if (ebreak_i) begin
           wb_trap_cause_o = MCAUSE_BREAKPOINT;
           wb_trap_val_o   = DW'(pc_i);
@@ -368,6 +390,7 @@ module execute #(
   assign pkt_exe_o.mem_addr            = '0;
   assign pkt_exe_o.mem_wdata           = '0;
   assign pkt_exe_o.mem_wstrb           = '0;
+  assign pkt_exe_o.instr_misaligned    = wb_instr_misaligned_o;
   assign pkt_exe_o.mem_misaligned      = wb_mem_misaligned_o;
   assign pkt_exe_o.exc.illegal_instr   = wb_illegal_instr_o;
   assign pkt_exe_o.exc.ecall           = wb_ecall_o;

@@ -11,6 +11,7 @@
  *   4 = wrong mtval
  *   5 = destination register was written
  *   6 = execution continued after the misaligned JALR
+ *   7 = JALR bit-zero clearing did not execute normally
  */
 
 .option norvc
@@ -25,6 +26,22 @@ _start:
     csrw    mtvec, x5
 
     li      x20, SENTINEL
+
+    /*
+     * A raw target with only bit zero set is legal for JALR because JALR clears
+     * that bit before checking instruction alignment.
+     */
+    li      x21, 0
+    la      x6, _bit_zero_cleared_target
+    addi    x6, x6, 1
+    jalr    x0, 0(x6)
+    li      x10, 7
+    j       _report
+
+.balign 4
+_bit_zero_cleared_target:
+    li      x21, 1
+
     la      x6, _misaligned_jalr
     addi    x6, x6, 2
     nop
@@ -53,6 +70,9 @@ _trap_handler:
     li      x9, SENTINEL
     bne     x20, x9, _fail_rd
 
+    li      x9, 1
+    bne     x21, x9, _fail_bit_zero
+
 _pass:
     li      x10, 1
     j       _report
@@ -71,6 +91,10 @@ _fail_mtval:
 
 _fail_rd:
     li      x10, 5
+    j       _report
+
+_fail_bit_zero:
+    li      x10, 7
 
 _report:
     li      x5, TOHOST

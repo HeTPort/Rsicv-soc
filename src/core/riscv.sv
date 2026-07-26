@@ -94,7 +94,8 @@ module riscv #(
 
   assign wb_trap_event = ex2wb_pkt_out.valid &&
       (ex2wb_pkt_out.exc.illegal_instr || ex2wb_pkt_out.exc.ecall ||
-       ex2wb_pkt_out.exc.ebreak || ex2wb_pkt_out.mem_misaligned);
+       ex2wb_pkt_out.exc.ebreak || ex2wb_pkt_out.instr_misaligned ||
+       ex2wb_pkt_out.mem_misaligned);
   assign wb_mret_event = ex2wb_pkt_out.valid && ex2wb_pkt_out.is_mret;
 
   assign trap_redirect_en = wb_trap_event;
@@ -194,6 +195,8 @@ module riscv #(
       $info("RV32IM core ECALL detected; entering trap handler");
     if (ex2wb_pkt_out.valid && ex2wb_pkt_out.exc.ebreak)
       $info("RV32IM core EBREAK detected; entering trap handler");
+    if (ex2wb_pkt_out.valid && ex2wb_pkt_out.instr_misaligned)
+      $info("RV32IM core instruction-address misalignment detected; entering trap handler");
     if (ex2wb_pkt_out.valid && ex2wb_pkt_out.mem_misaligned)
       $info("RV32IM core memory misaligned access detected; entering trap handler");
   end
@@ -429,6 +432,15 @@ module riscv #(
       if (!id2ex_pkt_out.valid) begin
         assert (!(ram_req_valid || ram_we || ex_redirect_en || ex_flush_req))
           else $error("Invalid ID/EX packet caused an EX-stage side effect");
+      end
+
+      if (ex2wb_pkt_in.instr_misaligned) begin
+        assert (!(ex_redirect_en || ex_flush_req || ex2wb_pkt_in.rf.we))
+          else $error("Misaligned control transfer was not suppressed");
+        assert (ex2wb_pkt_in.trap_cause == MCAUSE_INST_MISALIGNED)
+          else $error("Misaligned control transfer has the wrong trap cause");
+        assert (ex2wb_pkt_in.trap_val[IALIGN_LSB-1:0] != '0)
+          else $error("Misaligned control transfer has an aligned trap value");
       end
 
       if (!ex2wb_pkt_out.valid) begin

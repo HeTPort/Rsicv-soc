@@ -82,7 +82,7 @@ Implemented:
   completion checking.
 - [x] ELF-to-memory converter and ACT4 import/runner adapters.
 - [x] Synthetic ACT4 harness smoke test.
-- [x] Existing directed regression last verified at 9/9 passing, with converter
+- [x] Existing directed regression last verified at 15/15 passing, with converter
   tests at 4/4 passing.
 
 Still missing:
@@ -145,11 +145,14 @@ difficult to isolate.
 - [x] Record the AR-002 implementation problems, handling decisions, and
   reusable principles in
   [`doc/AR002_CANONICAL_PIPELINE_BUBBLES.md`](doc/AR002_CANONICAL_PIPELINE_BUBBLES.md).
+- [x] Implement precise IALIGN=32 traps for taken branch, JAL, and JALR targets.
+- [x] Record AR-006 implementation and verification evidence in
+  [`doc/AR006_CONTROL_FLOW_MISALIGNMENT.md`](doc/AR006_CONTROL_FLOW_MISALIGNMENT.md).
 - [ ] Complete the remaining Phase 0A exit criteria in
   [`doc/ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md`](doc/ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md).
 
-Current verification after the AR-001 side-effect tests: directed smoke
-**12/12 passed**
+Current verification after the AR-006 control-flow tests: directed smoke
+**15/15 passed**
 and regression utility tests **4/4 passed**.
 
 ---
@@ -189,6 +192,10 @@ ACT4 remains active throughout all later phases; it is not a one-time task.
 
 **Purpose:** freeze the memory map and bus behavior before writing peripherals
 or software.
+
+The design rules, transaction invariants, unresolved topology decision, and
+freeze criteria are recorded in
+[`doc/MEMORY_MAP_CONTRACT_DESIGN_GUIDE.md`](doc/MEMORY_MAP_CONTRACT_DESIGN_GUIDE.md).
 
 Provisional memory map:
 

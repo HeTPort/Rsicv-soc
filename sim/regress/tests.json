@@ -83,19 +83,19 @@
       "name": "inst_misaligned_branch",
       "image": "testdata/inst_misaligned_branch_test.hex",
       "timeout_cycles": 1000,
-      "tags": ["development", "known-fail", "trap", "branch", "precise"]
+      "tags": ["all", "smoke", "trap", "branch", "precise"]
     },
     {
       "name": "inst_misaligned_jal",
       "image": "testdata/inst_misaligned_jal_test.hex",
       "timeout_cycles": 1000,
-      "tags": ["development", "known-fail", "trap", "jal", "precise"]
+      "tags": ["all", "smoke", "trap", "jal", "precise"]
     },
     {
       "name": "inst_misaligned_jalr",
       "image": "testdata/inst_misaligned_jalr_test.hex",
       "timeout_cycles": 1000,
-      "tags": ["development", "known-fail", "trap", "jalr", "precise"]
+      "tags": ["all", "smoke", "trap", "jalr", "precise"]
     }
   ]
 }

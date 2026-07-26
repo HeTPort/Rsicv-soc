@@ -56,7 +56,7 @@ Exit criteria:
 - [ ] A memory instruction advances to WB exactly once, including with wait
       states.
 - [ ] Load response data and fault status are registered with their instruction.
-- [ ] Taken branch/JAL/JALR instruction-address misalignment traps correctly.
+- [x] Taken branch/JAL/JALR instruction-address misalignment traps correctly.
 - [ ] Implemented CSR addresses and legal write/no-write behavior are explicit.
 - [ ] Back-to-back CSR dependencies return the newest architectural value.
 - [ ] Instruction fetch is verified against the memory latency that Vivado will
@@ -239,6 +239,10 @@ with the current request PC because of nonblocking clocked-update timing.
 
 ### AR-006 — Taken control-flow targets do not check IALIGN=32
 
+**Status:** fixed and verified. See
+[`AR006_CONTROL_FLOW_MISALIGNMENT.md`](AR006_CONTROL_FLOW_MISALIGNMENT.md) for
+the RED/GREEN evidence, handling decisions, and reusable principles.
+
 **Evidence**
 
 The redirect paths in [`execute.sv`](../src/core/execute.sv#L298) generate branch,
@@ -252,19 +256,19 @@ bit zero, but bit one can remain set.
 
 **Handling**
 
-- [ ] Compute the resolved target before redirect arbitration.
-- [ ] For a taken branch, JAL, or JALR, detect `target[1:0] != 0`.
-- [ ] Suppress the redirect and RF writeback for the faulting instruction.
-- [ ] Report instruction-address-misaligned cause, faulting instruction PC in
+- [x] Compute the resolved target before redirect arbitration.
+- [x] For a taken branch, JAL, or JALR, detect `target[1:0] != 0`.
+- [x] Suppress the redirect and RF writeback for the faulting instruction.
+- [x] Report instruction-address-misaligned cause, faulting instruction PC in
       `mepc`, and the target address in `mtval` according to the selected
       architectural policy.
 
 **Required tests**
 
-- [ ] Taken and not-taken branch with a misaligned encoded target.
-- [ ] Misaligned JAL target.
-- [ ] JALR target with bit one set.
-- [ ] Confirm the destination register is not written on the exception.
+- [x] Taken and not-taken branch with a misaligned encoded target.
+- [x] Misaligned JAL target.
+- [x] JALR target with bit one set.
+- [x] Confirm the destination register is not written on the exception.
 
 ### AR-007 — CSR legality, no-write semantics, and hazards are incomplete
 

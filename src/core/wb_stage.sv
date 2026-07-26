@@ -27,7 +27,8 @@ module wb_stage #(
   output logic [DW-1:0] trap_val_o
 );
 
-  logic          valid_i, rf_wen_i, illegal_instr_i, ecall_i, ebreak_i, mem_misaligned_i;
+  logic          valid_i, rf_wen_i, illegal_instr_i, ecall_i, ebreak_i;
+  logic          instr_misaligned_i, mem_misaligned_i;
   logic [4:0]    rf_waddr_i;
   wb_sel_e       wb_sel_i;
   logic [DW-1:0] alu_data_i, pc4_data_i;
@@ -41,6 +42,7 @@ module wb_stage #(
   assign illegal_instr_i  = pkt_wb_i.exc.illegal_instr;
   assign ecall_i          = pkt_wb_i.exc.ecall;
   assign ebreak_i         = pkt_wb_i.exc.ebreak;
+  assign instr_misaligned_i = pkt_wb_i.instr_misaligned;
   assign mem_misaligned_i = pkt_wb_i.mem_misaligned;
 
   // CSR / trap outputs
@@ -64,6 +66,7 @@ module wb_stage #(
         !illegal_instr_i &&
         !ecall_i &&
         !ebreak_i &&
+        !instr_misaligned_i &&
         !mem_misaligned_i) begin
       unique case (wb_sel_i)
         WB_NONE: begin
