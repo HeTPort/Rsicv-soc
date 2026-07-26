@@ -377,6 +377,12 @@ package riscv_pkg;
     logic          is_mret;     // Instruction is mret
   } ex_wb_pkt_t;
 
+  // Canonical pipeline bubbles. All-zero packets make every control and
+  // side-effect field safe, and automatically cover fields added in the future.
+  localparam fetch_pkt_t FETCH_PKT_BUBBLE = '0;
+  localparam id_ex_pkt_t ID_EX_PKT_BUBBLE = '0;
+  localparam ex_wb_pkt_t EX_WB_PKT_BUBBLE = '0;
+
   // Stable architectural completion record for verification/co-simulation.
   // A trapped instruction is reported with valid=1, trap=1, and rd_we=0.
   typedef struct packed {

@@ -141,7 +141,10 @@ difficult to isolate.
 - [x] Record the RED/GREEN evidence in
   [`doc/AR001_PRECISE_CSR_SQUASH_FIX.md`](doc/AR001_PRECISE_CSR_SQUASH_FIX.md).
 - [x] Test a trap followed by a younger GPR write and a younger store.
-- [ ] Make every reset and flush produce a completely initialized packet bubble.
+- [x] Make every reset and flush produce a completely initialized packet bubble.
+- [x] Record the AR-002 implementation problems, handling decisions, and
+  reusable principles in
+  [`doc/AR002_CANONICAL_PIPELINE_BUBBLES.md`](doc/AR002_CANONICAL_PIPELINE_BUBBLES.md).
 - [ ] Complete the remaining Phase 0A exit criteria in
   [`doc/ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md`](doc/ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md).
 

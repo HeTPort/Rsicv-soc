@@ -47,6 +47,7 @@ module riscv #(
   logic [DW-1:0] id_rs1_rdata;
   logic [DW-1:0] id_rs2_rdata;
   logic          wb_rf_wen;
+  logic          wb_rf_wen_safe;
   logic [4:0]    wb_rf_waddr;
   logic [DW-1:0] wb_rf_wdata;
 
@@ -326,7 +327,7 @@ module riscv #(
     ex2wb_pkt_in_safe.mem_wdata = ram_wdata;
     ex2wb_pkt_in_safe.mem_wstrb = ram_wstrb;
     if (pipe_kill)
-      ex2wb_pkt_in_safe = '0;
+      ex2wb_pkt_in_safe = EX_WB_PKT_BUBBLE;
   end
 
 `ifndef SYNTHESIS
@@ -384,7 +385,6 @@ module riscv #(
   // ============================================================
   // 12. Regfile
   // ============================================================
-  logic wb_rf_wen_safe;
   assign wb_rf_wen_safe = wb_rf_wen && !wb_trap_event;
 
   regfile #(
@@ -420,6 +420,29 @@ module riscv #(
     .trap_cause_o(),
     .trap_val_o  ()
   );
+
+`ifndef SYNTHESIS
+  // Check stable post-clock values. Raw control fields may exist inside valid
+  // instructions, so assert the externally effective side effects here.
+  always @(negedge clk_i) begin
+    if (rst_ni) begin
+      if (!id2ex_pkt_out.valid) begin
+        assert (!(ram_req_valid || ram_we || ex_redirect_en || ex_flush_req))
+          else $error("Invalid ID/EX packet caused an EX-stage side effect");
+      end
+
+      if (!ex2wb_pkt_out.valid) begin
+        assert (!(wb_rf_wen_safe ||
+                  wb_csr_we ||
+                  ex2wb_pkt_out.mem_valid ||
+                  ex2wb_pkt_out.mem_we ||
+                  wb_trap_event ||
+                  wb_mret_event))
+          else $error("Invalid EX/WB packet caused a retirement side effect");
+      end
+    end
+  end
+`endif
 
   // ============================================================
   // 14. Architectural Commit Interface

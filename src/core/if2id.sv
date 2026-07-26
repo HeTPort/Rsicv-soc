@@ -13,20 +13,29 @@ module if2id (
 
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) begin
-      pkt2id_q.valid <= 1'b0;
-      pkt2id_q.pc    <= '0;
-      pkt2id_q.instr <= INST_NOP;  
-    end 
+      pkt2id_q <= FETCH_PKT_BUBBLE;
+    end
     else if (flush_i) begin
-      pkt2id_q.valid <= 1'b0;
-      pkt2id_q.pc    <= '0;
-      pkt2id_q.instr <= INST_NOP; 
-    end 
+      pkt2id_q <= FETCH_PKT_BUBBLE;
+    end
     else if (!stall_i) begin
-      pkt2id_q <= pkt2id_i;           
+      if (pkt2id_i.valid)
+        pkt2id_q <= pkt2id_i;
+      else
+        pkt2id_q <= FETCH_PKT_BUBBLE;
     end
   end
 
   assign pkt2id_o = pkt2id_q;
+
+`ifndef SYNTHESIS
+  // Sample after the rising-edge nonblocking assignments have settled.
+  always @(negedge clk_i) begin
+    if (rst_ni && !pkt2id_q.valid) begin
+      assert (pkt2id_q === FETCH_PKT_BUBBLE)
+        else $error("IF/ID invalid packet is not the canonical bubble");
+    end
+  end
+`endif
 endmodule
 `default_nettype wire

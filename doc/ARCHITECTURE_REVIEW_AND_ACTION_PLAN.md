@@ -50,8 +50,9 @@ baseline and before Phase 1/Phase 2 bus implementation:
 
 Exit criteria:
 
-- [ ] A killed or invalid packet cannot write a GPR, CSR, or memory.
-- [ ] Every pipeline reset/flush creates a completely initialized bubble.
+- [x] A killed or invalid packet cannot write a GPR, CSR, or memory in the
+      current direct-RAM design.
+- [x] Every pipeline reset/flush creates a completely initialized bubble.
 - [ ] A memory instruction advances to WB exactly once, including with wait
       states.
 - [ ] Load response data and fault status are registered with their instruction.
@@ -106,7 +107,7 @@ the broader retirement-ownership work below remains open.
 
 - [x] Trap followed by younger `csrw`; confirm the CSR is unchanged.
 - [x] Trap followed by younger GPR write and store; confirm both are suppressed.
-- [ ] Assertion: an invalid EX/WB packet never enables RF, CSR, or memory writes.
+- [x] Assertion: an invalid EX/WB packet never enables RF, CSR, or memory writes.
 
 Implemented now: focused assertions prevent an invalid packet from enabling a
 CSR write and check that `pipe_kill` clears the younger packet's RF/CSR/memory
@@ -114,6 +115,11 @@ side-effect controls and suppresses its LSU request. The broader common
 retirement assertion remains open with the ownership audit.
 
 ### AR-002 — Pipeline bubbles do not clear all packet fields
+
+**Status:** fixed and verified. See
+[`AR002_CANONICAL_PIPELINE_BUBBLES.md`](AR002_CANONICAL_PIPELINE_BUBBLES.md)
+for the implementation decisions, encountered problems, regression evidence,
+and reusable design principles.
 
 **Evidence**
 
@@ -127,12 +133,12 @@ maintenance hazard whenever a new field is added.
 
 **Handling**
 
-- [ ] Build a single safe bubble value for each packet type.
-- [ ] On reset or flush, assign the entire packet to that bubble in one
+- [x] Build a single safe bubble value for each packet type.
+- [x] On reset or flush, assign the entire packet to that bubble in one
       nonblocking assignment.
-- [ ] Keep `instr = INST_NOP` only if it materially improves wave readability;
+- [x] Keep `instr = INST_NOP` only if it materially improves wave readability;
       safety must come from `valid = 0`, not from the instruction encoding.
-- [ ] Add an assertion that a bubble has no RF, CSR, memory, redirect, or trap
+- [x] Add an assertion that a bubble has no RF, CSR, memory, redirect, or trap
       side effects.
 
 ### AR-003 — The current stall model cannot support a wait-state bus

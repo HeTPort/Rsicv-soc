@@ -12,11 +12,9 @@ import riscv_pkg::*;
 //   - On reset/flush, insert a safe bubble.
 //
 // Bubble safety:
-//   - No register write (rf.we = 0).
-//   - No memory write (mem_req = 0).
-//   - No branch/jump redirect (branch/jump = NONE).
-//   - No false exception/halt trigger (exc = 0).
-//   - Inject INST_NOP to prevent illegal instruction decoding downstream.
+//   - One canonical all-zero value covers every packet field.
+//   - Reset, flush, and an invalid input all produce that same value.
+//   - No register, CSR, memory, redirect, or exception control survives.
 // ============================================================
 module id2ex (
   input  logic        clk_i,
@@ -35,67 +33,29 @@ module id2ex (
 
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) begin
-      // ------------------ 复位：注入安全气泡 ------------------
-      pkt2ex_q.valid             <= 1'b0;
-      pkt2ex_q.pc                <= '0;
-      pkt2ex_q.instr             <= INST_NOP;  // 安全的 NOP 指令
-      pkt2ex_q.rf.we             <= 1'b0;      // 禁止写寄存器
-      pkt2ex_q.rf.addr           <= 5'd0;
-      pkt2ex_q.ex_data           <= '0;        // op1, op2, imm, store_data 清零
-      
-      // 控制信号全部置为安全的无效状态
-      pkt2ex_q.ex_ctrl.alu_op    <= ALU_NONE;
-      pkt2ex_q.ex_ctrl.branch_op <= BR_NONE;
-      pkt2ex_q.ex_ctrl.jump_op   <= JMP_NONE;
-      pkt2ex_q.ex_ctrl.mem_req   <= 1'b0;
-      pkt2ex_q.ex_ctrl.mem_we    <= 1'b0;
-      pkt2ex_q.ex_ctrl.mem_size  <= MEM_SIZE_WORD;
-      pkt2ex_q.ex_ctrl.mem_unsigned <= 1'b0;
-      pkt2ex_q.ex_ctrl.wb_sel    <= WB_NONE;
-      pkt2ex_q.ex_ctrl.muldiv_valid <= 1'b0;
-      pkt2ex_q.ex_ctrl.muldiv_op <= MULDIV_NONE;
-      
-      // 异常信号清零
-      pkt2ex_q.exc.illegal_instr <= 1'b0;
-      pkt2ex_q.exc.ecall         <= 1'b0;
-      pkt2ex_q.exc.ebreak        <= 1'b0;
-      
-      // 冒险辅助信号清零
-      pkt2ex_q.use_rs1           <= 1'b0;
-      pkt2ex_q.use_rs2           <= 1'b0;
+      pkt2ex_q <= ID_EX_PKT_BUBBLE;
     end
     else if (flush_i) begin
-      // ------------------ 冲刷：同样注入安全气泡 ------------------
-      pkt2ex_q.valid             <= 1'b0;
-      pkt2ex_q.pc                <= '0;
-      pkt2ex_q.instr             <= INST_NOP;
-      pkt2ex_q.rf.we             <= 1'b0;
-      pkt2ex_q.rf.addr           <= 5'd0;
-      pkt2ex_q.ex_data           <= '0;
-      pkt2ex_q.ex_ctrl.alu_op    <= ALU_NONE;
-      pkt2ex_q.ex_ctrl.branch_op <= BR_NONE;
-      pkt2ex_q.ex_ctrl.jump_op   <= JMP_NONE;
-      pkt2ex_q.ex_ctrl.mem_req   <= 1'b0;
-      pkt2ex_q.ex_ctrl.mem_we    <= 1'b0;
-      pkt2ex_q.ex_ctrl.mem_size  <= MEM_SIZE_WORD;
-      pkt2ex_q.ex_ctrl.mem_unsigned <= 1'b0;
-      pkt2ex_q.ex_ctrl.wb_sel    <= WB_NONE;
-      pkt2ex_q.ex_ctrl.muldiv_valid <= 1'b0;
-      pkt2ex_q.ex_ctrl.muldiv_op <= MULDIV_NONE;
-      pkt2ex_q.exc.illegal_instr <= 1'b0;
-      pkt2ex_q.exc.ecall         <= 1'b0;
-      pkt2ex_q.exc.ebreak        <= 1'b0;
-      pkt2ex_q.use_rs1           <= 1'b0;
-      pkt2ex_q.use_rs2           <= 1'b0;
+      pkt2ex_q <= ID_EX_PKT_BUBBLE;
     end
     else if (!stall_i) begin
-      // ------------------ 正常流动：整体打包锁存 ------------------
-      // 一行代码替代原本几十行的 assign
-      pkt2ex_q <= pkt2ex_i;           
+      if (pkt2ex_i.valid)
+        pkt2ex_q <= pkt2ex_i;
+      else
+        pkt2ex_q <= ID_EX_PKT_BUBBLE;
     end
   end
 
   assign pkt2ex_o = pkt2ex_q;
+
+`ifndef SYNTHESIS
+  always @(negedge clk_i) begin
+    if (rst_ni && !pkt2ex_q.valid) begin
+      assert (pkt2ex_q === ID_EX_PKT_BUBBLE)
+        else $error("ID/EX invalid packet is not the canonical bubble");
+    end
+  end
+`endif
 
 endmodule
 `default_nettype wire

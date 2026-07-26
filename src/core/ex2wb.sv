@@ -34,17 +34,28 @@ module ex2wb (
     if (!rst_ni) begin
       // One assignment keeps every packet field, including future additions,
       // in a known safe bubble state after reset.
-      pkt2wb_q <= '0;
+      pkt2wb_q <= EX_WB_PKT_BUBBLE;
     end
     // 新增 stall 逻辑：只有在不停顿时才更新寄存器
     else if (!stall_i) begin
-      // ------------------ 正常流动：整体打包锁存 ------------------
-      pkt2wb_q <= pkt2wb_i;
+      if (pkt2wb_i.valid)
+        pkt2wb_q <= pkt2wb_i;
+      else
+        pkt2wb_q <= EX_WB_PKT_BUBBLE;
     end
     // 如果 stall_i 为高，pkt2wb_q 自动保持原值，无需写 else 分支
   end
 
   assign pkt2wb_o = pkt2wb_q;
+
+`ifndef SYNTHESIS
+  always @(negedge clk_i) begin
+    if (rst_ni && !pkt2wb_q.valid) begin
+      assert (pkt2wb_q === EX_WB_PKT_BUBBLE)
+        else $error("EX/WB invalid packet is not the canonical bubble");
+    end
+  end
+`endif
 
 endmodule
 `default_nettype wire
