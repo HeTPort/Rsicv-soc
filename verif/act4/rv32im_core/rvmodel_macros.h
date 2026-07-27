@@ -3,23 +3,23 @@
 
 /*
  * ACT4 DUT adaptation for the Rsicv-soc simulation environment.
- * The final valid RAM word, 0x0000_3ffc, is reserved for tohost. The
- * testbench sees the store through commit_o, so this macro is independent of
- * LSU hierarchy.
+ * The final word of the ACT4-only 256 KiB simulation memory, 0x0003_fffc, is
+ * reserved for tohost. The testbench sees the store through commit_o, so this
+ * macro is independent of LSU hierarchy.
  */
 
 #define RVMODEL_DATA_SECTION
 
 #define RVMODEL_HALT_PASS  \
   li x1, 1                ;\
-  li t0, 0x00003ffc       ;\
+  li t0, 0x0003fffc       ;\
   sw x1, 0(t0)            ;\
 1:                        ;\
   j 1b                    ;
 
 #define RVMODEL_HALT_FAIL  \
   li x1, 2                ;\
-  li t0, 0x00003ffc       ;\
+  li t0, 0x0003fffc       ;\
   sw x1, 0(t0)            ;\
 1:                        ;\
   j 1b                    ;

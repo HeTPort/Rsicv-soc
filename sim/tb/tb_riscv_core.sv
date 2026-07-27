@@ -12,12 +12,12 @@ module tb_riscv_core #(
   parameter bit TRACE_ENABLE = 1'b0,
   parameter bit DUMP_WAVES = 1'b0,
   parameter int TIMEOUT_CYCLES = 20000,
-  parameter logic [31:0] TOHOST_ADDR = 32'h0000_1000
+  parameter logic [31:0] TOHOST_ADDR = 32'h0000_1000,
+  parameter int PROG_RAM_DEPTH = 4096,
+  parameter int DATA_RAM_DEPTH = 4096
 );
   localparam int AW = 32;
   localparam int DW = 32;
-  localparam int PROG_RAM_DEPTH = 4096;
-  localparam int DATA_RAM_DEPTH = 4096;
   localparam int CLK_PERIOD_NS = 10;
 
   // ------------------------------------------------------------

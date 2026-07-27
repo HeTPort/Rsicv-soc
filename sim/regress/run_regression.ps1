@@ -154,6 +154,22 @@ try {
             $tohostAddr = [uint32]4096
         }
 
+        if ($null -ne $testCase.PSObject.Properties["prog_ram_depth"]) {
+            $progRamDepth = [int]$testCase.prog_ram_depth
+        } elseif ($null -ne $manifestData.defaults.PSObject.Properties["prog_ram_depth"]) {
+            $progRamDepth = [int]$manifestData.defaults.prog_ram_depth
+        } else {
+            $progRamDepth = 4096
+        }
+
+        if ($null -ne $testCase.PSObject.Properties["data_ram_depth"]) {
+            $dataRamDepth = [int]$testCase.data_ram_depth
+        } elseif ($null -ne $manifestData.defaults.PSObject.Properties["data_ram_depth"]) {
+            $dataRamDepth = [int]$manifestData.defaults.data_ram_depth
+        } else {
+            $dataRamDepth = 4096
+        }
+
         $modelSimImagePath = $imagePath.Replace("\", "/")
         $logPath = Join-Path $logDir "$testName.log"
         $vsimArgs = @(
@@ -162,6 +178,8 @@ try {
             "-gPROGRAM_FILE=$modelSimImagePath",
             "-gTIMEOUT_CYCLES=$timeoutCycles",
             "-gTOHOST_ADDR=$tohostAddr",
+            "-gPROG_RAM_DEPTH=$progRamDepth",
+            "-gDATA_RAM_DEPTH=$dataRamDepth",
             "-gTRACE_ENABLE=$([int][bool]$Trace)",
             "-gDUMP_WAVES=$([int][bool]$DumpWaves)"
         )

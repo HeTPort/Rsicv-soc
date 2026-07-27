@@ -44,6 +44,9 @@ params:
 
   MARCHID_IMPLEMENTED: false
   MIMPID_IMPLEMENTED: false
+  # No JEDEC vendor ID has been assigned to this educational core.
+  VENDOR_ID_BANK: 0
+  VENDOR_ID_OFFSET: 0
   CONFIG_PTR_ADDRESS: 0
   PMA_GRANULARITY: 3
 
@@ -54,7 +57,6 @@ params:
   MTVEC_ILLEGAL_WRITE_BEHAVIOR: retain
 
   NUM_PMP_ENTRIES: 0
-  HPM_EVENTS: [0]
   HPM_COUNTER_EN:
     [false, false, false, false, false, false, false, false,
      false, false, false, false, false, false, false, false,

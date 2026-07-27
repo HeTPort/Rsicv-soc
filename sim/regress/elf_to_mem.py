@@ -162,8 +162,13 @@ def convert(
 ) -> ElfImage:
     elf = read_elf(elf_path)
     imem, dmem = build_memories(elf, base, size, instruction_fill)
-    write_readmemh(imem_path, imem)
-    write_readmemh(dmem_path, dmem)
+    # $readmemh leaves the rest of each already-initialized RAM unchanged.
+    # Emit only through the highest loaded byte instead of padding every ACT4
+    # image to the simulation RAM capacity.
+    used_size = max(segment.address + segment.memory_size for segment in elf.segments) - base
+    used_size = (used_size + 3) & ~3
+    write_readmemh(imem_path, imem[:used_size])
+    write_readmemh(dmem_path, dmem[:used_size])
     return elf
 
 

@@ -4,13 +4,20 @@ set -euo pipefail
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd -- "${script_dir}/../.." && pwd)"
 act4_root="${ACT4_ROOT:-${HOME}/riscv-arch-test}"
-config_file="${repo_root}/verif/act4/rv32im_core/test_config.yaml"
-work_dir="${repo_root}/build/act4/work"
+config_file="${ACT4_CONFIG_FILE:-${repo_root}/verif/act4/rv32im_core/test_config.yaml}"
+work_dir="${ACT4_WORK_DIR:-${repo_root}/build/act4/work}"
+target_name="${ACT4_TARGET_NAME:-rsicv-soc-rv32im}"
 extensions="${ACT4_EXTENSIONS:-I}"
 jobs="${ACT4_JOBS:-1}"
-debug="${ACT4_DEBUG:-True}"
+# ACT4's Makefile checks whether DEBUG is non-empty.  The string "False"
+# therefore enables debug traces; leave it empty for normal bulk generation.
+debug="${ACT4_DEBUG:-}"
+compiler_tool="${ACT4_COMPILER_TOOL:-riscv64-unknown-elf-gcc}"
+objdump_tool="${ACT4_OBJDUMP_TOOL:-riscv64-unknown-elf-objdump}"
+ram_size="${ACT4_RAM_SIZE:-0x40000}"
+tohost_addr="${ACT4_TOHOST_ADDR:-0x0003fffc}"
 
-for tool in make python3 riscv64-unknown-elf-gcc riscv64-unknown-elf-objdump sail_riscv_sim; do
+for tool in make python3 "${compiler_tool}" "${objdump_tool}" sail_riscv_sim; do
   command -v "${tool}" >/dev/null || {
     echo "Missing ACT4 prerequisite: ${tool}" >&2
     exit 1
@@ -33,7 +40,7 @@ make -C "${act4_root}" \
   DEBUG="${debug}" \
   --jobs "${jobs}"
 
-elf_dir="${work_dir}/rsicv-soc-rv32im/elfs"
+elf_dir="${work_dir}/${target_name}/elfs"
 [[ -d "${elf_dir}" ]] || {
   echo "ACT4 completed but the expected ELF directory was not created: ${elf_dir}" >&2
   exit 1
@@ -43,6 +50,8 @@ python3 "${script_dir}/import_act4.py" "${elf_dir}" \
   --repo-root "${repo_root}" \
   --output-dir "${repo_root}/build/act4/images" \
   --manifest "${repo_root}/build/act4/tests.json" \
+  --size "${ram_size}" \
+  --tohost "${tohost_addr}" \
   --tag rv32i
 
 echo "ACT4 images are ready. Run this from Windows PowerShell:"

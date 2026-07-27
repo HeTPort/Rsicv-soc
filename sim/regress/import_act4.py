@@ -28,8 +28,8 @@ def main() -> int:
     parser.add_argument("--output-dir", type=Path, default=default_repo / "build" / "act4" / "images")
     parser.add_argument("--manifest", type=Path, default=default_repo / "build" / "act4" / "tests.json")
     parser.add_argument("--base", type=integer, default=0)
-    parser.add_argument("--size", type=integer, default=0x4000)
-    parser.add_argument("--tohost", type=integer, default=0x0000_3FFC)
+    parser.add_argument("--size", type=integer, default=0x40000)
+    parser.add_argument("--tohost", type=integer, default=0x0003_FFFC)
     parser.add_argument("--timeout-cycles", type=integer, default=200_000)
     parser.add_argument("--tag", action="append", default=[], help="additional manifest tag")
     args = parser.parse_args()
@@ -56,6 +56,9 @@ def main() -> int:
     tests = []
     names: set[str] = set()
     tags = list(dict.fromkeys(["act4", *args.tag]))
+    ram_depth_words = args.size // 4
+    if args.size <= 0 or args.size % 4 != 0:
+        parser.error("--size must be a positive multiple of four bytes")
     for elf_path in elf_paths:
         relative_elf = elf_path.relative_to(elf_dir)
         name = safe_name(relative_elf)
@@ -73,6 +76,8 @@ def main() -> int:
                 "data_image": dmem_path.relative_to(repo_root).as_posix(),
                 "timeout_cycles": args.timeout_cycles,
                 "tohost_addr": args.tohost,
+                "prog_ram_depth": ram_depth_words,
+                "data_ram_depth": ram_depth_words,
                 "tags": tags,
             }
         )
@@ -82,6 +87,8 @@ def main() -> int:
         "defaults": {
             "timeout_cycles": args.timeout_cycles,
             "tohost_addr": args.tohost,
+            "prog_ram_depth": ram_depth_words,
+            "data_ram_depth": ram_depth_words,
         },
         "tests": tests,
     }
