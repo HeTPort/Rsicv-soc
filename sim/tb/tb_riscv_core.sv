@@ -301,7 +301,37 @@ module tb_riscv_core #(
   end
 
   // ------------------------------------------------------------
-  // Some check (Updated for struct hierarchy)
+  // Instruction-memory request/response timing
+  // ------------------------------------------------------------
+  logic          fetch_req_valid_q;
+  logic [AW-1:0] fetch_req_addr_q;
+
+  always_ff @(posedge clk or negedge rst_n) begin
+    if (!rst_n) begin
+      fetch_req_valid_q <= 1'b0;
+      fetch_req_addr_q  <= '0;
+    end else begin
+      fetch_req_valid_q <= instr_ren;
+      if (instr_ren)
+        fetch_req_addr_q <= instr_addr;
+    end
+  end
+
+  // A request accepted at a rising edge must drive the corresponding clocked
+  // BRAM response after that edge. This assertion is intentionally independent
+  // of the CPU's response tag so it detects an asynchronous/live-address RAM.
+  always @(negedge clk) begin
+    if (rst_n && fetch_req_valid_q) begin
+      assert (instr_rdata === u_prog_ram.mem[fetch_req_addr_q[31:2]])
+        else $error("Fetch response mismatch: request_pc=%08h response=%08h expected=%08h",
+                    fetch_req_addr_q,
+                    instr_rdata,
+                    u_prog_ram.mem[fetch_req_addr_q[31:2]]);
+    end
+  end
+
+  // ------------------------------------------------------------
+  // Final IF/ID PC/instruction pairing
   // ------------------------------------------------------------
   always @(posedge clk) begin
     #1ps;
