@@ -62,6 +62,24 @@
       "tags": ["all", "smoke", "trap", "csr", "mret"]
     },
     {
+      "name": "csr_ops_dependency",
+      "image": "testdata/csr_ops_dependency_test.hex",
+      "timeout_cycles": 2000,
+      "tags": ["all", "smoke", "csr", "ar007"]
+    },
+    {
+      "name": "csr_legality_no_write",
+      "image": "testdata/csr_legality_no_write_test.hex",
+      "timeout_cycles": 2000,
+      "tags": ["all", "smoke", "trap", "csr", "ar007"]
+    },
+    {
+      "name": "csr_warl",
+      "image": "testdata/csr_warl_test.hex",
+      "timeout_cycles": 2000,
+      "tags": ["all", "smoke", "csr", "ar007"]
+    },
+    {
       "name": "precise_trap_csr_squash",
       "image": "testdata/precise_trap_csr_squash_test.hex",
       "timeout_cycles": 1000,
