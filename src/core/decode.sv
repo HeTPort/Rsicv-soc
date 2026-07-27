@@ -404,29 +404,35 @@ module decode #(
               csr_o.rd    = rd;
               unique case (funct3)
                 3'b001: begin
+                  csr_o.write = 1'b1;
                   csr_o.op    = CSR_OP_RW;
                   csr_o.wdata = rf_rs1_rdata_i;
                   use_rs1_o   = 1'b1;
                 end
                 3'b010: begin
+                  csr_o.write = (instr32[19:15] != 5'd0);
                   csr_o.op    = CSR_OP_RS;
                   csr_o.wdata = rf_rs1_rdata_i;
                   use_rs1_o   = 1'b1;
                 end
                 3'b011: begin
+                  csr_o.write = (instr32[19:15] != 5'd0);
                   csr_o.op    = CSR_OP_RC;
                   csr_o.wdata = rf_rs1_rdata_i;
                   use_rs1_o   = 1'b1;
                 end
                 3'b101: begin
+                  csr_o.write = 1'b1;
                   csr_o.op    = CSR_OP_RWI;
                   csr_o.wdata = DW'(instr32[19:15]);
                 end
                 3'b110: begin
+                  csr_o.write = (instr32[19:15] != 5'd0);
                   csr_o.op    = CSR_OP_RSI;
                   csr_o.wdata = DW'(instr32[19:15]);
                 end
                 3'b111: begin
+                  csr_o.write = (instr32[19:15] != 5'd0);
                   csr_o.op    = CSR_OP_RCI;
                   csr_o.wdata = DW'(instr32[19:15]);
                 end

@@ -218,6 +218,13 @@ package riscv_pkg;
   localparam logic [11:0] CSR_MIP       = 12'h344;
   localparam logic [11:0] CSR_MCYCLE    = 12'hB00;
   localparam logic [11:0] CSR_MINSTRET  = 12'hB02;
+  localparam logic [11:0] CSR_MCYCLEH   = 12'hB80;
+  localparam logic [11:0] CSR_MINSTRETH = 12'hB82;
+  localparam logic [11:0] CSR_MVENDORID = 12'hF11;
+  localparam logic [11:0] CSR_MARCHID   = 12'hF12;
+  localparam logic [11:0] CSR_MIMPID    = 12'hF13;
+  localparam logic [11:0] CSR_MHARTID   = 12'hF14;
+  localparam logic [11:0] CSR_MCONFIGPTR = 12'hF15;
 
   // ------------------------------------------------------------
   // Section 10b: mcause exception / interrupt codes
@@ -329,6 +336,7 @@ package riscv_pkg;
   // 11.7 CSR Packet
   typedef struct packed {
     logic          valid;     // This instruction is a CSR operation
+    logic          write;     // Architectural write intent after zero-source rules
     csr_op_e       op;        // CSR sub-operation
     logic [11:0]   addr;      // CSR address
     logic [DW-1:0] wdata;     // Source data (rs1 or zero-extended uimm)

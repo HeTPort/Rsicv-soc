@@ -17,6 +17,9 @@ module execute #(
 
   // CSR feedback
   input  logic [DW-1:0] csr_rdata_i,
+  input  logic          csr_implemented_i,
+  input  logic          csr_read_only_i,
+  input  logic          csr_privilege_ok_i,
   input  logic [AW-1:0] mepc_i,
 
   // 横向输出信号
@@ -278,9 +281,19 @@ module execute #(
   // ------------------------------------------------------------
   // Main output control
   // ------------------------------------------------------------
+  logic csr_illegal;
+  logic illegal_effective;
   logic exception_like;
+
+  assign csr_illegal =
+      valid_i &&
+      csr_i.valid &&
+      (!csr_implemented_i ||
+       !csr_privilege_ok_i ||
+       (csr_i.write && csr_read_only_i));
+  assign illegal_effective = illegal_instr_i | csr_illegal;
   assign exception_like =
-      illegal_instr_i |
+      illegal_effective |
       ecall_i |
       ebreak_i |
       instr_misaligned |
@@ -308,7 +321,7 @@ module execute #(
     wb_pc4_data_o       = pc4_data;
     wb_mem_size_o       = mem_size_i;
     wb_mem_unsigned_o   = mem_unsigned_i;
-    wb_illegal_instr_o  = valid_i && illegal_instr_i;
+    wb_illegal_instr_o  = valid_i && illegal_effective;
     wb_ecall_o          = valid_i && ecall_i;
     wb_ebreak_o         = valid_i && ebreak_i;
     wb_instr_misaligned_o = instr_misaligned;
@@ -354,7 +367,7 @@ module execute #(
       wb_sel_o    = WB_NONE;
       // Compute trap cause / val for exception-like instructions
       if (valid_i) begin
-        if (illegal_instr_i) begin
+        if (illegal_effective) begin
           wb_trap_cause_o = MCAUSE_ILLEGAL_INST;
           wb_trap_val_o   = instr_i;
         end else if (instr_misaligned) begin

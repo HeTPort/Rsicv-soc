@@ -272,6 +272,12 @@ bit zero, but bit one can remain set.
 
 ### AR-007 — CSR legality, no-write semantics, and hazards are incomplete
 
+**Status:** fixed and verified for the current M-mode CSR contract. See
+[`AR007_CSR_LEGALITY_WARL_AND_HAZARDS.md`](AR007_CSR_LEGALITY_WARL_AND_HAZARDS.md)
+for the exact implemented CSR set, RED/GREEN evidence, implementation
+decisions, and concepts. Hardware composition of `mip.MTIP` remains a Phase 3
+timer integration item; ordinary CSR writes cannot modify `mip` today.
+
 **Evidence**
 
 - Unknown CSR reads return zero in [`csr_regfile.sv`](../src/core/csr_regfile.sv#L79).
@@ -284,15 +290,15 @@ bit zero, but bit one can remain set.
 
 **Handling**
 
-- [ ] Define the exact implemented CSR set needed by the FreeRTOS milestone.
-- [ ] Add an access checker for implemented address, minimum privilege, and
+- [x] Define the exact implemented CSR set needed by the FreeRTOS milestone.
+- [x] Add an access checker for implemented address, minimum privilege, and
       read-only encoding.
-- [ ] Trap writes to read-only CSRs and accesses to unimplemented CSRs.
-- [ ] Suppress writes for CSRRS/CSRRC with `rs1=x0` and CSRRSI/CSRRCI with
+- [x] Trap writes to read-only CSRs and accesses to unimplemented CSRs.
+- [x] Suppress writes for CSRRS/CSRRC with `rs1=x0` and CSRRSI/CSRRCI with
       `zimm=0`.
-- [ ] Implement a same-address WB-to-EX CSR bypass or stall dependent CSR
+- [x] Implement a same-address WB-to-EX CSR bypass or stall dependent CSR
       operations for one cycle.
-- [ ] Apply WARL masks to `mstatus`, `mie`, `mip`, `mtvec`, and `mepc`; do not
+- [x] Apply WARL masks to `mstatus`, `mie`, `mip`, `mtvec`, and `mepc`; do not
       allow unsupported state to be stored accidentally.
 - [ ] When timer interrupts are added, compose `mip.MTIP` from hardware and make
       ordinary CSR writes unable to manufacture or clear that level-sensitive
@@ -300,11 +306,11 @@ bit zero, but bit one can remain set.
 
 **Required tests**
 
-- [ ] CSRRW/CSRRS/CSRRC and all immediate forms.
-- [ ] Zero-source no-write cases.
-- [ ] Back-to-back write/read and write/modify sequences to the same CSR.
-- [ ] Unknown CSR and read-only write traps.
-- [ ] `mstatus.MIE/MPIE/MPP`, `mepc`, and `mtvec` WARL behavior.
+- [x] CSRRW/CSRRS/CSRRC and all immediate forms.
+- [x] Zero-source no-write cases.
+- [x] Back-to-back write/read and write/modify sequences to the same CSR.
+- [x] Unknown CSR and read-only write traps.
+- [x] `mstatus.MIE/MPIE/MPP`, `mepc`, and `mtvec` WARL behavior.
 
 ### AR-008 — Interrupt entry needs an explicit retirement boundary
 

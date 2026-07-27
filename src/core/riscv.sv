@@ -58,6 +58,10 @@ module riscv #(
 
   // CSR interface
   logic [DW-1:0] csr_rdata;
+  logic [DW-1:0] csr_rdata_for_ex;
+  logic          csr_implemented;
+  logic          csr_read_only;
+  logic          csr_privilege_ok;
   logic [AW-1:0] csr_mtvec;
   logic [AW-1:0] csr_mepc;
   logic [DW-1:0] csr_mstatus;
@@ -145,17 +149,26 @@ module riscv #(
   logic wb_csr_we;
   logic [11:0] wb_csr_addr;
   logic [DW-1:0] wb_csr_wdata;
+  logic [DW-1:0] wb_csr_wdata_effective;
   logic [AW-1:0] csr_mepc_for_ex;
 
   assign wb_csr_we    = ex2wb_pkt_out.valid &&
                         ex2wb_pkt_out.csr.valid &&
+                        ex2wb_pkt_out.csr.write &&
                         !wb_trap_event;
   assign wb_csr_addr  = ex2wb_pkt_out.csr.addr;
   assign wb_csr_wdata = ex2wb_pkt_out.csr.wdata;
-  // MRET may immediately follow a write to mepc. Forward the WB value so
-  // redirect generation does not use the previous CSR contents.
+  // An adjacent CSR instruction in EX must observe the effective (WARL-filtered)
+  // value written by the older CSR instruction in WB.
+  assign csr_rdata_for_ex =
+      (wb_csr_we && (wb_csr_addr == id2ex_pkt_out.csr.addr)) ?
+      wb_csr_wdata_effective : csr_rdata;
+
+  // MRET may immediately follow a write to mepc. Reuse the same effective
+  // WB value so redirect generation cannot use stale or unaligned state.
   assign csr_mepc_for_ex =
-      (wb_csr_we && (wb_csr_addr == CSR_MEPC)) ? AW'(wb_csr_wdata) : csr_mepc;
+      (wb_csr_we && (wb_csr_addr == CSR_MEPC)) ?
+      AW'(wb_csr_wdata_effective) : csr_mepc;
 
   csr_regfile #(
     .AW(AW),
@@ -163,13 +176,18 @@ module riscv #(
   ) u_csr_regfile (
     .clk_i        (clk_i),
     .rst_ni       (rst_ni),
+    .current_priv_i(PRIV_MODE_M),
     // Read port (used in EX stage)
     .csr_addr_i   (id2ex_pkt_out.csr.addr),
     .csr_rdata_o  (csr_rdata),
+    .csr_implemented_o(csr_implemented),
+    .csr_read_only_o(csr_read_only),
+    .csr_privilege_ok_o(csr_privilege_ok),
     // Write port (from WB stage)
     .csr_we_i     (wb_csr_we),
     .csr_waddr_i  (wb_csr_addr),
     .csr_wdata_i  (wb_csr_wdata),
+    .csr_wdata_effective_o(wb_csr_wdata_effective),
     // Trap entry
     .trap_entry_i (wb_trap_event),
     .trap_pc_i    (ex2wb_pkt_out.trap_pc),
@@ -280,7 +298,10 @@ module riscv #(
   execute u_execute (
     .pkt_exe_i        (id2ex_pkt_out),
     .mem_misaligned_i (lsu_mem_misaligned), // Feedback from LSU
-    .csr_rdata_i      (csr_rdata),
+    .csr_rdata_i      (csr_rdata_for_ex),
+    .csr_implemented_i(csr_implemented),
+    .csr_read_only_i  (csr_read_only),
+    .csr_privilege_ok_i(csr_privilege_ok),
     .mepc_i           (csr_mepc_for_ex),
     .redirect_en_o    (ex_redirect_en),
     .redirect_pc_o    (ex_redirect_pc),

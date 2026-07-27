@@ -76,6 +76,8 @@ Implemented:
 - [x] RV32IM in-order core with packed pipeline packets.
 - [x] Explicit architectural commit/retirement interface.
 - [x] M-mode CSR instructions and synchronous trap entry/return support.
+- [x] Explicit M-mode CSR legality, no-write rules, WARL filtering, and
+      same-address dependency bypass.
 - [x] Lightweight JSON/PowerShell ModelSim regression runner; UVM is not
   required for this target.
 - [x] Separate instruction/data image support and commit-based `tohost`
@@ -148,11 +150,16 @@ difficult to isolate.
 - [x] Implement precise IALIGN=32 traps for taken branch, JAL, and JALR targets.
 - [x] Record AR-006 implementation and verification evidence in
   [`doc/AR006_CONTROL_FLOW_MISALIGNMENT.md`](doc/AR006_CONTROL_FLOW_MISALIGNMENT.md).
+- [x] Implement AR-007 CSR legality, no-write semantics, WARL behavior, and
+      back-to-back dependency handling.
+- [x] Record the AR-007 contract, RED/GREEN evidence, implementation decisions,
+      and learning notes in
+  [`doc/AR007_CSR_LEGALITY_WARL_AND_HAZARDS.md`](doc/AR007_CSR_LEGALITY_WARL_AND_HAZARDS.md).
 - [ ] Complete the remaining Phase 0A exit criteria in
   [`doc/ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md`](doc/ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md).
 
-Current verification after the AR-006 control-flow tests: directed smoke
-**15/15 passed**
+Current verification after the AR-007 CSR tests: directed smoke
+**18/18 passed**
 and regression utility tests **4/4 passed**.
 
 ---
@@ -451,9 +458,9 @@ for the first FreeRTOS FPGA demonstration:
 
 ## Immediate next action
 
-1. Checkpoint the current green baseline.
-2. Start official ACT4 RV32I tests as continuous Track A.
-3. In parallel, implement Phase 1 and Phase 2: freeze the bus/memory map, then
-   move data RAM out of the CPU.
-4. Make the first new functional milestone the CLINT-style timer and precise
+1. Keep official ACT4 RV32I tests active as continuous Track A.
+2. Complete the remaining Phase 0A instruction-memory timing/BRAM work.
+3. Freeze the Phase 1 bus and memory-map contract, then implement Phase 2
+   wait-state-safe data transactions and registered responses.
+4. Make the next functional milestone the CLINT-style timer and precise
    machine-timer-interrupt regression—not UART or FreeRTOS itself.

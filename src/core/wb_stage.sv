@@ -46,7 +46,7 @@ module wb_stage #(
   assign mem_misaligned_i = pkt_wb_i.mem_misaligned;
 
   // CSR / trap outputs
-  assign csr_we_o    = valid_i && pkt_wb_i.csr.valid;
+  assign csr_we_o    = valid_i && pkt_wb_i.csr.valid && pkt_wb_i.csr.write;
   assign csr_addr_o  = pkt_wb_i.csr.addr;
   assign csr_wdata_o = pkt_wb_i.csr.wdata;
   assign mret_o      = valid_i && pkt_wb_i.is_mret;
