@@ -4,7 +4,7 @@ module prog_ram #(
   parameter int    AW            = 32,          // 地址宽度，单位：bit
   parameter int    DW            = 32,          // 数据宽度，单位：bit
   parameter int    DEPTH         = 4096,        // RAM 深度，单位：word
-  parameter string FILE          = "",  // optional initialization file
+  parameter        FILE          = "",  // optional initialization file
   parameter logic [DW-1:0] INVALID_RDATA = 32'h0010_0073   // 非法读时返回的数据
 )(
   input  wire logic          clk_i,
@@ -43,7 +43,12 @@ module prog_ram #(
   // ------------------------------------------------------------
   // RAM 存储体
   // ------------------------------------------------------------
+  (* ram_style = "block" *)
   logic [DW-1:0] mem [0:DEPTH_SAFE-1];
+  logic [DW-1:0] mem_rdata_q;
+  logic [DW-1:0] collision_wdata_q;
+  logic          response_valid_q;
+  logic          response_collision_q;
   // ------------------------------------------------------------
   // 地址相关信号
   // ------------------------------------------------------------
@@ -227,32 +232,31 @@ module prog_ram #(
       if (write_valid) begin
         mem[write_word_addr] <= wdata_i;
       end else begin
+`ifndef SYNTHESIS
         $error("write_word_addr failed");
+`endif
       end
     end
   end
     // ----------------------------
     // 读逻辑
     // ----------------------------
-  always_comb begin
+  always @(posedge clk_i) begin
     if (ren_i) begin
+      response_valid_q     <= fetch_valid;
+      response_collision_q <= wen_i &&
+                              write_valid &&
+                              write_word_addr_full == fetch_word_addr_full;
+      collision_wdata_q    <= wdata_i;
       if (fetch_valid) begin
         // 同周期读写同一个合法 word 地址，直接旁路写数据
-        if (wen_i &&
-            write_valid &&
-            write_word_addr_full == fetch_word_addr_full) begin
-          instr_data_o = wdata_i;
-        end else begin
-          instr_data_o = mem[fetch_word_addr];
-        end
-      end else begin
-        //rerr_o       <= 1'b1;
-        instr_data_o = INVALID_RDATA;
+        mem_rdata_q <= mem[fetch_word_addr];
       end
-    end else begin
-      instr_data_o = INVALID_RDATA;
     end
   end
+  assign instr_data_o = !response_valid_q     ? INVALID_RDATA :
+                        response_collision_q  ? collision_wdata_q :
+                                                mem_rdata_q;
   // ------------------------------------------------------------
   // 仿真错误提示
   // ------------------------------------------------------------

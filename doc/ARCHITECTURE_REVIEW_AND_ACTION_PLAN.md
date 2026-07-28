@@ -57,9 +57,9 @@ Exit criteria:
       states.
 - [ ] Load response data and fault status are registered with their instruction.
 - [x] Taken branch/JAL/JALR instruction-address misalignment traps correctly.
-- [ ] Implemented CSR addresses and legal write/no-write behavior are explicit.
-- [ ] Back-to-back CSR dependencies return the newest architectural value.
-- [ ] Instruction fetch is verified against the memory latency that Vivado will
+- [x] Implemented CSR addresses and legal write/no-write behavior are explicit.
+- [x] Back-to-back CSR dependencies return the newest architectural value.
+- [x] Instruction fetch is verified against the memory latency that Vivado will
       actually synthesize.
 - [ ] Directed tests exist for every item above and the complete smoke suite is
       green.
@@ -215,7 +215,12 @@ with EX/WB by construction. It is unsafe for a response-valid bus.
 
 ### AR-005 — Instruction memory is not the synchronous BRAM assumed by the plan
 
-**Evidence**
+**Status:** fixed and verified. See
+[`AR005_SYNCHRONOUS_INSTRUCTION_BRAM.md`](AR005_SYNCHRONOUS_INSTRUCTION_BRAM.md)
+for the timing contract, RED/GREEN evidence, Vivado inference result, problems
+encountered, and reusable principles.
+
+**Original evidence**
 
 - [`prog_ram.sv`](../src/mem/prog_ram.sv#L237) implements a combinational read.
 - [`riscv.sv`](../src/core/riscv.sv#L217) registers the returned instruction and
@@ -227,15 +232,15 @@ with the current request PC because of nonblocking clocked-update timing.
 
 **Handling**
 
-- [ ] State the instruction request/response latency explicitly.
-- [ ] Convert program memory to a Vivado-recognized synchronous BRAM template.
-- [ ] Delay the accepted request PC/valid so it is paired with the actual RAM
+- [x] State the instruction request/response latency explicitly.
+- [x] Convert program memory to a Vivado-recognized synchronous BRAM template.
+- [x] Delay the accepted request PC/valid so it is paired with the actual RAM
       response; do not register an unrelated current PC beside old data.
-- [ ] Recalculate the number of stale responses that must be killed after a
+- [x] Recalculate the number of stale responses that must be killed after a
       branch, jump, trap, or interrupt redirect.
-- [ ] Add assertions that every valid IF/ID `{pc,instr}` pair matches the
+- [x] Add assertions that every valid IF/ID `{pc,instr}` pair matches the
       corresponding program-memory word after stalls and redirects.
-- [ ] Inspect the Vivado synthesis report and confirm Block RAM inference.
+- [x] Inspect the Vivado synthesis report and confirm Block RAM inference.
 
 ### AR-006 — Taken control-flow targets do not check IALIGN=32
 

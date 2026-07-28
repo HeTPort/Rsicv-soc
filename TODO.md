@@ -84,7 +84,9 @@ Implemented:
   completion checking.
 - [x] ELF-to-memory converter and ACT4 import/runner adapters.
 - [x] Synthetic ACT4 harness smoke test.
-- [x] Existing directed regression last verified at 15/15 passing, with converter
+- [x] Synchronous instruction BRAM with PC/response alignment across stalls and
+      redirects, verified as four `RAMB36E1` primitives in Vivado 2019.2.
+- [x] Existing directed regression last verified at 19/19 passing, with converter
   tests at 4/4 passing.
 
 Still missing:
@@ -155,11 +157,16 @@ difficult to isolate.
 - [x] Record the AR-007 contract, RED/GREEN evidence, implementation decisions,
       and learning notes in
   [`doc/AR007_CSR_LEGALITY_WARL_AND_HAZARDS.md`](doc/AR007_CSR_LEGALITY_WARL_AND_HAZARDS.md).
+- [x] Implement and verify AR-005 synchronous instruction BRAM timing across
+      sequential fetch, RAW stalls, and redirects.
+- [x] Record the AR-005 timing contract, Vivado inference evidence, problems,
+      handling decisions, and reusable principles in
+  [`doc/AR005_SYNCHRONOUS_INSTRUCTION_BRAM.md`](doc/AR005_SYNCHRONOUS_INSTRUCTION_BRAM.md).
 - [ ] Complete the remaining Phase 0A exit criteria in
   [`doc/ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md`](doc/ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md).
 
-Current verification after the AR-007 CSR tests: directed smoke
-**18/18 passed**
+Current verification after the AR-005 synchronous instruction BRAM fix:
+directed smoke **19/19 passed**
 and regression utility tests **4/4 passed**.
 
 ---

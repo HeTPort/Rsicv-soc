@@ -114,6 +114,12 @@
       "image": "testdata/inst_misaligned_jalr_test.hex",
       "timeout_cycles": 1000,
       "tags": ["all", "smoke", "trap", "jalr", "precise"]
+    },
+    {
+      "name": "fetch_sync_redirect",
+      "image": "testdata/fetch_sync_redirect_test.hex",
+      "timeout_cycles": 1000,
+      "tags": ["all", "smoke", "fetch", "branch", "jal", "jalr", "ar005"]
     }
   ]
 }

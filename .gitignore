@@ -8,6 +8,7 @@ sim/*.wlf
 
 # Test build artifacts
 build/
+.Xil/
 
 # Python cache files
 __pycache__/
