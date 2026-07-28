@@ -2,6 +2,8 @@
 sim/build/
 sim/logs/
 sim/work/
+sim/work_lsu/
+sim/modelsim.ini
 sim/transcript
 sim/*.vcd
 sim/*.wlf

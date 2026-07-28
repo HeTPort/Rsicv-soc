@@ -330,8 +330,23 @@ package riscv_pkg;
     mem_size_e     mem_size;
     logic          mem_unsigned;
     // 按照你原有代码，保持 [1:0] (若未来支持 RV64 可改为 $clog2(BYTE_NUM)-1:0)
-    logic [1:0]    load_offset; 
+    logic [1:0]    load_offset;
   } mem_pkt_t;
+
+  // Single-outstanding CPU data-bus payloads. Handshake state remains in the
+  // LSU; adapters outside the CPU translate these payloads to RAM/APB/AXI.
+  typedef struct packed {
+    logic [AW-1:0]   addr;
+    logic            write;
+    mem_size_e       size;
+    logic [DW-1:0]   wdata;
+    logic [DW/8-1:0] wstrb;
+  } core_bus_req_t;
+
+  typedef struct packed {
+    logic [DW-1:0] rdata;
+    logic          error;
+  } core_bus_rsp_t;
 
   // 11.7 CSR Packet
   typedef struct packed {

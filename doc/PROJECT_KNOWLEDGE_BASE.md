@@ -341,6 +341,23 @@ This works for the fixed-latency direct RAM, but the response data itself is not
 yet owned by a registered memory-completion packet. That limitation is the
 reason for future AR-003/AR-004 bus work.
 
+### 10.4 Accepted single-outstanding core bus
+
+AR-003 has accepted a small CPU-local data bus:
+
+```text
+request:  valid, ready, byte address, write, size, write data, write strobes
+response: valid, full-word read data, error
+```
+
+Only one request may be outstanding. Both loads and stores receive one
+response. The LSU always accepts the expected response, so this milestone does
+not need `rsp_ready`. AXI and APB remain adapter protocols outside the CPU; the
+LSU does not inherit their channels, IDs, bursts, or setup phases.
+
+The LSU owns the request registers and IDLE/REQUEST/RESPONSE/COMPLETE state.
+`core_ctrl` will consume only abstract wait/completion information.
+
 ## 11. CSR and trap model
 
 The current privilege model is machine mode only.
@@ -484,7 +501,7 @@ Recommended waveform groups:
 
 | Topic | Current risk or question | Planned stage |
 |---|---|---|
-| Data-memory handshake | Placeholder directions and no real backpressure | Phase 2 / AR-003 |
+| Data-memory handshake | Contract accepted and RED test added; RTL implementation pending | Phase 2 / AR-003 |
 | Load response ownership | Live RAM data bypasses the pipeline packet | Phase 2 / AR-004 |
 | Memory topology | Unified dual-port or split architectural regions | Phase 1 / AR-009 |
 | Access faults | No default error target or response error | Phase 2 |

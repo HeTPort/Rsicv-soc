@@ -15,3 +15,4 @@
 ./../src/mem/data_ram.sv
 ./../src/riscv_soc.sv
 ./tb/tb_riscv_core.sv
+./tb/tb_lsu_protocol.sv

@@ -6,8 +6,8 @@
 
 **Last updated:** 2026-07-28
 
-**Current milestone:** Post AR-005; preparing to freeze the Phase 1 memory-map
-and core-bus contract
+**Current milestone:** AR-003 core-bus contract accepted; wait-state LSU RED
+evidence recorded before implementation
 
 > This is the consolidated record of what the architecture is, why it evolved
 > this way, what was learned while fixing problems, and which decisions remain
@@ -532,20 +532,48 @@ Required evidence for a resolved architecture issue:
 
 ### AR-003 — Wait-state-safe LSU transaction control
 
-**State:** Proposed
+**State:** Accepted; implementation in progress
 
-Required decision:
+**Problem:** The current LSU drives placeholder ready/response signals
+internally, regenerates requests from a live ID/EX packet, and has no completion
+event. Simply holding ID/EX would therefore risk reissuing a store or copying
+the same instruction into EX/WB repeatedly.
 
-- Define a single-outstanding transaction lifecycle with request acceptance,
-  response ownership, stall behavior, and exactly-once EX/WB completion.
+**Accepted decision:**
 
-Proposed state model:
+- Use a CPU-local single-outstanding bus rather than exposing AXI or APB at the
+  LSU boundary.
+- Carry byte address, write intent, access size, aligned write data, and write
+  strobes in a packed request payload.
+- Use request valid/ready and a non-backpressured response carrying valid,
+  full-word read data, and an error bit.
+- Require one response for both loads and stores.
+- Keep load signedness inside the LSU because it is CPU interpretation rather
+  than a target-visible transaction attribute.
+- Put request registers and the transaction FSM in `lsu.sv`; expose only
+  abstract busy/completion state to `core_ctrl.sv`.
+- Translate the simple core bus to BRAM, APB, or AXI in adapters outside the
+  CPU.
+
+Accepted state model:
 
 ```text
 IDLE -> REQUEST -> RESPONSE -> COMPLETE -> IDLE
 ```
 
-Required invariants:
+Accepted signal contract:
+
+```text
+req_valid, req_ready
+req_addr, req_write, req_size, req_wdata, req_wstrb
+rsp_valid, rsp_rdata, rsp_error
+```
+
+`rsp_ready` is intentionally omitted while the LSU guarantees it can always
+capture the one expected response. Transaction IDs, bursts, cache attributes,
+and AXI/APB-specific phases are deferred to adapters.
+
+Required invariants and verification:
 
 - request fields remain stable until accepted;
 - an accepted request is not reissued;
@@ -553,6 +581,10 @@ Required invariants:
 - held EX instructions do not repeatedly enter EX/WB;
 - stores are not cancelled after becoming externally visible;
 - interrupts defer while a transaction is outstanding.
+
+**RED evidence:** `tb_lsu_protocol.sv` elaborates the desired contract against
+the pre-fix LSU and reports nine missing ports: clock/reset, request and
+response handshakes/payloads, busy, and completion.
 
 ### AR-004 — Registered memory response ownership
 

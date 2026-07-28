@@ -227,9 +227,9 @@ be adjusted using the final ELF size report rather than guesswork.
 
 - [ ] Document byte addressing, little-endian lanes, alignment rules, response
   latency, unmapped access behavior, and reset behavior.
-- [ ] Define a small single-outstanding-transaction core bus:
+- [x] Define a small single-outstanding-transaction core bus:
   `req_valid`, `req_ready`, `req_addr`, `req_write`, `req_wdata`, `req_wstrb`,
-  `rsp_valid`, `rsp_rdata`, and `rsp_error`.
+  `req_size`, `rsp_valid`, `rsp_rdata`, and `rsp_error`.
 - [ ] Define how pipeline back-pressure uses `ex_stall` without duplicating or
   dropping a load/store.
 - [ ] Decide and document access-fault causes for unmapped or failed accesses.
