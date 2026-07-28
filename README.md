@@ -1,4 +1,16 @@
 # Rsicv-soc
+
+## Start here
+
+- [Project knowledge base](doc/PROJECT_KNOWLEDGE_BASE.md) — a progressive
+  study guide to the current RTL, pipeline timing, traps, memory, and
+  verification workflow.
+- [Architecture design and decisions](doc/ARCHITECTURE_DESIGN_AND_DECISIONS.md)
+  — the living record of design stages, resolved problems, tradeoffs, evidence,
+  and open architecture decisions.
+- [Current implementation roadmap](TODO.md) — the staged path to the first
+  FreeRTOS-on-FPGA milestone.
+
 这是一个个人学习项目，目标是从零开始实现一个能够引导 Linux 内核的 RISC-V SoC。
 
 我深知从零写一个能跑 Linux 的芯片难度很大，且性能肯定无法与成熟的开源项目（如 PULP、NEORV32 等）相比。但为了深入理解计算机体系结构和底层系统，我还是决定动手尝试一下，并把过程记录在这里。

@@ -2,20 +2,37 @@
 
 This file provides guidance to Codex (Codex.ai/code) when working with code in this repository.
 
+## Living documentation requirement
+
+Architecture-changing work is incomplete until the living documents are
+updated in the same change:
+
+- Update `doc/PROJECT_KNOWLEDGE_BASE.md` when behavior, timing, module
+  boundaries, packets, build steps, or current status change.
+- Update `doc/ARCHITECTURE_DESIGN_AND_DECISIONS.md` when a design decision is
+  proposed, accepted, implemented, verified, deferred, or superseded.
+- Record the problem, root cause, options considered, decision, consequences,
+  and verification evidence for problem-resolution work.
+- Update diagrams and open-risk tables when the data/control path changes.
+- Keep detailed focused evidence in a dedicated `doc/AR*.md` file and link it
+  from the consolidated documents.
+- Update `TODO.md` when phase ordering, exit gates, or milestone scope changes.
+
 ## Project overview
 
 This is a small RV32IM RISC-V CPU + SoC written in SystemVerilog.
 
 - `src/core/riscv.sv` — top of the pipelined CPU.
-- `src/core/core_ctrl.sv` — centralized pipeline control: hazard detection, stall/flush generation, halt/pipe_kill state machine.
+- `src/core/core_ctrl.sv` — centralized pipeline control: hazard detection, stall/flush generation, delayed fetch kill, and `pipe_kill`.
 - `src/core/lsu.sv` — Load/Store Unit: address generation, store strobe/data alignment, load data alignment/sign-extension, and the only interface to `data_ram`.
 - `src/riscv_soc.sv` — SoC wrapper that connects the CPU to a program RAM.
 - `src/mem/prog_ram.sv` — synchronous instruction/program RAM.
 - `src/mem/data_ram.sv` — synchronous data RAM, now written as a pure BRAM template.
 - `sim/tb/tb_riscv_core.sv` — main testbench that loads `testdata/prog.hex` and checks the CPU.
 - `testdata/*.S` and `testdata/*.hex` — hand-written assembly tests.
-- `doc/*.md` — architecture notes in Chinese; `doc/STRUCTURE.md` has the most detailed pipeline diagram.
-- `doc/some_points.md` — note about removing the `seen_illegal` latch to avoid glitch capture after struct packing.
+- `doc/PROJECT_KNOWLEDGE_BASE.md` — living beginner-oriented study guide.
+- `doc/ARCHITECTURE_DESIGN_AND_DECISIONS.md` — living architecture and decision record.
+- `doc/AR*.md` — focused problem reports with RED/GREEN evidence.
 
 The project is meant to be simulated with ModelSim/QuestaSim and synthesized with Vivado.
 
@@ -25,12 +42,12 @@ The pipeline data flow was refactored from flat signals into packed SystemVerilo
 
 ### LSU / control split
 
-A later refactor extracted the load/store logic out of `execute.sv` into `src/core/lsu.sv` and the hazard/flush/halt control out of `riscv.sv` into `src/core/core_ctrl.sv`:
+A later refactor extracted the load/store logic out of `execute.sv` into `src/core/lsu.sv` and the hazard/flush control out of `riscv.sv` into `src/core/core_ctrl.sv`:
 
 - `execute.sv` now only does ALU, branch/jump, and MULDIV; it receives `mem_misaligned_i` from the LSU for exception reporting.
 - `lsu.sv` owns the data-memory request interface, byte/halfword store alignment, and load alignment/sign/zero-extension.
 - `wb_stage.sv` no longer performs load alignment; it receives pre-aligned `load_data_i` from the LSU and muxes it into the register write port.
-- `core_ctrl.sv` centralizes `hazard_stall`, `pc_stall`/`ifid_stall`/`idex_stall`, `ifid_flush`/`idex_flush`, `pipe_kill`, and `halt_q`.
+- `core_ctrl.sv` centralizes `hazard_stall`, `pc_stall`/`ifid_stall`/`idex_stall`, `ifid_flush`/`idex_flush`, delayed fetch kill, and `pipe_kill`.
 
 ## Build / simulation commands
 
@@ -52,22 +69,19 @@ vsim -do run.do
 
 ### What the simulation checks
 
-The testbench loads `testdata/prog.hex` into `prog_ram` and runs until the CPU halts. The pass/fail convention is:
+The testbench loads `testdata/prog.hex` into `prog_ram` and monitors the
+architectural commit interface. Completion is a committed store to the
+configured `tohost` address:
 
-- **PASS:** `x10 == 1` and `x11 == 0`
-- **FAIL:** `x10 == 0` and `x11` contains a failure code
+- **PASS:** `tohost == 1`
+- **FAIL:** another nonzero `tohost` value contains a test-specific failure code
 
-The program in `testdata/prog.hex` ends with `ebreak`, which the core treats as a halt/exception event.
+`halt_o` is retained only as an obsolete compatibility output and is fixed low.
 
-### Known filelist issues
+### Current filelist notes
 
-- `sim/filelist.f` references `./../src/core/register.sv`, which does not exist; replace it with `./../src/core/regfile.sv`.
-- `sim/filelist.f` is also missing the new `src/core/lsu.sv` and `src/core/core_ctrl.sv` files; add them after `execute.sv`.
-- `tb_riscv_core.sv` hard-codes a Windows path for the program hex file:
-  ```systemverilog
-  .FILE("D:/Rsicv-soc/testdata/prog.hex")
-  ```
-  Change it to a relative or Linux path (e.g., `../testdata/prog.hex`) for local simulation.
+- `sim/filelist.f` includes `regfile.sv`, `lsu.sv`, and `core_ctrl.sv`.
+- `tb_riscv_core.sv` uses parameterized relative test-image paths.
 - `tb_riscv_soc.sv` is currently empty/unused.
 
 ### Assembling tests
@@ -152,25 +166,28 @@ assign hazard_stall =
     );
 ```
 
-`core_ctrl.sv` also generates `pc_stall`, `ifid_stall`, `idex_stall`, `ifid_flush`, `idex_flush`, `pipe_kill`, and `halt_q`. When a hazard is detected:
+`core_ctrl.sv` also generates `pc_stall`, `ifid_stall`, `idex_stall`,
+`exwb_stall`, `ifid_flush`, `idex_flush`, delayed fetch kill, and `pipe_kill`.
+When a hazard is detected:
 
 - `pc_stall` and `ifid_stall` are asserted.
 - `idex_flush` is asserted to insert a bubble.
 
 There is **no forwarding network** beyond the write-first behavior in `regfile.sv` (a write in the same cycle as a read returns the new value for the same address). Hazards that span more than one stage may require extra stalls or forwarding. `ex_stall` is currently tied to `0` and is reserved for a future multi-cycle MULDIV or memory interface.
 
-### Trap / halt handling
+### Trap handling
 
-`riscv.sv` sets `halt_q` when the EX/WB packet (`ex2wb_pkt_out`) indicates any of:
+A valid EX/WB packet causes a synchronous trap for illegal instruction, ECALL,
+EBREAK, instruction-address misalignment, or load/store misalignment.
 
-- `illegal_instr`
-- `ecall`
-- `ebreak`
-- memory misaligned access
-
-After halt is asserted, `pipe_kill` is used to suppress further fetch, memory access, and writeback. Before entering `ex2wb`, `ex2wb_pkt_in_safe` masks off the valid bit, register write enable, and exception flags when `pipe_kill` is active, preventing stale instructions from propagating.
-
-`exception_o` and `illegal_instr_o` are reported at the WB stage.
+- The faulting instruction remains valid so it can provide `mepc`, `mcause`,
+  and `mtval`, but its normal register/CSR/memory/redirect effects are
+  suppressed.
+- WB trap entry updates the machine CSRs and redirects the PC to `mtvec`.
+- `pipe_kill` converts the complete younger EX/WB input packet to the canonical
+  bubble and suppresses younger LSU activity.
+- `halt_o` is fixed low; tests and software use `tohost` completion.
+- `exception_o` and `illegal_instr_o` are WB-stage observations.
 
 ### Control/data conventions
 
@@ -182,4 +199,7 @@ After halt is asserted, `pipe_kill` is used to suppress further fetch, memory ac
 
 ### Testbench note
 
-`tb_riscv_core.sv` previously used a sticky `seen_illegal` latch that could capture a glitch caused by packed-struct unpacking delays. That latch was removed; pass/fail now checks `illegal_instr` directly after halt is stable. See `doc/some_points.md` for the rationale.
+`tb_riscv_core.sv` validates ordered architectural commits, x0 protection,
+trap/write exclusion, memory masks, fetch request/response timing, and final
+IF/ID PC/instruction pairing. Test programs report PASS or a failure code
+through a committed store to `tohost`.

@@ -1,0 +1,562 @@
+# RISC-V SoC Project Knowledge Base
+
+**Document type:** Living study guide
+
+**Audience:** New contributors and learners
+
+**Last updated:** 2026-07-28
+
+**Current reference:** `codex/architecture-review-roadmap`, post AR-005
+
+> Update this document whenever a change alters a module boundary, pipeline
+> timing, packet field, architectural behavior, memory map, verification
+> workflow, or current project milestone. Historical reasons and tradeoffs
+> belong in
+> [`ARCHITECTURE_DESIGN_AND_DECISIONS.md`](ARCHITECTURE_DESIGN_AND_DECISIONS.md).
+
+## 1. What this project is
+
+This repository implements a small custom RISC-V processor and early SoC in
+SystemVerilog. The processor currently supports:
+
+- RV32I integer instructions;
+- the RV32M multiply/divide extension;
+- a minimal machine-mode CSR and synchronous-exception implementation;
+- precise traps for the currently implemented exception classes;
+- synchronous instruction and data Block RAM;
+- an architectural commit interface for verification.
+
+The first practical system milestone is:
+
+> Run preemptive FreeRTOS on this custom RV32IM core in the programmable logic
+> of a Zynq XC7Z010 device.
+
+The FreeRTOS milestone is intentionally smaller than the original Linux goal.
+It does not require S-mode, an MMU, OpenSBI, DDR, caches, atomics, AXI, or a
+PLIC. Those features remain possible future work, but they should not distort
+the minimal architecture needed for the first working system.
+
+## 2. Current status at a glance
+
+### Implemented
+
+- RV32IM decode and execution.
+- Packed pipeline packets.
+- Canonical, side-effect-free pipeline bubbles.
+- Register file with same-cycle WB-to-ID bypass.
+- One-cycle synchronous instruction BRAM.
+- Directly attached synchronous data RAM and LSU.
+- M-mode CSR instructions, WARL behavior, trap entry, and `mret`.
+- Precise illegal-instruction, ECALL, EBREAK, instruction-misalignment, and
+  load/store-misalignment traps.
+- Ordered architectural commit records.
+- ModelSim directed regression and test manifest.
+- ELF/image conversion and ACT4 integration adapters.
+- Current directed smoke baseline: 19/19 passing after AR-005.
+
+### Not implemented yet
+
+- Wait-state-capable external CPU data bus.
+- SoC address decoder and default error target.
+- Load/store access-fault completion.
+- Machine timer and interrupt input.
+- Implemented UART, GPIO, or other peripherals.
+- Firmware startup/linker/driver stack.
+- FreeRTOS port integration.
+- Board top, constraints, timing closure, and physical FPGA result.
+
+## 3. Recommended learning order
+
+Read and experiment in this order:
+
+1. **Instruction flow:** `pc_counter` → `prog_ram` → `if2id`.
+2. **Decode and operands:** `decode`, `regfile`, `id2ex`.
+3. **Execution:** `execute`, ALU, branches, jumps, and RV32M.
+4. **Memory:** `lsu`, `data_ram`, and load/store alignment.
+5. **Retirement:** `ex2wb`, `wb_stage`, and `commit_o`.
+6. **Control:** `core_ctrl`, hazards, stalls, flushes, and kills.
+7. **Privilege behavior:** `csr_regfile`, trap entry, and `mret`.
+8. **Verification:** `tohost`, commit assertions, regressions, and ACT4.
+9. **Future SoC work:** memory map, bus protocol, timer, peripherals, firmware,
+   and FPGA integration.
+
+Do not begin by memorizing every signal. First understand:
+
+- what information belongs to one instruction;
+- where that information is registered;
+- when an instruction is allowed to cause an architectural side effect;
+- how the design keeps a response paired with the request that produced it.
+
+## 4. System-level picture
+
+```mermaid
+flowchart LR
+  LOADER["External program loader"] -->|"prog_wr_*"| PRAM["Synchronous program BRAM"]
+  LOADER -.->|"load_done releases CPU reset"| IF
+
+  subgraph CORE["riscv core"]
+    IF["Fetch request and response tag"]
+    ID["Decode and register read"]
+    EX["ALU, branch, RV32M, CSR, trap decision"]
+    LSU["Load/store alignment and request"]
+    DRAM["Synchronous data RAM"]
+    WB["Writeback and retirement"]
+    CTRL["Hazard, flush, and kill control"]
+    CSR["M-mode CSR state"]
+  end
+
+  PRAM -->|"instruction response"| IF
+  IF --> ID --> EX --> WB
+  EX --> LSU --> DRAM
+  DRAM -->|"load response"| LSU --> WB
+  WB -->|"GPR result"| ID
+  WB -->|"CSR write / trap entry"| CSR
+  CSR -->|"read data, mtvec, mepc"| EX
+  ID -.->|"dependency state"| CTRL
+  EX -.->|"redirect / exception state"| CTRL
+  WB -.->|"trap event"| CTRL
+  CTRL -.->|"stall / flush / kill"| IF
+  CTRL -.->|"bubble / hold"| ID
+  CTRL -.->|"suppress younger effects"| EX
+```
+
+The current SoC is still mostly a core plus memories. `data_ram` is instantiated
+inside `riscv.sv`, so peripherals cannot yet receive normal load/store
+transactions. Phase 2 will move that boundary outward.
+
+## 5. Repository map
+
+| Path | Purpose |
+|---|---|
+| `src/core/riscv.sv` | CPU integration, redirect/trap arbitration, memory and commit wiring |
+| `src/core/riscv_pkg.sv` | ISA constants, enums, packet definitions, trap causes |
+| `src/core/decode.sv` | Instruction fields, immediates, operands, and control generation |
+| `src/core/execute.sv` | ALU, branches/jumps, RV32M, CSR operations, trap metadata |
+| `src/core/core_ctrl.sv` | RAW hazards, stalls, flushes, delayed fetch kill |
+| `src/core/lsu.sv` | Effective address, alignment, store lanes, load extension |
+| `src/core/csr_regfile.sv` | M-mode CSR state, legality, WARL, counters, trap entry |
+| `src/core/regfile.sv` | 32 integer registers, x0 behavior, WB-to-read bypass |
+| `src/core/if2id.sv` | Fetch-to-decode pipeline register |
+| `src/core/id2ex.sv` | Decode-to-execute pipeline register |
+| `src/core/ex2wb.sv` | Execute-to-writeback pipeline register |
+| `src/core/wb_stage.sv` | Final GPR result selection and side-effect suppression |
+| `src/mem/prog_ram.sv` | One-cycle synchronous instruction/program BRAM |
+| `src/mem/data_ram.sv` | Synchronous byte-writeable data RAM |
+| `src/riscv_soc.sv` | Program loader, program RAM, and CPU wrapper |
+| `sim/tb/tb_riscv_core.sv` | Main testbench and architectural checks |
+| `sim/regress/` | Manifest-driven ModelSim runner and image conversion |
+| `verif/act4/` | Official architectural-test integration metadata |
+| `testdata/` | Directed assembly tests and generated memory images |
+| `doc/` | Architecture reviews, decisions, evidence, and learning notes |
+
+The current `src/bus`, `src/periph`, `src/common`, and some SoC testbench files
+are placeholders. Their existence does not mean those features are implemented.
+
+## 6. The real pipeline
+
+It is useful to call this a five-stage-style in-order core, but the actual
+registered structure matters more than the textbook name:
+
+```text
+fetch request
+    |
+program BRAM response + registered request PC/valid
+    |
+IF/ID register
+    |
+decode + register-file reads
+    |
+ID/EX register
+    |
+execute and LSU request generation
+    |
+data RAM response / EX-WB metadata alignment
+    |
+EX/WB register
+    |
+writeback and architectural commit
+```
+
+There is no explicit EX/MEM register and no MEM/WB register. The LSU directly
+drives `data_ram`; EX/WB stores the metadata that must remain aligned with the
+one-cycle RAM result.
+
+### 6.1 Instruction fetch timing
+
+A fetch is accepted at a rising edge when `instr_ren_o` is high.
+
+| Time | Event |
+|---|---|
+| Before edge N | `instr_addr_o=A` and `instr_ren_o=1` |
+| Rising edge N | `prog_ram` captures address A; the core captures PC tag A |
+| After edge N | RAM output is `mem[A]`; PC tag is A |
+| Rising edge N+1 | IF/ID may capture `{valid, A, mem[A]}` |
+
+The PC tag and RAM response must advance or hold together. If fetch stalls,
+`instr_ren_o` is low, so both the RAM response and its metadata hold.
+
+### 6.2 Pipeline packets
+
+Pipeline packets let the design move one instruction's related information as
+one typed value.
+
+| Packet | Main contents | Registered by |
+|---|---|---|
+| `fetch_pkt_t` | `valid`, `pc`, `instr` | `if2id` |
+| `id_ex_pkt_t` | operands, immediate, destination, ALU/branch/memory/CSR intent | `id2ex` |
+| `ex_wb_pkt_t` | execution result, memory metadata, trap record, CSR result | `ex2wb` |
+| `commit_pkt_t` | final architectural register, memory, and trap effects | top-level observation only |
+
+An invalid registered packet is always a canonical all-zero bubble. A bubble is
+not a NOP instruction: it is the absence of an instruction.
+
+### 6.3 Valid, bubble, faulting, and killed are different
+
+- **Valid normal instruction:** may retire and produce its permitted effects.
+- **Bubble:** `valid=0`; must have no side-effect controls.
+- **Faulting instruction:** remains `valid=1` so it can report a trap, but its
+  normal register/memory/redirect effects are suppressed.
+- **Killed younger instruction:** converted to a bubble because an older event
+  has made it architecturally nonexistent.
+
+This distinction is central to precise exceptions.
+
+## 7. Walkthrough of a normal instruction
+
+Consider:
+
+```asm
+add x5, x6, x7
+```
+
+1. `pc_counter` presents the instruction address.
+2. `prog_ram` returns the instruction one cycle after request acceptance.
+3. `if2id` registers its PC and instruction bits.
+4. `decode` identifies `rs1=x6`, `rs2=x7`, and `rd=x5`.
+5. `regfile` supplies the two source values.
+6. `decode` creates an `id_ex_pkt_t` with:
+   - `use_rs1=1`, `use_rs2=1`;
+   - `rf.we=1`, `rf.addr=5`;
+   - `alu_op=ALU_ADD`;
+   - `wb_sel=WB_ALU`.
+7. `id2ex` registers that packet.
+8. `execute` adds the operands and builds an `ex_wb_pkt_t`.
+9. `ex2wb` registers the result.
+10. `wb_stage` selects the ALU value and enables the x5 write.
+11. `regfile` writes x5 on the rising edge.
+12. `commit_o` reports the instruction, PC, destination, and result in order.
+
+## 8. Data hazards
+
+The current core has no general EX/MEM forwarding network. It uses:
+
+- one RAW hazard bubble when the consumer is in ID and producer is in EX;
+- register-file write-first bypass when the producer reaches WB.
+
+The hazard condition is conceptually:
+
+```text
+ID is valid
+AND EX is valid
+AND EX will write rd != x0
+AND ID actually uses a matching rs1 or rs2
+```
+
+Response:
+
+1. hold PC;
+2. hold IF/ID;
+3. flush ID/EX to insert one bubble;
+4. allow the producer to advance to WB;
+5. use WB-to-ID bypass for the consumer's operand;
+6. release the consumer on the next cycle.
+
+`use_rs1` and `use_rs2` matter because instruction bit fields can resemble
+register addresses even when the instruction does not use those operands.
+
+## 9. Branch, jump, redirect, and stale fetch behavior
+
+Branches, JAL, JALR, and MRET resolve in EX.
+
+```mermaid
+flowchart TD
+  C["Compute candidate target"] --> T{"Does the transfer occur?"}
+  T -->|"No"| SEQ["Continue at sequential PC"]
+  T -->|"Yes"| A{"Resolved target satisfies IALIGN=32?"}
+  A -->|"Yes"| R["Redirect PC and flush younger pipeline state"]
+  A -->|"No"| X["Keep valid trap packet; suppress redirect and link write"]
+  R --> K["Delayed fetch_kill_q discards one old-path BRAM response"]
+  X --> W["WB enters precise instruction-address-misaligned trap"]
+```
+
+Important details:
+
+- A not-taken branch does not observe or fault on its encoded target.
+- JALR clears target bit zero before checking alignment.
+- Trap redirect has priority over an EX redirect.
+- One-cycle synchronous program memory permits one old-path response after a
+  redirect, so one delayed kill is required.
+
+## 10. Loads and stores
+
+### 10.1 Address and alignment
+
+The LSU computes:
+
+```text
+effective address = rs1 value + immediate
+```
+
+Alignment rules:
+
+| Access | Legal offsets |
+|---|---|
+| Byte | 0, 1, 2, 3 |
+| Halfword | 0 or 2 |
+| Word | 0 only |
+
+A misaligned request does not reach RAM. It becomes a valid load/store
+misalignment trap packet.
+
+### 10.2 Little-endian store lanes
+
+`ram_wstrb` selects which bytes change:
+
+| Operation | Offset | Strobe |
+|---|---:|---|
+| SB | 0/1/2/3 | one corresponding bit |
+| SH | 0 | `0011` |
+| SH | 2 | `1100` |
+| SW | 0 | `1111` |
+
+Store data is shifted into the selected byte lanes.
+
+### 10.3 Load completion
+
+Data RAM has a one-cycle synchronous read. EX/WB stores the access size,
+unsigned flag, and byte offset while the RAM response arrives. The LSU then
+selects the byte/halfword and sign- or zero-extends it for WB.
+
+This works for the fixed-latency direct RAM, but the response data itself is not
+yet owned by a registered memory-completion packet. That limitation is the
+reason for future AR-003/AR-004 bus work.
+
+## 11. CSR and trap model
+
+The current privilege model is machine mode only.
+
+### 11.1 CSR instruction path
+
+1. Decode determines CSR operation and architectural write intent.
+2. EX checks implemented address, privilege, and read-only encoding.
+3. EX computes the final read-modify-write value.
+4. WB writes the CSR only when the packet is valid and non-trapping.
+5. A younger same-address CSR operation receives the older WARL-filtered value
+   through WB-to-EX bypass.
+
+Do not infer write intent from whether source data equals zero. CSR write intent
+comes from the encoded source-register/immediate field and operation type.
+
+### 11.2 WARL
+
+WARL means software can write any value, but the implementation stores and
+returns only a supported legal value.
+
+Examples:
+
+- `mstatus` retains only MIE/MPIE and fixed MPP=M.
+- `mie` retains only MTIE.
+- `mtvec` and `mepc` are forced to four-byte alignment.
+- `misa` and delegation CSRs expose fixed supported values.
+
+### 11.3 Precise synchronous trap sequence
+
+```mermaid
+sequenceDiagram
+  participant EX as Execute
+  participant EW as EX/WB
+  participant WB as Retirement
+  participant CSR as CSR state
+  participant CTRL as Pipeline control
+  participant PC as PC
+
+  EX->>EW: valid trap packet with pc/cause/mtval
+  EW->>WB: trapping instruction reaches retirement
+  WB->>CSR: save mepc, mcause, mtval; update MIE/MPIE
+  WB->>CTRL: pipe_kill younger instructions
+  CTRL->>EX: suppress younger LSU/register/CSR effects
+  WB->>PC: redirect to mtvec
+```
+
+Older instructions may complete. The faulting instruction reports the trap but
+cannot perform its normal side effect. Younger instructions must disappear.
+
+## 12. Architectural commit interface
+
+`commit_o` is the stable observation record for each valid retired instruction.
+It includes:
+
+- monotonically increasing order;
+- PC and instruction;
+- destination-register address/data/write enable;
+- memory address, masks, read data, and write data;
+- trap flag, cause, and trap value.
+
+A trapping instruction is reported as:
+
+```text
+valid = 1
+trap  = 1
+rd_we = 0
+```
+
+This interface supports regression checking, trace comparison, future
+differential testing, and debugging without relying on fragile internal signal
+names.
+
+## 13. Verification workflow
+
+### 13.1 Main commands
+
+From PowerShell:
+
+```powershell
+Set-Location D:\Rsicv-soc\sim\regress
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+./run_regression.ps1 -Tag smoke
+python -m unittest test_elf_to_mem.py test_import_act4.py
+```
+
+For the original single testbench:
+
+```powershell
+Set-Location D:\Rsicv-soc\sim
+vsim -do run.do
+```
+
+### 13.2 Result reporting
+
+Tests finish by committing a store to the configured `tohost` address:
+
+- value `1`: PASS;
+- another nonzero value: test-specific failure code.
+
+`halt_o` is not the completion mechanism.
+
+### 13.3 Debug from architecture inward
+
+Use this order:
+
+1. Read the first failing assembly check and its failure code.
+2. Inspect `commit_o` for the first incorrect architectural result.
+3. Decide whether the error began in fetch, decode, EX, memory, CSR, or
+   retirement.
+4. Inspect packet validity and PC/instruction pairing at that boundary.
+5. Inspect control signals only after locating the failing instruction.
+6. Turn the failure into a focused regression before changing RTL.
+7. Run the focused test, then the full smoke suite and utility tests.
+
+Recommended waveform groups:
+
+- `if2id_pkt_out`, `id2ex_pkt_out`, `ex2wb_pkt_out`;
+- `pc_stall`, `ifid_stall`, `idex_flush`, `pipe_kill`;
+- `ex_redirect_en`, `ex_redirect_pc`, `wb_trap_event`;
+- `ram_req_valid`, `ram_we`, `ram_addr`, `ram_wstrb`, `ram_rdata`;
+- `wb_rf_wen_safe`, `wb_rf_waddr`, `wb_rf_wdata`;
+- CSR address/read/write/effective values;
+- `commit_o`.
+
+## 14. Design invariants worth memorizing
+
+1. Every architectural side effect requires a valid owner.
+2. Every invalid registered packet has one canonical representation.
+3. A faulting instruction is valid; a killed instruction is a bubble.
+4. Metadata moves with the request or result that gives it meaning.
+5. A redirect flush count comes from the number of outstanding responses.
+6. The resolved value is validated before its side effect is enabled.
+7. WARL-filtered architectural values, not raw operands, are forwarded.
+8. Simulation behavior and FPGA resource inference are separate verification
+   obligations.
+9. Every accepted future bus request must receive exactly one completion.
+10. A failure is not fixed until its regression remains in the suite.
+
+## 15. Current architecture risks and open questions
+
+| Topic | Current risk or question | Planned stage |
+|---|---|---|
+| Data-memory handshake | Placeholder directions and no real backpressure | Phase 2 / AR-003 |
+| Load response ownership | Live RAM data bypasses the pipeline packet | Phase 2 / AR-004 |
+| Memory topology | Unified dual-port or split architectural regions | Phase 1 / AR-009 |
+| Access faults | No default error target or response error | Phase 2 |
+| Interrupt boundary | Correct resume PC and outstanding transaction deferral | Phase 3 / AR-008 |
+| Timer | No `mtime`, `mtimecmp`, or hardware MTIP | Phase 3 |
+| RV32M timing | Combinational divide may fail FPGA timing | Early synthesis / AR-011 |
+| Retirement ownership | CSR/trap/commit logic remains distributed | Cleanup / AR-012 |
+| Peripherals | UART/GPIO/timer files are placeholders | Phases 3–4 |
+
+## 16. Practical study exercises
+
+### Exercise 1: Follow one ADD
+
+Run one test with trace enabled. Write down the ADD instruction's PC, source
+values, ID/EX controls, ALU result, EX/WB destination, and commit record.
+
+### Exercise 2: Observe one RAW bubble
+
+Use two dependent arithmetic instructions. Identify:
+
+- the comparison that raises `hazard_stall`;
+- the held IF/ID packet;
+- the canonical ID/EX bubble;
+- the WB-to-register-read bypass;
+- the consumer's eventual correct commit.
+
+### Exercise 3: Follow a taken branch
+
+Mark the branch request, target calculation, redirect edge, flushed younger
+packets, stale program-memory response, and first target instruction.
+
+### Exercise 4: Follow a trap
+
+Use ECALL or a misaligned target. Record:
+
+- the faulting instruction's PC;
+- `mcause`, `mepc`, and `mtval`;
+- which younger instruction was in EX;
+- why that younger instruction could not update GPR/CSR/memory;
+- the first instruction fetched from `mtvec`.
+
+### Exercise 5: Check load byte lanes
+
+Place four known bytes in a word. Execute LB/LBU/LH/LHU at legal offsets and
+compare RAM data, `load_offset`, extracted value, and committed result.
+
+## 17. Where to read next
+
+- [Architecture design and decisions](ARCHITECTURE_DESIGN_AND_DECISIONS.md)
+- [Architecture review and action plan](ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md)
+- [Verification framework](../docs/verification_framework.md)
+- [Memory-map and bus design guide](MEMORY_MAP_CONTRACT_DESIGN_GUIDE.md)
+- [AR-001 precise CSR squash](AR001_PRECISE_CSR_SQUASH_FIX.md)
+- [AR-002 canonical bubbles](AR002_CANONICAL_PIPELINE_BUBBLES.md)
+- [AR-005 synchronous instruction BRAM](AR005_SYNCHRONOUS_INSTRUCTION_BRAM.md)
+- [AR-006 control-flow misalignment](AR006_CONTROL_FLOW_MISALIGNMENT.md)
+- [AR-007 CSR contract](AR007_CSR_LEGALITY_WARL_AND_HAZARDS.md)
+- [ACT4 integration](../verif/act4/README.md)
+- [Project roadmap](../TODO.md)
+
+## 18. Living-document update checklist
+
+When the project changes, update the relevant sections before calling the work
+complete:
+
+- [ ] Current status and milestone.
+- [ ] System and timing diagrams.
+- [ ] Repository/module map.
+- [ ] Packet fields and ownership.
+- [ ] Instruction, memory, trap, or interrupt flow.
+- [ ] Build and regression commands.
+- [ ] Current verification result.
+- [ ] Risks and open questions.
+- [ ] Learning exercises when a new concept is introduced.
+- [ ] Cross-link to the detailed architecture decision entry.
