@@ -27,6 +27,7 @@ module core_ctrl(
 
     input  logic        ex_redirect_en,
     input  logic        ex_flush_req,  // 必须保留，严格遵循原逻辑
+    input  logic        ex_wait_i,
     input  logic        trap_redirect_en,
     input  logic        wb_trap_event,
 
@@ -58,7 +59,7 @@ module core_ctrl(
        (id_use_rs2 && id_rs2_addr == ex_rd_addr));
 
   logic ex_stall;
-  assign ex_stall = 1'b0;
+  assign ex_stall = ex_wait_i;
 
   // ============================================================
   // 跳转/陷阱冲刷状态机
@@ -78,7 +79,9 @@ module core_ctrl(
   assign exwb_stall = 1'b0;
 
   assign ifid_flush = ex_flush_req | fetch_kill_q | pipe_kill;
-  assign idex_flush = ex_flush_req | hazard_stall | pipe_kill;
+  // A RAW bubble is inserted only when EX can advance. While the LSU owns a
+  // transaction, ID/EX must retain the memory instruction until completion.
+  assign idex_flush = ex_flush_req | (hazard_stall && !ex_stall) | pipe_kill;
 
 endmodule
 `default_nettype wire

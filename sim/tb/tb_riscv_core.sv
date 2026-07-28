@@ -14,7 +14,9 @@ module tb_riscv_core #(
   parameter int TIMEOUT_CYCLES = 20000,
   parameter logic [31:0] TOHOST_ADDR = 32'h0000_1000,
   parameter int PROG_RAM_DEPTH = 4096,
-  parameter int DATA_RAM_DEPTH = 4096
+  parameter int DATA_RAM_DEPTH = 4096,
+  parameter int DATA_REQ_WAIT_CYCLES = 0,
+  parameter int DATA_RSP_WAIT_CYCLES = 0
 );
   localparam int AW = 32;
   localparam int DW = 32;
@@ -42,6 +44,11 @@ module tb_riscv_core #(
   logic          instr_ren;
   logic [AW-1:0] instr_addr;
   logic [DW-1:0] instr_rdata;
+  logic          data_req_valid;
+  logic          data_req_ready;
+  core_bus_req_t data_req;
+  logic          data_rsp_valid;
+  core_bus_rsp_t data_rsp;
 
   // ------------------------------------------------------------
   // Debug outputs
@@ -59,15 +66,18 @@ module tb_riscv_core #(
   // ------------------------------------------------------------
   riscv #(
     .AW(AW),
-    .DW(DW),
-    .DATA_RAM_DEPTH(DATA_RAM_DEPTH),
-    .INIT_DATA_FILE(DATA_FILE)
+    .DW(DW)
   ) u_riscv (
     .clk_i           (clk),
     .rst_ni          (rst_n),
     .instr_ren_o     (instr_ren),
     .instr_addr_o    (instr_addr),
     .instr_rdata_i   (instr_rdata),
+    .data_req_valid_o(data_req_valid),
+    .data_req_ready_i(data_req_ready),
+    .data_req_o      (data_req),
+    .data_rsp_valid_i(data_rsp_valid),
+    .data_rsp_i      (data_rsp),
     .dbg_x3_o        (dbg_x3),
     .dbg_x10_o       (dbg_x10),
     .dbg_x11_o       (dbg_x11),
@@ -97,6 +107,26 @@ module tb_riscv_core #(
   );
 
   // ------------------------------------------------------------
+  // Data target outside the CPU boundary
+  // ------------------------------------------------------------
+  core_bus_data_ram #(
+    .AW(AW),
+    .DW(DW),
+    .DEPTH(DATA_RAM_DEPTH),
+    .INIT_FILE(DATA_FILE),
+    .REQ_WAIT_CYCLES(DATA_REQ_WAIT_CYCLES),
+    .RSP_WAIT_CYCLES(DATA_RSP_WAIT_CYCLES)
+  ) u_data_target (
+    .clk_i       (clk),
+    .rst_ni      (rst_n),
+    .req_valid_i (data_req_valid),
+    .req_ready_o (data_req_ready),
+    .req_i       (data_req),
+    .rsp_valid_o (data_rsp_valid),
+    .rsp_o       (data_rsp)
+  );
+
+  // ------------------------------------------------------------
   // Wave dump
   // ------------------------------------------------------------
   initial begin
@@ -111,6 +141,14 @@ module tb_riscv_core #(
   // ------------------------------------------------------------
   integer cycle_count;
   logic [63:0] expected_commit_order;
+  integer accepted_request_count;
+  integer response_count;
+  integer memory_commit_count;
+  logic data_outstanding;
+  logic data_req_stalled_q;
+  core_bus_req_t stalled_data_req_q;
+  core_bus_req_t accepted_data_req_q;
+  core_bus_req_t completed_data_req_q;
   initial begin
     #1ns;
     $display("[TB] Check program RAM content");
@@ -157,6 +195,61 @@ module tb_riscv_core #(
                  commit.mem_valid, commit.mem_we, commit.mem_addr,
                  commit.trap, commit.trap_cause);
       end
+    end
+  end
+
+  // ------------------------------------------------------------
+  // Data-bus protocol and exactly-once memory retirement checks
+  // ------------------------------------------------------------
+  always_ff @(posedge clk or negedge rst_n) begin
+    if (!rst_n) begin
+      accepted_request_count <= 0;
+      response_count         <= 0;
+      memory_commit_count    <= 0;
+      data_outstanding       <= 1'b0;
+      data_req_stalled_q     <= 1'b0;
+      stalled_data_req_q     <= '0;
+      accepted_data_req_q    <= '0;
+      completed_data_req_q   <= '0;
+    end else begin
+      if (data_req_stalled_q && data_req_valid) begin
+        assert (data_req === stalled_data_req_q)
+          else $fatal(1, "Data request payload changed under back-pressure");
+      end
+
+      if (data_req_valid && data_req_ready) begin
+        assert (!data_outstanding)
+          else $fatal(1, "A second data request was accepted while one was outstanding");
+        data_outstanding       <= 1'b1;
+        accepted_request_count <= accepted_request_count + 1;
+        accepted_data_req_q    <= data_req;
+      end
+
+      if (data_rsp_valid) begin
+        assert (data_outstanding)
+          else $fatal(1, "Data response arrived without an accepted request");
+        data_outstanding    <= 1'b0;
+        response_count      <= response_count + 1;
+        completed_data_req_q <= accepted_data_req_q;
+      end
+
+      if (commit.valid && commit.mem_valid) begin
+        assert (response_count > memory_commit_count)
+          else $fatal(1, "Memory instruction retired without an unmatched response");
+        assert (commit.mem_we == completed_data_req_q.write &&
+                commit.mem_addr == completed_data_req_q.addr)
+          else $fatal(1, "Retired memory operation does not match its completed request");
+        if (commit.mem_we) begin
+          assert (commit.mem_wmask == completed_data_req_q.wstrb &&
+                  commit.mem_wdata == completed_data_req_q.wdata)
+            else $fatal(1, "Retired store payload does not match its completed request");
+        end
+        memory_commit_count <= memory_commit_count + 1;
+      end
+
+      data_req_stalled_q <= data_req_valid && !data_req_ready;
+      if (data_req_valid && !data_req_ready)
+        stalled_data_req_q <= data_req;
     end
   end
   initial begin
@@ -207,6 +300,14 @@ module tb_riscv_core #(
     wait (rst_n == 1'b1);
     wait (tohost_seen == 1'b1);
     repeat (2) @(posedge clk);
+    assert (!data_outstanding)
+      else $fatal(1, "Test ended with an outstanding data transaction");
+    assert (accepted_request_count == response_count)
+      else $fatal(1, "Accepted/response count mismatch: %0d/%0d",
+                  accepted_request_count, response_count);
+    assert (response_count == memory_commit_count)
+      else $fatal(1, "Response/memory-commit count mismatch: %0d/%0d",
+                  response_count, memory_commit_count);
     $display("============================================================");
     $display("[TB] tohost write detected");
     $display("[TB] cycle          = %0d", cycle_count);

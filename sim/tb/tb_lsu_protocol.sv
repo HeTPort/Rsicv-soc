@@ -19,6 +19,7 @@ module tb_lsu_protocol;
 
   mem_pkt_t mem_info;
   logic mem_misaligned;
+  logic [DW-1:0] raw_rdata;
   logic [DW-1:0] load_data;
   logic load_fault;
   logic store_fault;
@@ -45,6 +46,7 @@ module tb_lsu_protocol;
     .bus_rsp_i         (rsp),
     .mem_info_o        (mem_info),
     .mem_misaligned_o  (mem_misaligned),
+    .raw_rdata_o       (raw_rdata),
     .load_data_o       (load_data),
     .load_fault_o      (load_fault),
     .store_fault_o     (store_fault),
@@ -155,6 +157,10 @@ module tb_lsu_protocol;
       rsp_valid = 1'b0;
       assert (complete)
         else $fatal(1, "rsp_valid did not produce a completion");
+      assert (load_fault == (error && !held_req.write))
+        else $fatal(1, "load response error indication is wrong");
+      assert (store_fault == (error && held_req.write))
+        else $fatal(1, "store response error indication is wrong");
       @(negedge clk);
       assert (!complete)
         else $fatal(1, "completion lasted more than one cycle");
@@ -182,7 +188,9 @@ module tb_lsu_protocol;
     assert (held_req.size == MEM_SIZE_WORD && held_req.wstrb == '0)
       else $fatal(1, "load size/strobes are wrong");
     return_response(4, 32'h1122_3344, 1'b0);
-    assert (load_data == 32'h1122_3344 && !load_fault)
+    assert (raw_rdata == 32'h1122_3344 &&
+            load_data == 32'h1122_3344 &&
+            !load_fault)
       else $fatal(1, "load completion data/fault is wrong");
     pkt_ex = ID_EX_PKT_BUBBLE;
     @(negedge clk);
@@ -197,8 +205,6 @@ module tb_lsu_protocol;
             held_req.wdata == 32'h0000_a500)
       else $fatal(1, "store lane alignment is wrong");
     return_response(2, 32'h0000_0000, 1'b1);
-    assert (store_fault)
-      else $fatal(1, "store response error was not reported");
     pkt_ex = ID_EX_PKT_BUBBLE;
     @(negedge clk);
 

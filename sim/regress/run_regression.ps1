@@ -170,6 +170,18 @@ try {
             $dataRamDepth = 4096
         }
 
+        if ($null -ne $testCase.PSObject.Properties["data_req_wait_cycles"]) {
+            $dataReqWaitCycles = [int]$testCase.data_req_wait_cycles
+        } else {
+            $dataReqWaitCycles = 0
+        }
+
+        if ($null -ne $testCase.PSObject.Properties["data_rsp_wait_cycles"]) {
+            $dataRspWaitCycles = [int]$testCase.data_rsp_wait_cycles
+        } else {
+            $dataRspWaitCycles = 0
+        }
+
         $modelSimImagePath = $imagePath.Replace("\", "/")
         $logPath = Join-Path $logDir "$testName.log"
         $vsimArgs = @(
@@ -180,6 +192,8 @@ try {
             "-gTOHOST_ADDR=$tohostAddr",
             "-gPROG_RAM_DEPTH=$progRamDepth",
             "-gDATA_RAM_DEPTH=$dataRamDepth",
+            "-gDATA_REQ_WAIT_CYCLES=$dataReqWaitCycles",
+            "-gDATA_RSP_WAIT_CYCLES=$dataRspWaitCycles",
             "-gTRACE_ENABLE=$([int][bool]$Trace)",
             "-gDUMP_WAVES=$([int][bool]$DumpWaves)"
         )

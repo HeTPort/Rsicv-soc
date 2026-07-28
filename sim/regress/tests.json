@@ -12,6 +12,14 @@
       "tags": ["all", "smoke", "rv32i", "rv32m"]
     },
     {
+      "name": "rv32im_waitstate",
+      "image": "testdata/prog.hex",
+      "timeout_cycles": 50000,
+      "data_req_wait_cycles": 2,
+      "data_rsp_wait_cycles": 3,
+      "tags": ["all", "smoke", "rv32i", "rv32m", "lsu", "waitstate", "ar003"]
+    },
+    {
       "name": "ebreak",
       "image": "testdata/ebreak_test.hex",
       "timeout_cycles": 1000,

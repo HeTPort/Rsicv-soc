@@ -143,13 +143,18 @@ maintenance hazard whenever a new field is added.
 
 ### AR-003 — The current stall model cannot support a wait-state bus
 
+**Status:** fixed and verified. See
+[`AR003_WAIT_STATE_SAFE_LSU.md`](AR003_WAIT_STATE_SAFE_LSU.md) for the accepted
+contract, state-machine design, RED/GREEN evidence, performance consequences,
+and reusable principles.
+
 **Evidence**
 
-- [`lsu.sv`](../src/core/lsu.sv#L22) declares `ram_req_ready_i` in the wrong
-  direction and drives both ready and response-valid internally.
-- [`core_ctrl.sv`](../src/core/core_ctrl.sv#L60) ties `ex_stall` low.
-- EX/WB is never stalled, while a future EX stall would hold the same ID/EX
-  packet in place.
+- Before the fix, `lsu.sv` declared RAM handshake ownership incorrectly and
+  had no clocked transaction state.
+- Before the fix, `core_ctrl.sv` tied the EX wait path low.
+- The retained RED protocol test failed elaboration on the nine missing
+  transaction-owner ports.
 
 If EX is merely held without masking its output, the same valid instruction can
 be copied into EX/WB and committed repeatedly.
@@ -170,13 +175,15 @@ IDLE -> REQUEST -> RESPONSE -> COMPLETE -> IDLE
 
 During REQUEST/RESPONSE:
 
-- [ ] Stall PC, IF/ID, and ID/EX.
-- [ ] Send a bubble to EX/WB after any older WB instruction has retired.
-- [ ] Never reissue an accepted request.
-- [ ] Never report a commit until the response completes.
-- [ ] Do not accept another memory operation while one is outstanding.
+- [x] Stall PC, IF/ID, and ID/EX.
+- [x] Send a bubble to EX/WB after any older WB instruction has retired.
+- [x] Never reissue an accepted request.
+- [x] Never report a commit until the response completes.
+- [x] Do not accept another memory operation while one is outstanding.
 - [ ] Defer an interrupt after a request has been accepted; do not attempt to
-      cancel an externally visible store.
+      cancel an externally visible store. The store rule is implemented;
+      interrupt deferral remains part of AR-008 because interrupts do not yet
+      exist.
 
 The existing pipeline does not require a new full MEM stage if an `ex_done` or
 `ex_fire` signal controls when the held ID/EX instruction is allowed to enter
@@ -184,25 +191,23 @@ EX/WB.
 
 **Required protocol assertions**
 
-- [ ] Request fields remain stable while valid is asserted and ready is low.
-- [ ] Every accepted request receives exactly one response.
-- [ ] A response is impossible without one outstanding request.
-- [ ] A memory instruction commits at most once.
-- [ ] No new request is issued while `pipe_kill` is active.
+- [x] Request fields remain stable while valid is asserted and ready is low.
+- [x] Every accepted request receives exactly one response.
+- [x] A response is impossible without one outstanding request.
+- [x] A memory instruction commits at most once.
+- [x] No new request is issued while `pipe_kill` is active.
 
 ### AR-004 — Load response data bypasses the pipeline packet
 
 **Evidence**
 
-- [`lsu.sv`](../src/core/lsu.sv#L129) aligns live `ram_rdata_i` using metadata
-  from the WB packet.
-- [`riscv.sv`](../src/core/riscv.sv#L394) sends that combinational value directly
-  into WB.
-- The commit interface reads the live RAM output in
-  [`riscv.sv`](../src/core/riscv.sv#L423).
+- AR-003 now captures bus response data/error in LSU registers.
+- `riscv.sv` still sends LSU-held aligned data directly to WB.
+- The commit interface still reads LSU-held raw response data.
+- EX/WB carries memory metadata but not raw/aligned response data or error.
 
-This is valid only while RAM latency is fixed and the output remains aligned
-with EX/WB by construction. It is unsafe for a response-valid bus.
+This is no longer dependent on live bus timing, but response ownership is still
+split between the LSU and EX/WB instruction packet.
 
 **Handling**
 

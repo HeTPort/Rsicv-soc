@@ -11,6 +11,8 @@ sim/*.wlf
 # Test build artifacts
 build/
 .Xil/
+vivado*.jou
+vivado*.log
 
 # Python cache files
 __pycache__/

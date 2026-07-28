@@ -84,10 +84,12 @@ This makes the same command usable by a person, a batch file, or CI.
   },
   "tests": [
     {
-      "name": "mret",
-      "image": "testdata/m_trap_test.hex",
-      "timeout_cycles": 2000,
-      "tags": ["all", "smoke", "trap", "csr", "mret"]
+      "name": "rv32im_waitstate",
+      "image": "testdata/prog.hex",
+      "timeout_cycles": 50000,
+      "data_req_wait_cycles": 2,
+      "data_rsp_wait_cycles": 3,
+      "tags": ["all", "smoke", "lsu", "waitstate", "ar003"]
     }
   ]
 }
@@ -104,6 +106,9 @@ Important JSON rules:
 - Optional `data_image` initializes data RAM independently from instruction RAM.
 - Optional `tohost_addr` overrides the completion address for that test.
 - `timeout_cycles` bounds the test independently of host execution time.
+- Optional `data_req_wait_cycles` delays data-request acceptance.
+- Optional `data_rsp_wait_cycles` independently delays the response after the
+  synchronous RAM access. Both default to zero.
 - Tags describe capabilities and allow one test to belong to several suites.
 
 The runner uses **any-tag matching**. `-Tag csr,mret` selects a test when it has

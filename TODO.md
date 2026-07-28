@@ -86,13 +86,15 @@ Implemented:
 - [x] Synthetic ACT4 harness smoke test.
 - [x] Synchronous instruction BRAM with PC/response alignment across stalls and
       redirects, verified as four `RAMB36E1` primitives in Vivado 2019.2.
-- [x] Existing directed regression last verified at 19/19 passing, with converter
+- [x] Single-outstanding wait-state-capable CPU data bus and LSU transaction
+      state machine, with data RAM outside the CPU.
+- [x] Existing directed regression last verified at 20/20 passing, with converter
   tests at 4/4 passing.
 
 Still missing:
 
 - [ ] Imported and passing official ACT4 RV32I/RV32M test corpus.
-- [ ] External CPU data bus and SoC address decoder.
+- [ ] SoC address decoder and default error target.
 - [ ] Hardware interrupt input and precise interrupt entry.
 - [ ] `mtime`/`mtimecmp` machine timer.
 - [ ] Implemented UART and GPIO peripherals; current files are empty
@@ -165,8 +167,8 @@ difficult to isolate.
 - [ ] Complete the remaining Phase 0A exit criteria in
   [`doc/ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md`](doc/ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md).
 
-Current verification after the AR-005 synchronous instruction BRAM fix:
-directed smoke **19/19 passed**
+Current verification after the AR-003 wait-state-safe LSU fix:
+directed smoke **20/20 passed**
 and regression utility tests **4/4 passed**.
 
 ---
@@ -230,7 +232,7 @@ be adjusted using the final ELF size report rather than guesswork.
 - [x] Define a small single-outstanding-transaction core bus:
   `req_valid`, `req_ready`, `req_addr`, `req_write`, `req_wdata`, `req_wstrb`,
   `req_size`, `rsp_valid`, `rsp_rdata`, and `rsp_error`.
-- [ ] Define how pipeline back-pressure uses `ex_stall` without duplicating or
+- [x] Define how pipeline back-pressure uses `ex_stall` without duplicating or
   dropping a load/store.
 - [ ] Decide and document access-fault causes for unmapped or failed accesses.
 - [ ] Add the memory map and peripheral register definitions to both
@@ -246,23 +248,28 @@ outside the CPU core.
 
 **Purpose:** allow load/store instructions to reach RAM or peripherals.
 
-- [ ] Correct the LSU interface direction: `ram_req_ready_i` must be supplied by
+- [x] Correct the LSU interface direction: `ram_req_ready_i` must be supplied by
   the target rather than driven by the LSU.
-- [ ] Replace RAM-specific LSU names with the Phase 1 bus contract.
-- [ ] Move `data_ram` from `src/core/riscv.sv` into `src/riscv_soc.sv`.
+- [x] Replace RAM-specific LSU names with the Phase 1 bus contract.
+- [x] Move `data_ram` from `src/core/riscv.sv` into `src/riscv_soc.sv`.
 - [ ] Add centralized address decode and return-path multiplexing.
-- [ ] Preserve byte/halfword store strobes, load sign extension, and
+- [x] Preserve byte/halfword store strobes, load sign extension, and
   misalignment behavior.
 - [ ] Connect `rsp_error` to load/store access-fault trap generation.
 - [ ] Keep the commit interface accurate for stalled, completed, and faulting
   memory instructions.
-- [ ] Add assertions for stable requests during stalls, one response per
+- [x] Add assertions for stable requests during stalls, one response per
   accepted request, and no memory operation after a pipeline kill.
 - [ ] Add directed RAM, unmapped-address, wait-state, and back-to-back-access
   tests.
 
 **Exit gate:** all old LSU tests pass through the new bus, plus the new bus
 tests pass with zero-delay and inserted-wait-state targets.
+
+AR-003 transaction-control details and RED/GREEN evidence are recorded in
+[`doc/AR003_WAIT_STATE_SAFE_LSU.md`](doc/AR003_WAIT_STATE_SAFE_LSU.md).
+The AR-003 sub-gate is satisfied; Phase 2 remains open for address decode,
+default-error behavior, registered response ownership, and access-fault traps.
 
 ---
 

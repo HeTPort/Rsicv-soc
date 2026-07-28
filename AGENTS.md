@@ -24,8 +24,9 @@ This is a small RV32IM RISC-V CPU + SoC written in SystemVerilog.
 
 - `src/core/riscv.sv` — top of the pipelined CPU.
 - `src/core/core_ctrl.sv` — centralized pipeline control: hazard detection, stall/flush generation, delayed fetch kill, and `pipe_kill`.
-- `src/core/lsu.sv` — Load/Store Unit: address generation, store strobe/data alignment, load data alignment/sign-extension, and the only interface to `data_ram`.
-- `src/riscv_soc.sv` — SoC wrapper that connects the CPU to a program RAM.
+- `src/core/lsu.sv` — Load/Store Unit: address/alignment, store lanes, load extension, and the single-outstanding data-bus transaction FSM.
+- `src/bus/core_bus_data_ram.sv` — adapter from the CPU-local request/response bus to synchronous data RAM, with verification wait-state parameters.
+- `src/riscv_soc.sv` — SoC wrapper that connects the CPU to program RAM and the external data-RAM adapter.
 - `src/mem/prog_ram.sv` — synchronous instruction/program RAM.
 - `src/mem/data_ram.sv` — synchronous data RAM, now written as a pure BRAM template.
 - `sim/tb/tb_riscv_core.sv` — main testbench that loads `testdata/prog.hex` and checks the CPU.
@@ -45,7 +46,11 @@ The pipeline data flow was refactored from flat signals into packed SystemVerilo
 A later refactor extracted the load/store logic out of `execute.sv` into `src/core/lsu.sv` and the hazard/flush control out of `riscv.sv` into `src/core/core_ctrl.sv`:
 
 - `execute.sv` now only does ALU, branch/jump, and MULDIV; it receives `mem_misaligned_i` from the LSU for exception reporting.
-- `lsu.sv` owns the data-memory request interface, byte/halfword store alignment, and load alignment/sign/zero-extension.
+- `lsu.sv` owns request payload registers, the
+  `IDLE -> REQUEST -> RESPONSE -> COMPLETE` state machine, byte/halfword store
+  alignment, and load alignment/sign/zero-extension.
+- `riscv.sv` exposes the single-outstanding data bus; RAM and future
+  peripherals are targets outside the CPU.
 - `wb_stage.sv` no longer performs load alignment; it receives pre-aligned `load_data_i` from the LSU and muxes it into the register write port.
 - `core_ctrl.sv` centralizes `hazard_stall`, `pc_stall`/`ifid_stall`/`idex_stall`, `ifid_flush`/`idex_flush`, delayed fetch kill, and `pipe_kill`.
 
@@ -112,11 +117,15 @@ IF -> IF/ID -> ID -> ID/EX -> EX -> LSU -> data RAM -> EX/WB -> WB
 | ID    | `decode` decodes the instruction into an `id_ex_pkt_t`; `regfile` reads operands |
 | ID/EX | `id2ex` registers the `id_ex_pkt_t` from decode |
 | EX    | `execute` runs the ALU, evaluates branches, computes jumps, runs MULDIV, and produces an `ex_wb_pkt_t` |
-| MEM   | `lsu.sv` generates address, byte/halfword strobes, and misalignment detection; `data_ram` is a synchronous RAM; loads return one cycle later |
+| MEM   | `lsu.sv` captures one request, holds it until accepted, waits for one response, and emits one completion; `core_bus_data_ram.sv` translates it to synchronous RAM |
 | EX/WB | `ex2wb` registers the `ex_wb_pkt_t` writeback metadata from EX/LSU |
 | WB    | `wb_stage` selects the final writeback value (using pre-aligned load data from LSU) and writes to `regfile` |
 
-Important: there is **no explicit `ex2mem` or `mem2wb` register**. `lsu.sv` directly drives `data_ram`, and `ram_rdata` bypasses `ex2wb` and goes straight to `wb_stage` via the LSU's load-alignment logic. `ex2wb` only holds the writeback control/metadata so it lines up with the delayed load data.
+Important: there is **no explicit `ex2mem` or `mem2wb` register**. The LSU
+holds ID/EX during REQUEST/RESPONSE and allows the memory instruction into
+EX/WB only during COMPLETE. Response data is registered in the LSU and still
+feeds `wb_stage`/commit outside `ex2wb`; AR-004 remains open until the response
+data/error are carried by the registered EX/WB packet.
 
 ### Pipeline packets (structs)
 
@@ -173,7 +182,11 @@ When a hazard is detected:
 - `pc_stall` and `ifid_stall` are asserted.
 - `idex_flush` is asserted to insert a bubble.
 
-There is **no forwarding network** beyond the write-first behavior in `regfile.sv` (a write in the same cycle as a read returns the new value for the same address). Hazards that span more than one stage may require extra stalls or forwarding. `ex_stall` is currently tied to `0` and is reserved for a future multi-cycle MULDIV or memory interface.
+There is **no forwarding network** beyond the write-first behavior in
+`regfile.sv` (a write in the same cycle as a read returns the new value for the
+same address). Hazards that span more than one stage may require extra stalls
+or forwarding. `ex_stall` follows LSU busy for data transactions and can later
+be generalized for a multi-cycle MULDIV implementation.
 
 ### Trap handling
 
@@ -193,13 +206,30 @@ EBREAK, instruction-address misalignment, or load/store misalignment.
 
 - `riscv_pkg.sv` defines opcodes, funct3/funct7 constants, enum control types (`alu_op_e`, `branch_op_e`, `jump_op_e`, `mem_size_e`, `wb_sel_e`, `muldiv_op_e`), and the pipeline packet structs. It replaces the old `define.sv`.
 - `riscv_pkg.sv` also contains compile-time hooks for future RV64 support (`+define+RISCV_XLEN_64`) and additional ALU ops (`ALU_ADDW`, `ALU_SUBW`, etc.).
-- RV32M multiply/divide is implemented **combinationally** in `execute.sv`. `ex_stall` in `core_ctrl.sv` is reserved for a future multi-cycle implementation.
+- RV32M multiply/divide is implemented **combinationally** in `execute.sv`; a
+  future multi-cycle version can reuse the EX wait mechanism now exercised by
+  the LSU.
 - Data memory is little-endian; `lsu.sv` handles store strobe alignment and load byte/halfword extraction and sign/zero extension before forwarding the data to `wb_stage.sv`.
-- `data_ram.sv` is now a pure BRAM template (no reset branch, no range checks) so Vivado infers Block RAM. It accepts an `INIT_FILE` parameter for loading firmware images in simulation.
+- `data_ram.sv` is a pure BRAM template (no reset branch, no range checks) and
+  is instantiated outside the CPU through `core_bus_data_ram.sv`. It accepts
+  an `INIT_FILE` parameter for loading firmware images in simulation.
 
 ### Testbench note
 
 `tb_riscv_core.sv` validates ordered architectural commits, x0 protection,
-trap/write exclusion, memory masks, fetch request/response timing, and final
-IF/ID PC/instruction pairing. Test programs report PASS or a failure code
-through a committed store to `tohost`.
+trap/write exclusion, memory masks, data-bus single-outstanding/exactly-once
+behavior, fetch request/response timing, and final IF/ID PC/instruction pairing.
+Test programs report PASS or a failure code through a committed store to
+`tohost`.
+
+### Check the AR-003 SoC synthesis boundary
+
+```powershell
+Set-Location D:\Rsicv-soc\sim\synth
+& 'D:\vivado\Vivado\2019.2\bin\vivado.bat' `
+  -mode batch -source .\check_riscv_soc_ar003.tcl
+```
+
+This out-of-context check proves that the external data-bus/adapter hierarchy
+synthesizes and retains both program/data Block RAM. It does not prove board
+timing closure because no board clock or XDC constraints are applied.

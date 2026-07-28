@@ -6,7 +6,7 @@
 
 **Last updated:** 2026-07-28
 
-**Current reference:** `codex/architecture-review-roadmap`, post AR-005
+**Current reference:** `codex/architecture-review-roadmap`, post AR-003
 
 > Update this document whenever a change alters a module boundary, pipeline
 > timing, packet field, architectural behavior, memory map, verification
@@ -45,19 +45,21 @@ the minimal architecture needed for the first working system.
 - Canonical, side-effect-free pipeline bubbles.
 - Register file with same-cycle WB-to-ID bypass.
 - One-cycle synchronous instruction BRAM.
-- Directly attached synchronous data RAM and LSU.
+- Single-outstanding, wait-state-capable CPU data bus.
+- Clocked LSU request/response transaction state machine.
+- Synchronous data RAM outside the CPU behind a core-bus adapter.
 - M-mode CSR instructions, WARL behavior, trap entry, and `mret`.
 - Precise illegal-instruction, ECALL, EBREAK, instruction-misalignment, and
   load/store-misalignment traps.
 - Ordered architectural commit records.
 - ModelSim directed regression and test manifest.
 - ELF/image conversion and ACT4 integration adapters.
-- Current directed smoke baseline: 19/19 passing after AR-005.
+- Current directed smoke baseline: 20/20 passing after AR-003.
 
 ### Not implemented yet
 
-- Wait-state-capable external CPU data bus.
 - SoC address decoder and default error target.
+- EX/WB-owned registered memory response packet.
 - Load/store access-fault completion.
 - Machine timer and interrupt input.
 - Implemented UART, GPIO, or other peripherals.
@@ -98,17 +100,21 @@ flowchart LR
     IF["Fetch request and response tag"]
     ID["Decode and register read"]
     EX["ALU, branch, RV32M, CSR, trap decision"]
-    LSU["Load/store alignment and request"]
-    DRAM["Synchronous data RAM"]
+    LSU["LSU transaction FSM"]
     WB["Writeback and retirement"]
     CTRL["Hazard, flush, and kill control"]
     CSR["M-mode CSR state"]
   end
 
+  ADAPTER["Core-bus to RAM adapter"]
+  DRAM["Synchronous data RAM"]
+
   PRAM -->|"instruction response"| IF
   IF --> ID --> EX --> WB
-  EX --> LSU --> DRAM
-  DRAM -->|"load response"| LSU --> WB
+  EX --> LSU
+  LSU -->|"request valid/ready"| ADAPTER --> DRAM
+  DRAM --> ADAPTER -->|"response valid/data/error"| LSU
+  LSU -->|"one completion"| WB
   WB -->|"GPR result"| ID
   WB -->|"CSR write / trap entry"| CSR
   CSR -->|"read data, mtvec, mepc"| EX
@@ -120,20 +126,21 @@ flowchart LR
   CTRL -.->|"suppress younger effects"| EX
 ```
 
-The current SoC is still mostly a core plus memories. `data_ram` is instantiated
-inside `riscv.sv`, so peripherals cannot yet receive normal load/store
-transactions. Phase 2 will move that boundary outward.
+The current SoC is still mostly a core plus memories. `riscv.sv` now exposes a
+small request/response data bus; `riscv_soc.sv` connects it to data RAM through
+`core_bus_data_ram.sv`. Phase 2 still needs address decode, a default error
+target, and peripherals.
 
 ## 5. Repository map
 
 | Path | Purpose |
 |---|---|
-| `src/core/riscv.sv` | CPU integration, redirect/trap arbitration, memory and commit wiring |
+| `src/core/riscv.sv` | CPU integration, redirect/trap arbitration, external data bus, and commit wiring |
 | `src/core/riscv_pkg.sv` | ISA constants, enums, packet definitions, trap causes |
 | `src/core/decode.sv` | Instruction fields, immediates, operands, and control generation |
 | `src/core/execute.sv` | ALU, branches/jumps, RV32M, CSR operations, trap metadata |
-| `src/core/core_ctrl.sv` | RAW hazards, stalls, flushes, delayed fetch kill |
-| `src/core/lsu.sv` | Effective address, alignment, store lanes, load extension |
+| `src/core/core_ctrl.sv` | RAW hazards, LSU wait, stalls, flushes, delayed fetch kill |
+| `src/core/lsu.sv` | Effective address, alignment, store lanes, transaction FSM, load extension |
 | `src/core/csr_regfile.sv` | M-mode CSR state, legality, WARL, counters, trap entry |
 | `src/core/regfile.sv` | 32 integer registers, x0 behavior, WB-to-read bypass |
 | `src/core/if2id.sv` | Fetch-to-decode pipeline register |
@@ -142,15 +149,17 @@ transactions. Phase 2 will move that boundary outward.
 | `src/core/wb_stage.sv` | Final GPR result selection and side-effect suppression |
 | `src/mem/prog_ram.sv` | One-cycle synchronous instruction/program BRAM |
 | `src/mem/data_ram.sv` | Synchronous byte-writeable data RAM |
-| `src/riscv_soc.sv` | Program loader, program RAM, and CPU wrapper |
+| `src/bus/core_bus_data_ram.sv` | CPU-local bus to synchronous RAM adapter |
+| `src/riscv_soc.sv` | Program loader, memories, RAM adapter, and CPU wrapper |
 | `sim/tb/tb_riscv_core.sv` | Main testbench and architectural checks |
 | `sim/regress/` | Manifest-driven ModelSim runner and image conversion |
 | `verif/act4/` | Official architectural-test integration metadata |
 | `testdata/` | Directed assembly tests and generated memory images |
 | `doc/` | Architecture reviews, decisions, evidence, and learning notes |
 
-The current `src/bus`, `src/periph`, `src/common`, and some SoC testbench files
-are placeholders. Their existence does not mean those features are implemented.
+`src/bus` now contains the RAM adapter. `src/periph`, `src/common`, and some SoC
+testbench files remain placeholders; their existence does not mean those
+features are implemented.
 
 ## 6. The real pipeline
 
@@ -170,16 +179,19 @@ ID/EX register
     |
 execute and LSU request generation
     |
-data RAM response / EX-WB metadata alignment
+LSU REQUEST/RESPONSE wait while ID/EX is held
+    |
+one LSU completion / EX-WB memory metadata
     |
 EX/WB register
     |
 writeback and architectural commit
 ```
 
-There is no explicit EX/MEM register and no MEM/WB register. The LSU directly
-drives `data_ram`; EX/WB stores the metadata that must remain aligned with the
-one-cycle RAM result.
+There is no explicit EX/MEM register and no MEM/WB register. The LSU holds the
+memory instruction in EX until a response completes, then lets it enter EX/WB
+once. EX/WB stores memory metadata, but response data/error are still held in
+the LSU rather than carried inside that packet; AR-004 will close that boundary.
 
 ### 6.1 Instruction fetch timing
 
@@ -320,7 +332,7 @@ misalignment trap packet.
 
 ### 10.2 Little-endian store lanes
 
-`ram_wstrb` selects which bytes change:
+The request `wstrb` field selects which bytes change:
 
 | Operation | Offset | Strobe |
 |---|---:|---|
@@ -331,19 +343,30 @@ misalignment trap packet.
 
 Store data is shifted into the selected byte lanes.
 
-### 10.3 Load completion
+### 10.3 Transaction and load completion
 
-Data RAM has a one-cycle synchronous read. EX/WB stores the access size,
-unsigned flag, and byte offset while the RAM response arrives. The LSU then
-selects the byte/halfword and sign- or zero-extends it for WB.
+The LSU captures a valid aligned EX memory operation, holds its request until
+the target accepts it, then waits for a response:
 
-This works for the fixed-latency direct RAM, but the response data itself is not
-yet owned by a registered memory-completion packet. That limitation is the
-reason for future AR-003/AR-004 bus work.
+```text
+IDLE -> REQUEST -> RESPONSE -> COMPLETE -> IDLE
+```
 
-### 10.4 Accepted single-outstanding core bus
+PC, IF/ID, and ID/EX stall during REQUEST and RESPONSE. EX/WB receives a
+canonical bubble during the wait. COMPLETE lasts one cycle and authorizes the
+memory instruction to enter EX/WB exactly once.
 
-AR-003 has accepted a small CPU-local data bus:
+For a load, the LSU captures the full response word, then uses its saved access
+size, unsigned flag, and byte offset to select and sign- or zero-extend the
+result for WB.
+
+The response is no longer live bus data, but it is still held in LSU registers
+outside EX/WB. AR-004 will move raw/aligned data and error status into the
+instruction-owned registered result packet.
+
+### 10.4 Implemented single-outstanding core bus
+
+AR-003 implements this CPU-local data bus:
 
 ```text
 request:  valid, ready, byte address, write, size, write data, write strobes
@@ -355,8 +378,20 @@ response. The LSU always accepts the expected response, so this milestone does
 not need `rsp_ready`. AXI and APB remain adapter protocols outside the CPU; the
 LSU does not inherit their channels, IDs, bursts, or setup phases.
 
-The LSU owns the request registers and IDLE/REQUEST/RESPONSE/COMPLETE state.
-`core_ctrl` will consume only abstract wait/completion information.
+The LSU owns the request registers and transaction state. `core_ctrl` consumes
+only abstract busy state and does not duplicate bus protocol logic.
+
+`core_bus_data_ram.sv` is the first target adapter. It can independently delay
+request acceptance and response delivery, and then translates an accepted
+request to the synchronous RAM controls.
+
+Vivado 2019.2 out-of-context synthesis retains four program-memory and four
+data-memory `RAMB36E1` cells. This confirms the new module boundary is
+synthesizable; it does not replace later board timing closure.
+
+Detailed rationale, RED/GREEN evidence, performance consequences, and reusable
+principles are in
+[`AR003_WAIT_STATE_SAFE_LSU.md`](AR003_WAIT_STATE_SAFE_LSU.md).
 
 ## 11. CSR and trap model
 
@@ -478,7 +513,8 @@ Recommended waveform groups:
 - `if2id_pkt_out`, `id2ex_pkt_out`, `ex2wb_pkt_out`;
 - `pc_stall`, `ifid_stall`, `idex_flush`, `pipe_kill`;
 - `ex_redirect_en`, `ex_redirect_pc`, `wb_trap_event`;
-- `ram_req_valid`, `ram_we`, `ram_addr`, `ram_wstrb`, `ram_rdata`;
+- `data_req_valid_o`, `data_req_ready_i`, `data_req_o`;
+- `data_rsp_valid_i`, `data_rsp_i`, `lsu_busy`, `lsu_complete`;
 - `wb_rf_wen_safe`, `wb_rf_waddr`, `wb_rf_wdata`;
 - CSR address/read/write/effective values;
 - `commit_o`.
@@ -501,10 +537,10 @@ Recommended waveform groups:
 
 | Topic | Current risk or question | Planned stage |
 |---|---|---|
-| Data-memory handshake | Contract accepted and RED test added; RTL implementation pending | Phase 2 / AR-003 |
-| Load response ownership | Live RAM data bypasses the pipeline packet | Phase 2 / AR-004 |
+| Blocking LSU performance | Correct but the front end waits for every memory response | Measure before adding a MEM stage/cache |
+| Load response ownership | LSU-held response bypasses the EX/WB packet | Phase 2 / AR-004 |
 | Memory topology | Unified dual-port or split architectural regions | Phase 1 / AR-009 |
-| Access faults | No default error target or response error | Phase 2 |
+| Access faults | Error bit exists, but there is no default error target or access-fault trap | Phase 2 |
 | Interrupt boundary | Correct resume PC and outstanding transaction deferral | Phase 3 / AR-008 |
 | Timer | No `mtime`, `mtimecmp`, or hardware MTIP | Phase 3 |
 | RV32M timing | Combinational divide may fail FPGA timing | Early synthesis / AR-011 |

@@ -4,15 +4,18 @@ import riscv_pkg::*;
 
 module riscv #(
   parameter int AW = riscv_pkg::AW,
-  parameter int DW = riscv_pkg::DW,
-  parameter int DATA_RAM_DEPTH = 4096,
-  parameter string INIT_DATA_FILE = ""
+  parameter int DW = riscv_pkg::DW
 )(
   input  logic          clk_i,
   input  logic          rst_ni,
   output logic          instr_ren_o,
   output logic [AW-1:0] instr_addr_o,
   input  logic [DW-1:0] instr_rdata_i,
+  output logic          data_req_valid_o,
+  input  logic          data_req_ready_i,
+  output core_bus_req_t data_req_o,
+  input  logic          data_rsp_valid_i,
+  input  core_bus_rsp_t data_rsp_i,
   output logic [DW-1:0] dbg_x3_o,
   output logic [DW-1:0] dbg_x10_o,
   output logic [DW-1:0] dbg_x11_o,
@@ -76,19 +79,17 @@ module riscv #(
   logic          pc_redirect_en;
   logic [AW-1:0] pc_redirect_pc;
 
-  // LSU <-> Data RAM interface
-  logic            ram_req_valid;
-  logic            ram_we;
-  logic [DW/8-1:0] ram_wstrb;
-  logic [AW-1:0]   ram_addr;
-  logic [DW-1:0]   ram_wdata;
-  logic [DW-1:0]   ram_rdata;
-
-  // LSU <-> Pipeline interface
+  // LSU <-> pipeline interface
   mem_pkt_t       lsu_mem_info;
   logic           lsu_mem_misaligned;
+  logic [DW-1:0]  lsu_raw_rdata;
   logic [DW-1:0]  lsu_load_data;
+  logic           lsu_load_fault;
+  logic           lsu_store_fault;
+  logic           lsu_busy;
+  logic           lsu_complete;
   logic           ex_kill;
+  logic           ex_mem_transaction;
 
   // ============================================================
   // 3. Control Unit Interface Signals
@@ -128,6 +129,7 @@ module riscv #(
     .wb_rf_we       (ex2wb_pkt_out.rf.we),
     .ex_redirect_en (ex_redirect_en),
     .ex_flush_req   (ex_flush_req),
+    .ex_wait_i      (lsu_busy),
     .trap_redirect_en(trap_redirect_en),
     .wb_trap_event  (wb_trap_event),
     .pc_stall       (pc_stall),
@@ -307,46 +309,55 @@ module riscv #(
   );
 
   // ============================================================
-  // 8. LSU (Load/Store Unit) — sole interface to data_ram
+  // 8. LSU (Load/Store Unit) — transaction owner for the external data bus
   // ============================================================
   lsu #(
     .AW(AW),
     .DW(DW)
   ) u_lsu (
-    // EX stage inputs
-    .pkt_ex_i         (id2ex_pkt_out),
-    .ex_kill_i        (ex_kill),
-    // WB stage inputs
-    .wb_mem_info_i    (ex2wb_pkt_out.mem_info),
-    .ram_rdata_i      (ram_rdata),
-    // Data RAM interface
-    .ram_req_valid_o  (ram_req_valid),
-    .ram_req_ready_i  (),       // Direct RAM always ready
-    .ram_we_o         (ram_we),
-    .ram_wstrb_o      (ram_wstrb),
-    .ram_addr_o       (ram_addr),
-    .ram_wdata_o      (ram_wdata),
-    .ram_resp_valid_i (),       // Direct RAM 1-cycle response
-    // Pipeline outputs
-    .mem_info_o       (lsu_mem_info),
-    .mem_misaligned_o (lsu_mem_misaligned),
-    .load_data_o      (lsu_load_data),
-    .load_fault_o     (),           // Unconnected for now
-    .store_fault_o    ()            // Unconnected for now
+    .clk_i             (clk_i),
+    .rst_ni            (rst_ni),
+    .pkt_ex_i          (id2ex_pkt_out),
+    .ex_kill_i         (ex_kill),
+    .bus_req_valid_o   (data_req_valid_o),
+    .bus_req_ready_i   (data_req_ready_i),
+    .bus_req_o         (data_req_o),
+    .bus_rsp_valid_i   (data_rsp_valid_i),
+    .bus_rsp_i         (data_rsp_i),
+    .mem_info_o        (lsu_mem_info),
+    .mem_misaligned_o  (lsu_mem_misaligned),
+    .raw_rdata_o       (lsu_raw_rdata),
+    .load_data_o       (lsu_load_data),
+    .load_fault_o      (lsu_load_fault),
+    .store_fault_o     (lsu_store_fault),
+    .busy_o            (lsu_busy),
+    .complete_o        (lsu_complete)
   );
 
   // ============================================================
   // 9. ex2wb_pkt_in_safe assembly
-  //    Override mem_info with LSU's output; apply pipe_kill.
+  //    A memory instruction enters EX/WB only on LSU completion.
   // ============================================================
+  assign ex_mem_transaction = id2ex_pkt_out.valid &&
+                              id2ex_pkt_out.ex_ctrl.mem_req &&
+                              !lsu_mem_misaligned &&
+                              !ex_kill;
+
   always_comb begin
     ex2wb_pkt_in_safe = ex2wb_pkt_in;
-    ex2wb_pkt_in_safe.mem_info = lsu_mem_info; // Overwrite by LSU
-    ex2wb_pkt_in_safe.mem_valid = ram_req_valid;
-    ex2wb_pkt_in_safe.mem_we    = ram_we;
-    ex2wb_pkt_in_safe.mem_addr  = ram_addr;
-    ex2wb_pkt_in_safe.mem_wdata = ram_wdata;
-    ex2wb_pkt_in_safe.mem_wstrb = ram_wstrb;
+    if (ex_mem_transaction) begin
+      if (lsu_complete) begin
+        ex2wb_pkt_in_safe.mem_info  = lsu_mem_info;
+        ex2wb_pkt_in_safe.mem_valid = 1'b1;
+        ex2wb_pkt_in_safe.mem_we    = data_req_o.write;
+        ex2wb_pkt_in_safe.mem_addr  = data_req_o.addr;
+        ex2wb_pkt_in_safe.mem_wdata = data_req_o.wdata;
+        ex2wb_pkt_in_safe.mem_wstrb = data_req_o.wstrb;
+      end else begin
+        ex2wb_pkt_in_safe = EX_WB_PKT_BUBBLE;
+      end
+    end
+
     if (pipe_kill)
       ex2wb_pkt_in_safe = EX_WB_PKT_BUBBLE;
   end
@@ -363,7 +374,7 @@ module riscv #(
                   ex2wb_pkt_in_safe.csr.valid ||
                   ex2wb_pkt_in_safe.mem_valid))
           else $error("Pipeline kill did not clear EX/WB side effects");
-        assert (!ram_req_valid)
+        assert (!data_req_valid_o)
           else $error("Pipeline kill did not suppress the LSU request");
       end
     end
@@ -371,29 +382,7 @@ module riscv #(
 `endif
 
   // ============================================================
-  // 10. Data RAM (only LSU talks to it)
-  // ============================================================
-  logic ram_ren;
-  assign ram_ren = ram_req_valid & !ram_we; // Read enable is valid & not write
-
-  data_ram #(
-    .AW(AW),
-    .DW(DW),
-    .DEPTH(DATA_RAM_DEPTH),
-    .INIT_FILE(INIT_DATA_FILE)
-  ) u_data_ram (
-    .clk_i   (clk_i),
-    .rst_ni  (rst_ni),
-    .ren_i   (ram_ren),
-    .wen_i   (ram_we),
-    .wstrb_i (ram_wstrb),
-    .addr_i  (ram_addr),
-    .wdata_i (ram_wdata),
-    .rdata_o (ram_rdata)
-  );
-
-  // ============================================================
-  // 11. EX/WB Pipeline Register
+  // 10. EX/WB Pipeline Register
   // ============================================================
   ex2wb u_ex2wb (
     .clk_i    (clk_i),
@@ -404,7 +393,7 @@ module riscv #(
   );
 
   // ============================================================
-  // 12. Regfile
+  // 11. Regfile
   // ============================================================
   assign wb_rf_wen_safe = wb_rf_wen && !wb_trap_event;
 
@@ -426,7 +415,7 @@ module riscv #(
   );
 
   // ============================================================
-  // 13. WB Stage (load_data from LSU)
+  // 12. WB Stage (load_data from LSU)
   // ============================================================
   wb_stage u_wb_stage (
     .pkt_wb_i    (ex2wb_pkt_out),
@@ -448,7 +437,7 @@ module riscv #(
   always @(negedge clk_i) begin
     if (rst_ni) begin
       if (!id2ex_pkt_out.valid) begin
-        assert (!(ram_req_valid || ram_we || ex_redirect_en || ex_flush_req))
+        assert (!(data_req_valid_o || ex_redirect_en || ex_flush_req))
           else $error("Invalid ID/EX packet caused an EX-stage side effect");
       end
 
@@ -475,7 +464,7 @@ module riscv #(
 `endif
 
   // ============================================================
-  // 14. Architectural Commit Interface
+  // 13. Architectural Commit Interface
   // ============================================================
   logic [63:0] commit_order_q;
 
@@ -500,7 +489,8 @@ module riscv #(
     commit_o.mem_we     = ex2wb_pkt_out.mem_we;
     commit_o.mem_addr   = ex2wb_pkt_out.mem_valid ? ex2wb_pkt_out.mem_addr : '0;
     commit_o.mem_wmask  = ex2wb_pkt_out.mem_we ? ex2wb_pkt_out.mem_wstrb : '0;
-    commit_o.mem_rdata  = (ex2wb_pkt_out.mem_valid && !ex2wb_pkt_out.mem_we) ? ram_rdata : '0;
+    commit_o.mem_rdata  = (ex2wb_pkt_out.mem_valid && !ex2wb_pkt_out.mem_we) ?
+                          lsu_raw_rdata : '0;
     commit_o.mem_wdata  = (ex2wb_pkt_out.mem_valid && ex2wb_pkt_out.mem_we) ?
                           ex2wb_pkt_out.mem_wdata : '0;
     commit_o.trap       = wb_trap_event;

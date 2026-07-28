@@ -10,9 +10,10 @@
 ./../src/core/csr_regfile.sv
 ./../src/core/regfile.sv
 ./../src/core/core_ctrl.sv
-./../src/core/riscv.sv
 ./../src/mem/prog_ram.sv
 ./../src/mem/data_ram.sv
+./../src/bus/core_bus_data_ram.sv
+./../src/core/riscv.sv
 ./../src/riscv_soc.sv
 ./tb/tb_riscv_core.sv
 ./tb/tb_lsu_protocol.sv

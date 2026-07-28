@@ -6,8 +6,8 @@
 
 **Last updated:** 2026-07-28
 
-**Current milestone:** AR-003 core-bus contract accepted; wait-state LSU RED
-evidence recorded before implementation
+**Current milestone:** AR-003 wait-state-safe LSU implemented and verified;
+AR-004 registered response ownership remains open
 
 > This is the consolidated record of what the architecture is, why it evolved
 > this way, what was learned while fixing problems, and which decisions remain
@@ -59,9 +59,10 @@ programmable logic of a Zynq XC7Z010:
 - In-order execution.
 - No compressed instructions, so `IALIGN=32`.
 - Harvard-style instruction and data ports in the current RTL.
-- One-cycle synchronous instruction and data BRAM.
+- One-cycle synchronous instruction BRAM.
+- Blocking, single-outstanding CPU data bus with target-controlled request and
+  response latency.
 - No general forwarding network beyond register-file write-first bypass.
-- No wait-state data-bus support yet.
 - Combinational RV32M implementation.
 - Vivado 2019.2 and ModelSim 2019.2 compatibility matter.
 
@@ -86,6 +87,8 @@ flowchart LR
   subgraph SOC["riscv_soc"]
     LOAD["Program loader"]
     IBRAM["Synchronous instruction BRAM"]
+    ADAPTER["Core-bus to RAM adapter"]
+    DBRAM["Synchronous data RAM"]
 
     subgraph CPU["riscv"]
       FETCH["PC + accepted-request tag"]
@@ -93,8 +96,7 @@ flowchart LR
       DECODE["Decode + GPR read"]
       IDEX["ID/EX"]
       EXEC["Execute + CSR/trap decision"]
-      LSU["LSU"]
-      DBRAM["Direct synchronous data RAM"]
+      LSU["LSU transaction FSM"]
       EXWB["EX/WB"]
       RETIRE["WB + commit"]
       CTRL["Central control"]
@@ -106,8 +108,11 @@ flowchart LR
   FETCH -->|"request"| IBRAM
   IBRAM -->|"registered response"| IFID
   FETCH --> IFID --> DECODE --> IDEX --> EXEC --> EXWB --> RETIRE
-  IDEX --> LSU --> DBRAM
-  DBRAM -->|"registered load response"| LSU --> RETIRE
+  IDEX --> LSU
+  LSU -->|"request valid/ready"| ADAPTER --> DBRAM
+  DBRAM --> ADAPTER -->|"response valid/data/error"| LSU
+  LSU -->|"one completion"| EXWB
+  LSU -->|"held response (AR-004 open)"| RETIRE
   RETIRE -->|"GPR write-first path"| DECODE
   RETIRE --> CSR --> EXEC
   DECODE -.-> CTRL
@@ -122,10 +127,12 @@ flowchart LR
 Key boundary facts:
 
 - Program memory is outside the CPU in `riscv_soc`.
-- Data memory is still inside the CPU in `riscv.sv`.
-- The current direct LSU/RAM interface assumes fixed latency and no
-  backpressure.
+- Data memory is outside the CPU behind `core_bus_data_ram.sv`.
+- The LSU owns one request from capture through response and emits a one-cycle
+  completion to EX/WB.
+- The data target may delay request acceptance and response independently.
 - `commit_o` is the stable architectural observation boundary.
+- Response data is LSU-held but not yet carried inside EX/WB; that is AR-004.
 - Retirement, CSR writes, trap entry, and commit construction are still
   distributed across top-level and WB logic.
 
@@ -226,7 +233,7 @@ Consequences:
 
 **Period:** June–July 2026
 
-**State:** Implemented; interfaces awaiting Phase 2 redesign
+**State:** Implemented and refined by AR-003
 
 Hazard/flush logic moved to `core_ctrl.sv`, and load/store behavior moved from
 `execute.sv` into `lsu.sv`.
@@ -250,8 +257,8 @@ Consequences:
 
 - Module responsibilities became easier to reason about.
 - `execute` consumes LSU misalignment feedback.
-- The placeholder ready/response ports expose that the current direct-RAM
-  interaction is not yet a protocol.
+- AR-003 later turned the LSU into the clocked owner of a small
+  request/response protocol while keeping pipeline policy in `core_ctrl`.
 
 ### Stage E — CSR, traps, retirement, and commit visibility
 
@@ -498,6 +505,54 @@ architectural IALIGN check.
 **Evidence:** 3/3 focused, 18/18 smoke, and 4/4 utility tests in
 [`AR007_CSR_LEGALITY_WARL_AND_HAZARDS.md`](AR007_CSR_LEGALITY_WARL_AND_HAZARDS.md).
 
+### AR-003 — Wait-state-safe LSU transaction control
+
+**State:** Verified
+
+**Observed problem:** The former LSU described direct RAM wires rather than a
+transaction lifetime. It had no clocked request owner, correct ready/response
+direction, or one-cycle completion event. Holding EX for a future wait state
+could re-present a store and repeatedly copy one memory instruction into EX/WB.
+
+**Root cause:** Request generation, RAM timing, pipeline hold, and retirement
+authorization were implicit and distributed. No module remembered whether a
+request had merely been presented, had been accepted, or had completed.
+
+**Decision:**
+
+- Use a CPU-local, single-outstanding request/response protocol.
+- Require a response for loads and stores.
+- Put request registers and
+  `IDLE -> REQUEST -> RESPONSE -> COMPLETE` state in the LSU.
+- Let `core_ctrl` consume only abstract LSU busy state.
+- Admit a memory instruction to EX/WB only during the completion event.
+- Put RAM/APB/AXI translation outside the CPU.
+
+**Alternatives rejected:**
+
+- Expose AXI/APB phases directly from the LSU. They add coupling without value
+  for a blocking core.
+- Add only a delay counter or stall signal. Neither defines request acceptance,
+  response ownership, or exactly-once retirement.
+- Add a full MEM stage immediately. It is unnecessary for correctness at the
+  present performance target.
+
+**Consequences:**
+
+- Request and response latency may vary independently.
+- An unaccepted request can be killed; an accepted transaction is not
+  cancelled.
+- The front of the pipeline blocks during each data transaction.
+- Response data/error are registered in the LSU, but not yet in EX/WB; AR-004
+  remains the next response-ownership step.
+- `rsp_error` is transported and checked but access-fault trap generation
+  remains open.
+
+**Evidence:** focused LSU protocol GREEN, zero-delay and inserted-wait-state
+full-core GREEN, 20/20 smoke, 4/4 utilities, and Vivado 2019.2 SoC
+out-of-context synthesis retaining eight `RAMB36E1` cells and LSU state in
+[`AR003_WAIT_STATE_SAFE_LSU.md`](AR003_WAIT_STATE_SAFE_LSU.md).
+
 ## 7. Verification decision lifecycle
 
 Architecture problems are resolved through this lifecycle:
@@ -530,75 +585,20 @@ Required evidence for a resolved architecture issue:
 
 ## 8. Open architecture decisions
 
-### AR-003 — Wait-state-safe LSU transaction control
-
-**State:** Accepted; implementation in progress
-
-**Problem:** The current LSU drives placeholder ready/response signals
-internally, regenerates requests from a live ID/EX packet, and has no completion
-event. Simply holding ID/EX would therefore risk reissuing a store or copying
-the same instruction into EX/WB repeatedly.
-
-**Accepted decision:**
-
-- Use a CPU-local single-outstanding bus rather than exposing AXI or APB at the
-  LSU boundary.
-- Carry byte address, write intent, access size, aligned write data, and write
-  strobes in a packed request payload.
-- Use request valid/ready and a non-backpressured response carrying valid,
-  full-word read data, and an error bit.
-- Require one response for both loads and stores.
-- Keep load signedness inside the LSU because it is CPU interpretation rather
-  than a target-visible transaction attribute.
-- Put request registers and the transaction FSM in `lsu.sv`; expose only
-  abstract busy/completion state to `core_ctrl.sv`.
-- Translate the simple core bus to BRAM, APB, or AXI in adapters outside the
-  CPU.
-
-Accepted state model:
-
-```text
-IDLE -> REQUEST -> RESPONSE -> COMPLETE -> IDLE
-```
-
-Accepted signal contract:
-
-```text
-req_valid, req_ready
-req_addr, req_write, req_size, req_wdata, req_wstrb
-rsp_valid, rsp_rdata, rsp_error
-```
-
-`rsp_ready` is intentionally omitted while the LSU guarantees it can always
-capture the one expected response. Transaction IDs, bursts, cache attributes,
-and AXI/APB-specific phases are deferred to adapters.
-
-Required invariants and verification:
-
-- request fields remain stable until accepted;
-- an accepted request is not reissued;
-- one accepted request receives one response;
-- held EX instructions do not repeatedly enter EX/WB;
-- stores are not cancelled after becoming externally visible;
-- interrupts defer while a transaction is outstanding.
-
-**RED evidence:** `tb_lsu_protocol.sv` elaborates the desired contract against
-the pre-fix LSU and reports nine missing ports: clock/reset, request and
-response handshakes/payloads, busy, and completion.
-
 ### AR-004 — Registered memory response ownership
 
 **State:** Proposed
 
 Required decision:
 
-- Add completed response data and fault status to the instruction's registered
-  memory-result packet.
+- Add the LSU-held raw/aligned response data and error/fault status to the
+  instruction's registered EX/WB memory-result packet.
 
 Reason:
 
-- WB and commit currently consume live RAM response data aligned by
-  construction. A variable-latency bus requires explicit registered ownership.
+- AR-003 removed the live bus timing dependency, but WB and commit still consume
+  LSU-held response state outside EX/WB. Instruction-owned packet state is
+  required before access faults and more independent pipeline movement.
 
 ### AR-008 — Interrupt retirement boundary
 
@@ -672,8 +672,8 @@ Required decisions:
 
 | Stage | Architecture decisions required before implementation | Exit evidence |
 |---|---|---|
-| Phase 1: contract freeze | Memory topology, byte map, bus lifecycle, faults, timer atomicity | Reviewed contract can answer every address/access/error case |
-| Phase 2: external data bus | LSU FSM, target latch, response packet, pipeline backpressure | Wait-state tests, protocol assertions, old LSU suite |
+| Phase 1: contract freeze | Memory topology, byte map, faults, timer atomicity; bus lifecycle is verified | Reviewed contract can answer every address/access/error case |
+| Phase 2: external data bus | Address decode, default error target, EX/WB response packet, access-fault traps; LSU FSM/backpressure are verified | Unmapped/error tests plus the already-green wait-state and old LSU suites |
 | Phase 3: timer interrupt | MTIP ownership, eligibility, retirement boundary, MRET, WFI | Long repeated-interrupt test and precise commit assertions |
 | Phase 4: UART/GPIO | Register semantics, partial writes, reset, decode exclusivity | Peripheral and SoC-level scoreboards |
 | Phase 5: firmware | Startup ABI, linker map, image split, drivers | Same bare-metal programs in simulation and FPGA |

@@ -11,7 +11,7 @@ module data_ram #(
   parameter int AW    = 32,
   parameter int DW    = 32,
   parameter int DEPTH = 4096,
-  parameter string INIT_FILE = ""  // 新增：用于仿真时加载 firmware/linux镜像
+  parameter INIT_FILE = ""  // Vivado 2019.2-compatible string parameter
 )(
   input  wire logic            clk_i,
   input  wire logic            rst_ni,  // 保留接口兼容，但内部仅用于仿真复位
