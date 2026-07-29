@@ -12,7 +12,9 @@ module core_bus_data_ram #(
   parameter INIT_FILE = "",
   parameter int REQ_WAIT_CYCLES = 0,
   parameter int RSP_WAIT_CYCLES = 0,
-  parameter bit FORCE_ERROR = 1'b0
+  parameter bit FORCE_ERROR = 1'b0,
+  parameter bit ERROR_ADDR_ENABLE = 1'b0,
+  parameter logic [AW-1:0] ERROR_ADDR = '0
 )(
   input  logic          clk_i,
   input  logic          rst_ni,
@@ -48,6 +50,7 @@ module core_bus_data_ram #(
   logic [AW-1:0] ram_addr;
   logic [DW-1:0] ram_wdata;
   logic [DW-1:0] ram_rdata;
+  logic request_error;
   core_bus_req_t active_req;
 
   always_comb begin
@@ -64,9 +67,12 @@ module core_bus_data_ram #(
       req_ready_o = 1'b1;
   end
 
+  assign request_error = FORCE_ERROR &&
+                         (!ERROR_ADDR_ENABLE ||
+                          active_req.addr == ERROR_ADDR);
   assign accept      = req_valid_i && req_ready_o;
-  assign ram_ren     = accept && !active_req.write;
-  assign ram_wen     = accept && active_req.write && !FORCE_ERROR;
+  assign ram_ren     = accept && !active_req.write && !request_error;
+  assign ram_wen     = accept && active_req.write && !request_error;
   assign ram_wstrb   = active_req.wstrb;
   assign ram_addr    = active_req.addr;
   assign ram_wdata   = active_req.wdata;
@@ -128,7 +134,7 @@ module core_bus_data_ram #(
 
         ADAPTER_RAM_CAPTURE: begin
           rsp_q.rdata <= ram_rdata;
-          rsp_q.error <= FORCE_ERROR;
+          rsp_q.error <= request_error;
           if (RSP_WAIT_CYCLES == 0) begin
             rsp_valid_q <= 1'b1;
             state_q     <= ADAPTER_IDLE;

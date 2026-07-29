@@ -128,6 +128,24 @@
       "image": "testdata/fetch_sync_redirect_test.hex",
       "timeout_cycles": 1000,
       "tags": ["all", "smoke", "fetch", "branch", "jal", "jalr", "ar005"]
+    },
+    {
+      "name": "load_access_fault",
+      "image": "testdata/load_access_fault_test.hex",
+      "timeout_cycles": 2000,
+      "data_req_wait_cycles": 2,
+      "data_rsp_wait_cycles": 3,
+      "data_error_addr": 8192,
+      "tags": ["all", "smoke", "trap", "lsu", "fault", "ar004"]
+    },
+    {
+      "name": "store_access_fault",
+      "image": "testdata/store_access_fault_test.hex",
+      "timeout_cycles": 2000,
+      "data_req_wait_cycles": 2,
+      "data_rsp_wait_cycles": 3,
+      "data_error_addr": 8192,
+      "tags": ["all", "smoke", "trap", "lsu", "store", "fault", "ar004"]
     }
   ]
 }

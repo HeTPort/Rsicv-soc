@@ -49,7 +49,7 @@ if ($manifestData.schema_version -ne 1) {
 $allTests = @($manifestData.tests)
 if ($List) {
     $allTests |
-        Select-Object name, image, data_image, timeout_cycles,
+        Select-Object name, image, data_image, timeout_cycles, data_error_addr,
             @{Name="tags"; Expression={ $_.tags -join "," }} |
         Format-Table -AutoSize
     exit 0
@@ -182,6 +182,18 @@ try {
             $dataRspWaitCycles = 0
         }
 
+        $dataForceError = 0
+        $dataErrorAddrEnable = 0
+        $dataErrorAddr = [uint32]0
+        if ($null -ne $testCase.PSObject.Properties["data_error_addr"]) {
+            $dataForceError = 1
+            $dataErrorAddrEnable = 1
+            $dataErrorAddr = [uint32]$testCase.data_error_addr
+        } elseif ($null -ne $testCase.PSObject.Properties["data_force_error"] -and
+                  [bool]$testCase.data_force_error) {
+            $dataForceError = 1
+        }
+
         $modelSimImagePath = $imagePath.Replace("\", "/")
         $logPath = Join-Path $logDir "$testName.log"
         $vsimArgs = @(
@@ -194,6 +206,9 @@ try {
             "-gDATA_RAM_DEPTH=$dataRamDepth",
             "-gDATA_REQ_WAIT_CYCLES=$dataReqWaitCycles",
             "-gDATA_RSP_WAIT_CYCLES=$dataRspWaitCycles",
+            "-gDATA_FORCE_ERROR=$dataForceError",
+            "-gDATA_ERROR_ADDR_ENABLE=$dataErrorAddrEnable",
+            "-gDATA_ERROR_ADDR=$dataErrorAddr",
             "-gTRACE_ENABLE=$([int][bool]$Trace)",
             "-gDUMP_WAVES=$([int][bool]$DumpWaves)"
         )

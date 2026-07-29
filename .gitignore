@@ -2,6 +2,7 @@
 sim/build/
 sim/logs/
 sim/work/
+sim/work_*/
 sim/work_lsu/
 sim/modelsim.ini
 sim/transcript

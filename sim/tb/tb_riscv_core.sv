@@ -16,7 +16,10 @@ module tb_riscv_core #(
   parameter int PROG_RAM_DEPTH = 4096,
   parameter int DATA_RAM_DEPTH = 4096,
   parameter int DATA_REQ_WAIT_CYCLES = 0,
-  parameter int DATA_RSP_WAIT_CYCLES = 0
+  parameter int DATA_RSP_WAIT_CYCLES = 0,
+  parameter bit DATA_FORCE_ERROR = 1'b0,
+  parameter bit DATA_ERROR_ADDR_ENABLE = 1'b0,
+  parameter logic [31:0] DATA_ERROR_ADDR = '0
 );
   localparam int AW = 32;
   localparam int DW = 32;
@@ -115,7 +118,10 @@ module tb_riscv_core #(
     .DEPTH(DATA_RAM_DEPTH),
     .INIT_FILE(DATA_FILE),
     .REQ_WAIT_CYCLES(DATA_REQ_WAIT_CYCLES),
-    .RSP_WAIT_CYCLES(DATA_RSP_WAIT_CYCLES)
+    .RSP_WAIT_CYCLES(DATA_RSP_WAIT_CYCLES),
+    .FORCE_ERROR(DATA_FORCE_ERROR),
+    .ERROR_ADDR_ENABLE(DATA_ERROR_ADDR_ENABLE),
+    .ERROR_ADDR(DATA_ERROR_ADDR)
   ) u_data_target (
     .clk_i       (clk),
     .rst_ni      (rst_n),
