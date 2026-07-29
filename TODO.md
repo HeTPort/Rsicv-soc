@@ -78,8 +78,9 @@ Implemented:
 - [x] M-mode CSR instructions and synchronous trap entry/return support.
 - [x] Explicit M-mode CSR legality, no-write rules, WARL filtering, and
       same-address dependency bypass.
-- [x] Lightweight JSON/PowerShell ModelSim regression runner; UVM is not
-  required for this target.
+- [x] Lightweight JSON/PowerShell ModelSim regression runner with native
+  simulator-exit and transcript result gates; UVM is not required for this
+  target.
 - [x] Separate instruction/data image support and commit-based `tohost`
   completion checking.
 - [x] ELF-to-memory converter and ACT4 import/runner adapters.
@@ -90,8 +91,8 @@ Implemented:
       state machine, with data RAM outside the CPU.
 - [x] Registered EX/WB memory results with precise load/store access-fault
       completion and packet-owned WB/commit data.
-- [x] Existing directed regression last verified at 22/22 passing, with converter
-  tests at 4/4 passing.
+- [x] Existing directed regression last verified at 22/22 passing, with
+  converter tests at 4/4 and the regression-result negative test passing.
 
 Still missing:
 
@@ -103,6 +104,19 @@ Still missing:
   placeholders.
 - [ ] Firmware startup code, linker script, drivers, and FreeRTOS application.
 - [ ] FPGA top, XDC constraints, Vivado build script, and physical-board result.
+
+Current planning position:
+
+- Phase 0A is complete; this closes its correctness gate, not the whole
+  architecture review or FreeRTOS roadmap.
+- Phase 1 is current, with AR-009 awaiting a memory-map decision.
+- Phase 2 is partially complete: AR-003 and AR-004 were finished early, while
+  centralized decode, a default error target, and system-level tests remain.
+- AR-008 belongs to Phase 3; AR-010 is continuous verification; AR-011 is an
+  early FPGA feasibility gate; and AR-012 is cross-stage cleanup.
+- AR identifiers are stable finding numbers, not phase numbers. Detailed
+  ownership and status are maintained in
+  [`doc/ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md`](doc/ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md).
 
 ---
 
@@ -118,6 +132,9 @@ Still missing:
   RISC-V GNU toolchain, Spike, and Vivado.
 - [x] Remove generated build/log files from source control while retaining
   reproducible scripts and manifests.
+- [x] Require a zero native simulator exit in addition to the PASS/fatal/error
+  transcript gates, with RED/GREEN evidence in
+  [`doc/AR013_REGRESSION_EXIT_STATUS_GATE.md`](doc/AR013_REGRESSION_EXIT_STATUS_GATE.md).
 
 Baseline evidence is archived in
 [`doc/PHASE0_BASELINE_2026-07-24.md`](doc/PHASE0_BASELINE_2026-07-24.md).
@@ -137,6 +154,9 @@ build directory.
 ---
 
 ## Phase 0A — Make retirement and pipeline side effects precise
+
+**Status:** complete. This does not close the overall architecture review or any
+later phase.
 
 **Purpose:** close the correctness gap identified by the architecture review
 before a wait-state bus or asynchronous interrupts make the same failures more
@@ -169,9 +189,14 @@ difficult to isolate.
 - [x] Complete the remaining Phase 0A exit criteria in
   [`doc/ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md`](doc/ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md).
 
-Current verification after the AR-004 registered memory-result fix:
+AR-003 and AR-004 are Phase 2 sub-gates completed early to satisfy the
+cross-cutting wait-state and registered-result criteria. Phase 2 remains open
+for the decoder, default error target, and system-level verification.
+
+Current verification after the AR-013 regression-gate fix:
 directed smoke **22/22 passed**
-and regression utility tests **4/4 passed**.
+and regression utility tests **4/4 passed**. The AR-013 negative result
+classifier test also passes.
 
 ---
 
@@ -207,6 +232,8 @@ ACT4 remains active throughout all later phases; it is not a one-time task.
 ---
 
 ## Phase 1 — Define the minimal FreeRTOS SoC contract
+
+**Status:** in progress; AR-009 is the current decision gate.
 
 **Purpose:** freeze the memory map and bus behavior before writing peripherals
 or software.

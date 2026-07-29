@@ -9,6 +9,9 @@ logs, and returns a nonzero process status if any test fails.
 
 - `tests.json` - test names, firmware images, timeouts, and selection tags.
 - `run_regression.ps1` - Windows PowerShell orchestration and result checking.
+- `regression_result.ps1` - shared simulator result-classification policy.
+- `test_regression_result.ps1` - dependency-free positive/negative classifier
+  test, including the nonzero-exit false-pass case.
 - `run_regression.cmd` - Command Prompt wrapper that bypasses script policy only
   for this one PowerShell process.
 - `build_tests_wsl.sh` - optional GNU-toolchain builder for assembly tests in WSL.
@@ -33,6 +36,7 @@ From PowerShell:
 Set-Location D:\Rsicv-soc\sim\regress
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 ./run_regression.ps1
+./test_regression_result.ps1
 ```
 
 From Command Prompt:
@@ -69,8 +73,10 @@ Useful selections:
 ```
 
 Success produces process exit code `0`. Manifest, tool, compile, assertion,
-timeout, simulator, or architectural failures produce a nonzero exit code.
-This makes the same command usable by a person, a batch file, or CI.
+timeout, simulator, or architectural failures produce a nonzero exit code. The
+focused classifier test proves that a PASS-looking transcript cannot override
+a nonzero simulator exit. This makes the same command usable by a person, a
+batch file, or CI.
 
 ## Manifest grammar
 
@@ -162,13 +168,17 @@ $output = & vlog @vlogArgs 2>&1
 - `$LASTEXITCODE` contains the native executable's process exit status.
 
 ModelSim can return zero after some simulation failures, depending on how Tcl
-exits. The runner therefore requires all three conditions:
+exits. The runner therefore requires all four conditions:
 
 ```text
+the native simulator process exit status is zero
 [TB] RESULT: PASS is present
 no ** Fatal: message is present
 the final ModelSim error count is zero
 ```
+
+`test_regression_result.ps1` supplies a nonzero exit together with an otherwise
+passing transcript and proves that the shared production classifier rejects it.
 
 ### Guaranteed directory restoration
 

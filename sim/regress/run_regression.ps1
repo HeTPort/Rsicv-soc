@@ -22,6 +22,8 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+. (Join-Path $PSScriptRoot "regression_result.ps1")
+
 # Accept either PowerShell arrays (-Test ebreak,mret) or comma-separated text
 # forwarded by another shell (-Test "ebreak,mret").
 $Tag = @($Tag | ForEach-Object { $_ -split "," } | Where-Object { $_ -ne "" })
@@ -227,10 +229,10 @@ try {
         $timer.Stop()
         $simulationOutput | Set-Content -LiteralPath $logPath
 
-        $hasPassMarker = [bool]($simulationOutput -match "\[TB\] RESULT:\s*PASS")
-        $hasFatal = [bool]($simulationOutput -match "\*\* Fatal:")
-        $hasErrors = [bool]($simulationOutput -match "Errors:\s*[1-9][0-9]*")
-        $passed = $hasPassMarker -and -not $hasFatal -and -not $hasErrors
+        $simulationResult = Get-RegressionSimulationResult `
+            -SimulationExitCode $simulationExitCode `
+            -SimulationOutput $simulationOutput
+        $passed = $simulationResult.Passed
 
         if ($passed) {
             $status = "PASS"

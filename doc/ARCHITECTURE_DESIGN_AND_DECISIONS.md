@@ -6,8 +6,9 @@
 
 **Last updated:** 2026-07-29
 
-**Current milestone:** AR-003 wait-state-safe LSU and AR-004 registered memory
-results/access faults implemented and verified
+**Current milestone:** AR-003/AR-004 data-bus foundations and the AR-013
+regression exit-status gate implemented and verified; AR-009 memory map under
+review
 
 > This is the consolidated record of what the architecture is, why it evolved
 > this way, what was learned while fixing problems, and which decisions remain
@@ -316,12 +317,16 @@ Consequences:
 
 ### Stage G — Phase 0 baseline and Phase 0A precision remediation
 
-**Period:** 2026-07-24 onward
+**Period:** 2026-07-24 to 2026-07-29
 
-**State:** Partially complete
+**State:** Complete
 
 The architecture review froze a green baseline, then intentionally repaired
 precision and timing invariants before introducing wait states or interrupts.
+AR-003 and AR-004 are Phase 2 sub-gates that were completed early because the
+Phase 0A exit criteria also required wait-state correctness and packet-owned
+memory results. This closes Phase 0A, not Phase 2; address decode, the default
+error target, and system-level negative tests remain open.
 
 Reason for ordering:
 
@@ -613,6 +618,8 @@ and Vivado 2019.2 synthesis in
 
 **State:** Proposed
 
+**Owning stage:** Phase 3
+
 Required decision:
 
 - Define interrupt entry between architectural instructions, including the
@@ -629,6 +636,8 @@ Likely requirement:
 ### AR-009 — Architectural memory topology and map
 
 **State:** Proposed for review; must close before the remaining Phase 2 decoder
+
+**Owning stage:** Phase 1; current architecture decision gate
 
 Options:
 
@@ -672,6 +681,8 @@ descriptions, and tests together.
 
 **State:** Ongoing
 
+**Owning stage:** Continuous verification track
+
 Required decisions:
 
 - Which architectural values every trap test must check.
@@ -681,7 +692,9 @@ Required decisions:
 
 ### AR-011 — Early FPGA feasibility
 
-**State:** Proposed
+**State:** Proposed with partial BRAM-inference evidence
+
+**Owning stage:** Early checkpoint after Phase 2; full closure in Phase 7
 
 Required evidence:
 
@@ -697,12 +710,43 @@ reused for a multi-cycle divider.
 
 **State:** Proposed
 
+**Owning stage:** Cross-stage cleanup, closed before release
+
 Required decisions:
 
 - One owner for retirement, CSR writes, trap entry, and commit construction.
 - Removal or explicit deprecation of `halt_o`.
 - Removal of unused control ports after bus/interrupt contracts stabilize.
 - Rules for placeholder files and build inclusion.
+
+### AR-013 — Regression simulator exit-status gate
+
+**State:** Implemented and verified
+
+**Problem:** The regression runner captured and reported the native ModelSim
+exit status but did not include it in the PASS predicate. A PASS-looking,
+zero-error transcript could therefore override a failed simulator process.
+
+**Root cause:** Native process status was treated as summary metadata, and the
+classification expression was embedded in orchestration code without a
+focused negative test.
+
+**Options considered:** add one inline condition; extract a shared tested
+classifier; trust only native status; or use persistent PASS/FAIL result files.
+
+**Decision:** The production runner and focused test share one PowerShell
+classifier. PASS requires native exit zero, a valid architectural PASS marker,
+no fatal marker, and a zero ModelSim error count. Transcript gates remain
+because Tcl termination can normalize some simulator failures to exit zero.
+
+**Consequences:** The false-pass path is closed without changing RTL or test
+program behavior. One small helper becomes the result-policy owner, and a
+dependency-free negative test exercises the production predicate.
+
+**Evidence:** focused RED rejected the old classifier; focused GREEN passed
+after the exit-status condition; Python utilities passed 4/4; directed
+ModelSim smoke passed 22/22 with every simulator exit zero. Full evidence is in
+[`AR013_REGRESSION_EXIT_STATUS_GATE.md`](AR013_REGRESSION_EXIT_STATUS_GATE.md).
 
 ## 9. Future stage architecture gates
 
@@ -805,8 +849,12 @@ An architecture-changing task is incomplete until this document is updated.
 - [Memory-map and bus contract guide](MEMORY_MAP_CONTRACT_DESIGN_GUIDE.md)
 - [AR-001 precise CSR squash](AR001_PRECISE_CSR_SQUASH_FIX.md)
 - [AR-002 canonical bubbles](AR002_CANONICAL_PIPELINE_BUBBLES.md)
+- [AR-003 wait-state data bus](AR003_WAIT_STATE_SAFE_LSU.md)
+- [AR-004 registered memory result](AR004_REGISTERED_MEMORY_RESULT.md)
 - [AR-005 synchronous instruction BRAM](AR005_SYNCHRONOUS_INSTRUCTION_BRAM.md)
 - [AR-006 control-flow misalignment](AR006_CONTROL_FLOW_MISALIGNMENT.md)
 - [AR-007 CSR contract](AR007_CSR_LEGALITY_WARL_AND_HAZARDS.md)
+- [AR-009 architectural memory map](AR009_ARCHITECTURAL_MEMORY_MAP.md)
+- [AR-013 regression exit-status gate](AR013_REGRESSION_EXIT_STATUS_GATE.md)
 - [ACT4 integration handoff](ACT4_RV32I_INTEGRATION_HANDOFF_2026-07-27.md)
 - [ACT4 integration guide](../verif/act4/README.md)

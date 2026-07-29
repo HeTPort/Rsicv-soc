@@ -20,6 +20,32 @@ and architectural commit interface are useful foundations. The main change to
 the roadmap is to insert a short correctness phase before introducing a
 wait-state bus or asynchronous interrupts.
 
+## How to read phase and AR status
+
+Phase numbers and AR numbers describe different things:
+
+- `Phase 0A`, `Phase 1`, and later phases are execution gates. Their authoritative
+  checklists and ordering live in [`TODO.md`](../TODO.md).
+- `AR-001`, `AR-002`, and later identifiers are stable architecture-review
+  finding IDs. They are not a second phase sequence and should not be renumbered
+  when work moves earlier or later.
+- **Phase 0A is complete.** That statement means its explicit exit checklist
+  below is satisfied; it does not mean every AR finding or the whole FreeRTOS
+  roadmap is complete.
+
+Current ownership and status:
+
+| Finding | Owning stage | Status |
+|---|---|---|
+| AR-001, AR-002, AR-005, AR-006, AR-007 | Phase 0A | Implemented and verified |
+| AR-003, AR-004 | Phase 2 sub-gates completed early | Implemented and verified; the remaining Phase 2 decoder work is open |
+| AR-008 | Phase 3 | Proposed; interrupt boundary work has not started |
+| AR-009 | Phase 1 | Proposed for review; current architecture decision gate |
+| AR-010 | Continuous verification track | Ongoing |
+| AR-011 | Early FPGA feasibility, then Phase 7 closure | Proposed; BRAM evidence exists, but utilization and timing gates remain open |
+| AR-012 | Cross-stage cleanup | Proposed; perform items when their owning interfaces stabilize |
+| AR-013 | Regression infrastructure | Implemented and verified |
+
 ## Verified baseline
 
 The live working tree was checked on 2026-07-22 with:
@@ -63,6 +89,11 @@ Exit criteria:
       actually synthesize.
 - [x] Directed tests exist for every item above and the complete smoke suite is
       green.
+
+AR-003 and AR-004 are Phase 2 data-bus sub-gates that were deliberately pulled
+forward to satisfy the wait-state and registered-result criteria above. Their
+early completion does not close Phase 2: centralized address decode, a default
+error target, and their system-level tests remain open.
 
 ## Findings and handling plan
 
@@ -326,6 +357,8 @@ timer integration item; ordinary CSR writes cannot modify `mip` today.
 
 ### AR-008 — Interrupt entry needs an explicit retirement boundary
 
+**Status:** proposed. **Target:** Phase 3.
+
 Interrupts occur between architectural instructions. Reusing only the current
 synchronous-exception packet does not identify the correct resume PC after a
 retired branch or jump, and it does not naturally describe an interrupt that is
@@ -363,6 +396,9 @@ mstatus.MIE && mie.MTIE && mip.MTIP
 - [ ] At least 10,000 simulated timer interrupts before closing Phase 3.
 
 ### AR-009 — The proposed memory map conflicts with the current ACT4 flow
+
+**Status:** proposed for review. **Target:** Phase 1; this is the current
+architecture decision gate.
 
 **Evidence**
 
@@ -407,6 +443,8 @@ Option B — physically and architecturally split instruction/data BRAM regions:
 
 ### AR-010 — Current tests are green but too shallow for the claimed features
 
+**Status:** ongoing. **Target:** continuous verification across all phases.
+
 Several trap programs enter a handler and write PASS without checking every
 value named in their comments. For example, the handler in
 [`ebreak_test.S`](../testdata/ebreak_test.S#L40) does not read `mcause`, `mepc`,
@@ -415,6 +453,10 @@ is not in the manifest and still describes the obsolete halt behavior.
 
 **Handling**
 
+- [x] Require a zero native simulator exit in addition to the existing
+      PASS-marker, fatal-marker, and error-count checks. Keep the focused
+      false-pass regression and RED/GREEN evidence in
+      [`AR013_REGRESSION_EXIT_STATUS_GATE.md`](AR013_REGRESSION_EXIT_STATUS_GATE.md).
 - [ ] Make each trap test check `mcause`, `mepc`, `mtval`, and relevant
       `mstatus` fields before reporting PASS.
 - [ ] For misaligned stores, prove the addressed memory bytes did not change.
@@ -429,6 +471,11 @@ is not in the manifest and still describes the obsolete halt behavior.
       after any memory-map change.
 
 ### AR-011 — FPGA feasibility checks should move earlier
+
+**Status:** proposed with partial evidence. **Target:** an early feasibility
+checkpoint after the remaining Phase 2 work, followed by full Phase 7 timing
+closure. Instruction and data BRAM inference has already been demonstrated;
+resource and critical-path acceptance remain open.
 
 The current roadmap leaves the first divider critical-path and BRAM-inference
 inspection until the FPGA integration phase. A combinational RV32M divider or
@@ -450,6 +497,9 @@ area being redesigned for the bus.
 
 ### AR-012 — Documentation and interface cleanup
 
+**Status:** proposed. **Target:** cross-stage cleanup as each affected interface
+stabilizes, with final closure before release.
+
 The repository README still describes the long-term Linux target and an older
 five-stage/privilege status, while `TODO.md` now correctly targets FreeRTOS.
 Several interfaces also retain obsolete or duplicate signals, including a
@@ -469,6 +519,18 @@ outputs.
 - [ ] Replace empty placeholder RTL files with implemented modules when their
       phase starts, or retain only clearly named placeholders that are excluded
       from the build.
+
+### AR-013 — Regression PASS ignored the simulator process status
+
+**Status:** fixed and verified. See
+[`AR013_REGRESSION_EXIT_STATUS_GATE.md`](AR013_REGRESSION_EXIT_STATUS_GATE.md)
+for the root cause, alternatives, shared classifier, focused RED/GREEN test,
+and 22/22 full-regression evidence.
+
+The runner already captured and displayed the native `vsim` exit status, but
+the PASS predicate ignored it. Result classification now requires a zero
+simulator exit together with the existing PASS-marker, fatal-marker, and
+ModelSim error-count checks.
 
 ## Proposed data-bus contract
 
@@ -519,7 +581,13 @@ For the initial single-hart FreeRTOS target:
       compare while `mtimecmp` halves are updated.
 - [ ] Keep MTIP hardware-owned even if other writable `mip` bits are added.
 
-## Revised execution order
+## Revised execution order and current position
+
+Steps 1 and 2 are complete. Step 3, the AR-009 memory-map decision, is the
+current gate. AR-003 and AR-004 completed the transaction and registered-result
+parts of step 4 early, but the address decoder, default target, and system-level
+negative tests remain open. The early synthesis checkpoint and AR-008 timer
+interrupt work follow those gates.
 
 1. **Checkpoint the current working tree and archived 9/9 + 4/4 evidence.**
 2. **Complete Phase 0A:** precise side-effect gating, complete bubbles, CSR
@@ -547,9 +615,10 @@ Official RV32I/RV32M ACT4 execution remains a continuous parallel track. It is
 not a substitute for the directed pipeline, CSR, bus, interrupt, or peripheral
 tests listed here.
 
-## Definition of completion for this review
+## Whole-project review closure criteria
 
-This review document can be considered fully handled only when:
+These are end-to-end project criteria, not the Phase 0A exit gate. This review
+document can be considered fully handled only when:
 
 - [ ] Every AR item is either implemented and verified or explicitly deferred
       with a reason and risk statement.

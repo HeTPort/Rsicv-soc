@@ -6,8 +6,8 @@
 
 **Last updated:** 2026-07-29
 
-**Current reference:** `codex/architecture-review-roadmap`, post AR-004 with
-AR-009 memory-map proposal under review
+**Current reference:** `codex/architecture-review-roadmap`, post AR-013
+regression-gate verification with AR-009 memory-map proposal under review
 
 > Update this document whenever a change alters a module boundary, pipeline
 > timing, packet field, architectural behavior, memory map, verification
@@ -55,9 +55,11 @@ the minimal architecture needed for the first working system.
 - Precise illegal-instruction, ECALL, EBREAK, instruction-misalignment, and
   load/store-misalignment traps.
 - Ordered architectural commit records.
-- ModelSim directed regression and test manifest.
+- ModelSim directed regression and test manifest with native-exit,
+  PASS-marker, fatal-marker, and error-count result gates.
 - ELF/image conversion and ACT4 integration adapters.
-- Current directed smoke baseline: 22/22 passing after AR-004.
+- Current directed smoke baseline: 22/22 passing after AR-013, with 4/4 Python
+  utilities and the focused regression-result negative test passing.
 
 ### Not implemented yet
 
@@ -67,6 +69,28 @@ the minimal architecture needed for the first working system.
 - Firmware startup/linker/driver stack.
 - FreeRTOS port integration.
 - Board top, constraints, timing closure, and physical FPGA result.
+
+### Phase numbers and AR numbers are different axes
+
+Phases are ordered execution gates; AR numbers are stable review-finding IDs.
+Therefore, Phase 0A can be complete while AR-008 through AR-012 remain open.
+The current mapping is:
+
+| Work | Planning meaning |
+|---|---|
+| AR-001, AR-002, AR-005, AR-006, AR-007 | Phase 0A work, implemented and verified |
+| AR-003, AR-004 | Phase 2 sub-gates completed early; the decoder/default-target work is still open |
+| AR-009 | Phase 1 memory-map proposal, currently under review |
+| AR-008 | Future Phase 3 interrupt-boundary work |
+| AR-010 | Ongoing verification-depth work across phases |
+| AR-011 | Early FPGA feasibility plus later timing closure |
+| AR-012 | Cleanup performed as interfaces stabilize |
+| AR-013 | Regression infrastructure fix, implemented and verified |
+
+The authoritative phase checklist is [`TODO.md`](../TODO.md); the detailed
+finding status is in
+[`ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md`](ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md).
+The overall review and FreeRTOS roadmap remain open.
 
 ## 3. Recommended learning order
 
@@ -482,6 +506,7 @@ From PowerShell:
 Set-Location D:\Rsicv-soc\sim\regress
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 ./run_regression.ps1 -Tag smoke
+./test_regression_result.ps1
 python -m unittest test_elf_to_mem.py test_import_act4.py
 ```
 
@@ -500,6 +525,12 @@ Tests finish by committing a store to the configured `tohost` address:
 - another nonzero value: test-specific failure code.
 
 `halt_o` is not the completion mechanism.
+
+The regression runner classifies a test as PASS only when the native simulator
+exit is zero, the architectural PASS marker is present, no fatal marker is
+present, and ModelSim reports zero errors. The focused AR-013 infrastructure
+test supplies a PASS-looking transcript with a nonzero simulator exit and
+proves that it is rejected.
 
 ### 13.3 Debug from architecture inward
 
@@ -603,6 +634,7 @@ compare RAM data, `load_offset`, extracted value, and committed result.
 - [AR-005 synchronous instruction BRAM](AR005_SYNCHRONOUS_INSTRUCTION_BRAM.md)
 - [AR-006 control-flow misalignment](AR006_CONTROL_FLOW_MISALIGNMENT.md)
 - [AR-007 CSR contract](AR007_CSR_LEGALITY_WARL_AND_HAZARDS.md)
+- [AR-013 regression exit-status gate](AR013_REGRESSION_EXIT_STATUS_GATE.md)
 - [ACT4 integration](../verif/act4/README.md)
 - [Project roadmap](../TODO.md)
 
