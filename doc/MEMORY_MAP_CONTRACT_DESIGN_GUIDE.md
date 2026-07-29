@@ -165,6 +165,12 @@ The roadmap currently proposes:
 | GPIO | `0x1000_1000` | 4 KiB |
 | Data BRAM | `0x8000_0000` | 64 KiB |
 
+The detailed split-memory recommendation, access/error contract, capacity
+caveat, verification plan, and open review questions are recorded in
+[`AR009_ARCHITECTURAL_MEMORY_MAP.md`](AR009_ARCHITECTURAL_MEMORY_MAP.md).
+AR-009 remains proposed until those questions are reviewed; the table above is
+not yet an implemented ABI.
+
 This table is not frozen. The unified-versus-split BRAM decision must first be
 reconciled with ACT4, the linker, image generation, BRAM capacity, and Vivado
 inference. No Phase 2 RTL should embed these provisional addresses before that

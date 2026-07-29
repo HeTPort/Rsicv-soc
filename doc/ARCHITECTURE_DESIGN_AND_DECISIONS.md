@@ -628,7 +628,7 @@ Likely requirement:
 
 ### AR-009 — Architectural memory topology and map
 
-**State:** Proposed; must close before Phase 2
+**State:** Proposed for review; must close before the remaining Phase 2 decoder
 
 Options:
 
@@ -637,9 +637,36 @@ Options:
 | Unified architectural region, dual-port BRAM | Simple linker/ACT4 view; no duplicated capacity | Requires dual-port implementation and clear self-modifying-code policy |
 | Split instruction/data architectural regions | Matches current two-array RTL | Coordinated split linker, images, ACT4 config, and sum of both BRAM capacities |
 
-The provisional addresses in `TODO.md` are not frozen. The final decision must
+**Recommendation for review:** use split architectural instruction/data regions
+for the first FreeRTOS milestone because that matches the verified two-array
+Harvard implementation and avoids an immediate dual-port/coherency refactor.
+
+The proposed map keeps instruction BRAM at `0x0000_0000`, data BRAM at
+`0x8000_0000`, a 64 KiB CLINT window at `0x0200_0000`, and 4 KiB UART/GPIO
+windows at `0x1000_0000`/`0x1000_1000`. All other data addresses complete
+through a side-effect-free default error target. A simulation-only `tohost`
+word is proposed at `0x8000_FFFC`.
+
+**Important unresolved consequence:** current RAM parameters expose 16 KiB per
+bank, while the proposed ranges reserve 64 KiB. Capacity, FPGA BRAM cost, and
+software requirements must be reconciled before acceptance.
+
+**Required implementation after acceptance:**
+
+- full-address centralized decode and base-address subtraction;
+- latched response-source selection;
+- default error completion for unmapped/invalid-offset data accesses;
+- explicit instruction response-error handling for cause 1;
+- synchronized SystemVerilog/C/linker/test/converter/ACT4 constants;
+- boundary, negative, wait-state, and cross-target verification.
+
+The full context, problem, recommendation, consequences, review questions,
+verification plan, and reusable principles are in
+[`AR009_ARCHITECTURAL_MEMORY_MAP.md`](AR009_ARCHITECTURAL_MEMORY_MAP.md).
+
+No RTL behavior changes with this proposal. The final accepted decision must
 update RTL constants, linker scripts, firmware headers, converters, ACT4
-descriptions, and tests in one change.
+descriptions, and tests together.
 
 ### AR-010 — Verification depth
 

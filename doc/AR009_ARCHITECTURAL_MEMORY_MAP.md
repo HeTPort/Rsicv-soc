@@ -1,0 +1,270 @@
+# AR-009 Architectural Memory Topology and Map
+
+## Status
+
+**Proposed for review on 2026-07-29. Not yet accepted or implemented.**
+
+This document records the recommended first-milestone memory topology and map
+for the FreeRTOS target. It is a review proposal, not a statement that the
+current RTL, linker, tests, or firmware already use these addresses.
+
+Acceptance of this proposal is the Phase 1 gate before the remaining Phase 2
+address decoder and default error target are implemented.
+
+## Problem
+
+The current SoC has separate physical program and data RAM, but it does not yet
+have a complete software-visible memory-map contract:
+
+- every CPU data request is routed directly to the RAM adapter;
+- `data_ram` uses only the low RAM-index bits, so unrelated high addresses can
+  alias RAM rather than fault;
+- the instruction interface has no response-error signal, and an invalid
+  program-RAM fetch is represented by an `EBREAK` word rather than instruction
+  access-fault cause 1;
+- timer, UART, and GPIO files are placeholders;
+- current tests use `tohost=0x0000_1000`, which is incompatible with the
+  proposed split map;
+- the default 4096-word RAM parameters provide 16 KiB per bank, while the
+  roadmap provisionally reserves 64 KiB per bank.
+
+A final map must align hardware, linker scripts, firmware headers, test
+manifests, image conversion, ACT4 configuration, and FPGA resource use.
+
+## Knowledge required before accepting the map
+
+| Topic | Why it matters in this project |
+|---|---|
+| Byte addresses versus word indices | The CPU issues byte addresses, while each 32-bit BRAM word represents four bytes. |
+| Alignment and little-endian lanes | The LSU already checks byte/halfword/word alignment and constructs store strobes. |
+| Single-outstanding bus protocol | Decode and response routing must preserve exactly one response for every accepted request. |
+| Synchronous BRAM timing | Instruction and data responses are registered, not combinational reads from the current address. |
+| RISC-V fault semantics | Misalignment causes 4/6 are generated before the bus; target errors become causes 5/7; invalid fetches require cause 1. |
+| Linker and image layout | `.text` and writable sections must be placed in memories reachable through the corresponding physical ports. |
+| RV32 timer atomicity | A 32-bit CPU needs explicit safe sequences for 64-bit `mtime` and `mtimecmp`. |
+| FPGA capacity | Address-window sizes must match instantiated word depth and available Block RAM. |
+
+## Current project constraints
+
+1. The CPU has a dedicated synchronous instruction port.
+2. Loads and stores use the AR-003 single-outstanding request/response bus.
+3. AR-004 carries completed memory data and errors in the registered EX/WB
+   packet and converts data response errors into precise access faults.
+4. The current physical implementation has distinct `prog_ram` and
+   `data_ram` arrays.
+5. The first complete system targets one RV32IM hart, M-mode FreeRTOS,
+   machine-timer interrupts, polling UART TX, and GPIO.
+6. Linux, MMU, caches, DDR, AXI, PLIC, and self-modifying code are outside the
+   first milestone.
+
+## Options considered
+
+| Option | Advantages | Costs and risks |
+|---|---|---|
+| Unified architectural region backed by dual-port BRAM | Simpler linker and ACT4 view; code and data can share capacity | Requires a larger memory refactor, a second data-side program-memory port, collision semantics, and a self-modifying-code policy |
+| Split instruction and data architectural regions | Matches the existing two-array Harvard implementation and minimizes near-term RTL change | Requires coordinated split linker/images, data-side placement of constants, and ACT4/tool configuration updates |
+
+## Recommendation for review
+
+Use **split architectural instruction and data regions** for the first
+FreeRTOS milestone.
+
+Reasons:
+
+- it matches the present physical memory organization;
+- it keeps instruction-fetch timing and verified BRAM inference intact;
+- it avoids adding dual-port collision and coherency behavior before it is
+  required;
+- the existing ELF converter already supports separate instruction and data
+  images;
+- `.rodata`, `.data`, `.bss`, heap, and stacks can all reside in data RAM.
+
+This recommendation deliberately trades a more complex software/linker view
+for a smaller and more understandable first hardware implementation.
+
+## Proposed first-milestone map
+
+| Region | Inclusive address range | Size | Permissions | Initial behavior |
+|---|---:|---:|---|---|
+| Instruction BRAM | `0x0000_0000`–`0x0000_FFFF` | 64 KiB | Read/execute through instruction port | Synchronous fetch; fetch outside this range must become instruction access fault |
+| Machine timer/CLINT | `0x0200_0000`–`0x0200_FFFF` | 64 KiB window | Read/write | `mtimecmp=+0x4000`, `mtime=+0xBFF8` |
+| UART | `0x1000_0000`–`0x1000_0FFF` | 4 KiB window | Read/write | Polling TX first; invalid offsets return error |
+| GPIO | `0x1000_1000`–`0x1000_1FFF` | 4 KiB window | Read/write | Output register and readback; invalid offsets return error |
+| Data BRAM | `0x8000_0000`–`0x8000_FFFF` | 64 KiB | Read/write through data port | Holds `.rodata`, `.data`, `.bss`, heap, and stacks |
+| Default target | Every other address | — | None | Accept once, perform no write, return one response with `rsp_error=1` |
+
+The timer window is 64 KiB because the standard `mtime` offset `0xBFF8` does
+not fit in a 4 KiB window.
+
+### Capacity caveat
+
+The current default RAM depth is 4096 32-bit words:
+
+```text
+4096 words × 4 bytes = 16 KiB
+```
+
+A 64 KiB bank requires 16,384 words. The proposed 64 KiB ranges must not be
+accepted as implemented capacity until:
+
+- firmware and FreeRTOS stack/heap estimates justify the sizes;
+- `PROG_RAM_DEPTH` and `DATA_RAM_DEPTH` are updated consistently;
+- Vivado synthesis confirms the BRAM cost fits the XC7Z010 budget.
+
+If 16 KiB banks are retained, the address ranges must be reduced to match.
+
+### Simulation completion address
+
+Reserve the final data-RAM word as a simulation-only completion location:
+
+```text
+tohost = 0x8000_FFFC
+```
+
+The linker must reserve that word so stack, heap, and program sections cannot
+overlap it. Existing directed tests and manifests currently using
+`0x0000_1000` must be regenerated only after this proposal is accepted.
+
+## Access and fault contract
+
+### RAM accesses
+
+- Byte, halfword, and word data accesses are supported.
+- Memory is little-endian.
+- The LSU generates load/store misalignment causes 4/6 before issuing a
+  request.
+- Data RAM receives a local address:
+
+```text
+local_address = architectural_address - 0x8000_0000
+```
+
+- Passing the full high architectural address directly into a small BRAM and
+  discarding its upper bits is forbidden.
+
+### Unmapped and rejected data accesses
+
+- An unmapped or invalid-offset request is accepted by a side-effect-free
+  default target.
+- It receives exactly one response with `rsp_error=1` and zero read data.
+- A failed store performs no write.
+- The CPU retires the operation as load access fault cause 5 or store access
+  fault cause 7 with `mtval` equal to the attempted address.
+
+### Instruction fetches
+
+- Fetches are legal only in the instruction-BRAM range.
+- Fetch outside the range must produce instruction access fault cause 1 with
+  `mtval` equal to the attempted PC.
+- Returning the `EBREAK` encoding for an invalid fetch is not an architectural
+  error-reporting mechanism and must be replaced by an explicit instruction
+  response-error path.
+
+## Decoder and response-routing contract
+
+The centralized decoder must:
+
+1. compare the complete architectural request address against every region;
+2. assert at most one target request-valid signal;
+3. subtract the selected target base before indexing local RAM/register space;
+4. route unmatched addresses to the default error target;
+5. latch the selected target when `req_valid && req_ready` accepts the request;
+6. select the later response using that latched target identity, never a live
+   request address;
+7. prevent a second acceptance while a transaction remains outstanding.
+
+Assertions must prove:
+
+- target selection is one-hot-or-zero before default selection;
+- exactly one target accepts each request;
+- every accepted request produces exactly one response;
+- a response never occurs without an outstanding request;
+- an errored write produces no RAM or peripheral side effect;
+- back-to-back transactions to different targets remain correctly paired.
+
+## Peripheral rules that must be frozen with implementation
+
+For every MMIO register, document:
+
+- offset, width, and access sizes;
+- readable, writable, and hardware-owned bits;
+- reset value;
+- byte-strobe and partial-write behavior;
+- reserved-bit behavior;
+- read/write side effects;
+- invalid-offset behavior.
+
+For RV32 `mtimecmp`, software should use the safe three-write sequence:
+
+1. write the high word to `0xFFFF_FFFF`;
+2. write the low word;
+3. write the final high word.
+
+This prevents a transient early timer interrupt while updating two 32-bit
+halves.
+
+## One-source-of-truth requirement
+
+After acceptance, one authoritative machine-readable definition should produce
+or be mechanically checked against:
+
+- SystemVerilog decoder constants;
+- C-visible firmware headers;
+- linker regions and reserved `tohost`;
+- testbench and regression manifest addresses;
+- ELF-to-memory conversion configuration;
+- ACT4/UDB descriptions.
+
+Copying unexplained numeric constants into each consumer is not acceptable
+because map drift becomes a silent hardware/software ABI bug.
+
+## Verification required before implementation is called complete
+
+1. First and last legal address of every region.
+2. Addresses immediately before and after every region.
+3. Every RAM byte lane and legal access size.
+4. Misaligned load/store requests issue no bus transaction.
+5. Unmapped load/store causes 5/7 with the attempted address in `mtval`.
+6. Invalid instruction fetch causes 1 rather than breakpoint cause 3.
+7. Default-target stores have no side effect.
+8. Wait states before acceptance and before response.
+9. Back-to-back accesses to different targets.
+10. One-hot decode and accepted-request/response/commit accounting.
+11. Timer reset, compare crossing, and safe RV32 high/low access.
+12. Clean smoke and applicable ACT4 reruns.
+13. Vivado BRAM utilization after final bank sizes are selected.
+
+## Review questions
+
+The proposal should remain **Proposed** until reviewers answer:
+
+1. Is split architectural instruction/data memory accepted for the first
+   milestone?
+2. Are 64 KiB banks justified, or should the initial map expose the current
+   16 KiB capacity?
+3. Is `0x8000_FFFC` accepted as the reserved simulation-only `tohost` word?
+4. Is data-side access to instruction BRAM intentionally unsupported?
+5. Should every invalid peripheral offset return an access fault?
+6. Is one-cycle default-target response latency acceptable?
+7. What exact board/FPGA BRAM budget should gate the final capacity?
+
+## Reusable principles
+
+1. A memory map is a hardware/software ABI, not only a table of addresses.
+2. Architectural addresses and physical RAM indices are different layers.
+3. Every address has at most one owner.
+4. Every accepted request must terminate exactly once.
+5. Errors are completed transactions, not hangs or fabricated instructions.
+6. Delayed response routing uses transaction-owned registered state.
+7. Invalid addresses must not silently alias valid storage or registers.
+8. Permissions, access sizes, strobes, reset, and side effects are part of the
+   map.
+9. Capacity is selected from software evidence and FPGA resources.
+10. Boundary and negative tests are as important as normal accesses.
+11. One authoritative definition must govern RTL, firmware, linker, tests, and
+    compliance tooling.
+
+## Verification evidence
+
+Documentation review only. No RTL behavior changed and no new simulation or
+synthesis claim is made by this proposal.

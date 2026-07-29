@@ -214,6 +214,10 @@ or software.
 The design rules, transaction invariants, unresolved topology decision, and
 freeze criteria are recorded in
 [`doc/MEMORY_MAP_CONTRACT_DESIGN_GUIDE.md`](doc/MEMORY_MAP_CONTRACT_DESIGN_GUIDE.md).
+The detailed split-memory proposal, consequences, verification plan, and review
+questions are recorded in
+[`doc/AR009_ARCHITECTURAL_MEMORY_MAP.md`](doc/AR009_ARCHITECTURAL_MEMORY_MAP.md).
+It remains proposed and must not be treated as implemented until reviewed.
 
 Provisional memory map:
 
@@ -231,6 +235,9 @@ be adjusted using the final ELF size report rather than guesswork.
 
 - [ ] Document byte addressing, little-endian lanes, alignment rules, response
   latency, unmapped access behavior, and reset behavior.
+- [ ] Review and accept, revise, or reject the AR-009 split-memory proposal,
+      including RAM capacity, `tohost`, instruction access faults, and default
+      target behavior.
 - [x] Define a small single-outstanding-transaction core bus:
   `req_valid`, `req_ready`, `req_addr`, `req_write`, `req_wdata`, `req_wstrb`,
   `req_size`, `rsp_valid`, `rsp_rdata`, and `rsp_error`.

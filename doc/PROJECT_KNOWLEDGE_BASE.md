@@ -6,7 +6,8 @@
 
 **Last updated:** 2026-07-29
 
-**Current reference:** `codex/architecture-review-roadmap`, post AR-004
+**Current reference:** `codex/architecture-review-roadmap`, post AR-004 with
+AR-009 memory-map proposal under review
 
 > Update this document whenever a change alters a module boundary, pipeline
 > timing, packet field, architectural behavior, memory map, verification
@@ -545,7 +546,7 @@ Recommended waveform groups:
 | Topic | Current risk or question | Planned stage |
 |---|---|---|
 | Blocking LSU performance | Correct but the front end waits for every memory response | Measure before adding a MEM stage/cache |
-| Memory topology | Unified dual-port or split architectural regions | Phase 1 / AR-009 |
+| Memory topology | Split instruction/data regions are proposed for review; capacity and tooling consequences remain open | Phase 1 / AR-009 |
 | Unmapped access faults | Precise access-fault traps exist, but the SoC has no centralized decoder/default error target | Phase 2 |
 | Interrupt boundary | Correct resume PC and outstanding transaction deferral | Phase 3 / AR-008 |
 | Timer | No `mtime`, `mtimecmp`, or hardware MTIP | Phase 3 |
@@ -596,6 +597,7 @@ compare RAM data, `load_offset`, extracted value, and committed result.
 - [Architecture review and action plan](ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md)
 - [Verification framework](../docs/verification_framework.md)
 - [Memory-map and bus design guide](MEMORY_MAP_CONTRACT_DESIGN_GUIDE.md)
+- [AR-009 architectural memory-map proposal](AR009_ARCHITECTURAL_MEMORY_MAP.md)
 - [AR-001 precise CSR squash](AR001_PRECISE_CSR_SQUASH_FIX.md)
 - [AR-002 canonical bubbles](AR002_CANONICAL_PIPELINE_BUBBLES.md)
 - [AR-005 synchronous instruction BRAM](AR005_SYNCHRONOUS_INSTRUCTION_BRAM.md)
