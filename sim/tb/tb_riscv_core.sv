@@ -155,6 +155,7 @@ module tb_riscv_core #(
   core_bus_req_t stalled_data_req_q;
   core_bus_req_t accepted_data_req_q;
   core_bus_req_t completed_data_req_q;
+  core_bus_rsp_t completed_data_rsp_q;
   initial begin
     #1ns;
     $display("[TB] Check program RAM content");
@@ -217,6 +218,7 @@ module tb_riscv_core #(
       stalled_data_req_q     <= '0;
       accepted_data_req_q    <= '0;
       completed_data_req_q   <= '0;
+      completed_data_rsp_q   <= '0;
     end else begin
       if (data_req_stalled_q && data_req_valid) begin
         assert (data_req === stalled_data_req_q)
@@ -237,6 +239,7 @@ module tb_riscv_core #(
         data_outstanding    <= 1'b0;
         response_count      <= response_count + 1;
         completed_data_req_q <= accepted_data_req_q;
+        completed_data_rsp_q <= data_rsp;
       end
 
       if (commit.valid && commit.mem_valid) begin
@@ -245,10 +248,29 @@ module tb_riscv_core #(
         assert (commit.mem_we == completed_data_req_q.write &&
                 commit.mem_addr == completed_data_req_q.addr)
           else $fatal(1, "Retired memory operation does not match its completed request");
+        assert (u_riscv.ex2wb_pkt_out.mem_error == completed_data_rsp_q.error)
+          else $fatal(1, "EX/WB memory error does not match its response");
+        assert (u_riscv.ex2wb_pkt_out.mem_rdata == completed_data_rsp_q.rdata)
+          else $fatal(1, "EX/WB raw memory data does not match its response");
         if (commit.mem_we) begin
           assert (commit.mem_wmask == completed_data_req_q.wstrb &&
                   commit.mem_wdata == completed_data_req_q.wdata)
             else $fatal(1, "Retired store payload does not match its completed request");
+        end else begin
+          assert (commit.mem_rdata ==
+                  (completed_data_rsp_q.error ? '0 :
+                   completed_data_rsp_q.rdata))
+            else $fatal(1, "Committed load data is not packet-owned response data");
+        end
+        if (completed_data_rsp_q.error) begin
+          assert (commit.trap && !commit.rd_we)
+            else $fatal(1, "Faulting memory response did not trap precisely");
+          assert (commit.trap_cause ==
+                  (completed_data_req_q.write ?
+                   MCAUSE_STORE_ACCESS : MCAUSE_LOAD_ACCESS))
+            else $fatal(1, "Faulting memory response has the wrong trap cause");
+          assert (commit.trap_val == completed_data_req_q.addr)
+            else $fatal(1, "Faulting memory response has the wrong mtval");
         end
         memory_commit_count <= memory_commit_count + 1;
       end

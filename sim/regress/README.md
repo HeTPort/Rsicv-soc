@@ -109,6 +109,8 @@ Important JSON rules:
 - Optional `data_req_wait_cycles` delays data-request acceptance.
 - Optional `data_rsp_wait_cycles` independently delays the response after the
   synchronous RAM access. Both default to zero.
+- Optional `data_error_addr` makes the RAM adapter return `rsp_error` for one
+  selected address while leaving other accesses available to the trap handler.
 - Tags describe capabilities and allow one test to belong to several suites.
 
 The runner uses **any-tag matching**. `-Tag csr,mret` selects a test when it has

@@ -393,6 +393,9 @@ package riscv_pkg;
     logic [AW-1:0] mem_addr;
     logic [DW-1:0] mem_wdata;
     logic [DW/8-1:0] mem_wstrb;
+    logic [DW-1:0] mem_rdata;     // Registered raw bus response
+    logic [DW-1:0] mem_load_data; // Registered aligned/extended load value
+    logic          mem_error;     // Registered response error
     logic          instr_misaligned; // Taken control-flow target violates IALIGN
     logic          mem_misaligned; // EX 阶段新增的异常
     exc_pkt_t      exc;         // 包含 illegal_instr, ecall, ebreak

@@ -4,10 +4,10 @@
 
 **Audience:** Designers, reviewers, learners, and future maintainers
 
-**Last updated:** 2026-07-28
+**Last updated:** 2026-07-29
 
-**Current milestone:** AR-003 wait-state-safe LSU implemented and verified;
-AR-004 registered response ownership remains open
+**Current milestone:** AR-003 wait-state-safe LSU and AR-004 registered memory
+results/access faults implemented and verified
 
 > This is the consolidated record of what the architecture is, why it evolved
 > this way, what was learned while fixing problems, and which decisions remain
@@ -111,8 +111,7 @@ flowchart LR
   IDEX --> LSU
   LSU -->|"request valid/ready"| ADAPTER --> DBRAM
   DBRAM --> ADAPTER -->|"response valid/data/error"| LSU
-  LSU -->|"one completion"| EXWB
-  LSU -->|"held response (AR-004 open)"| RETIRE
+  LSU -->|"one completed memory-result packet"| EXWB
   RETIRE -->|"GPR write-first path"| DECODE
   RETIRE --> CSR --> EXEC
   DECODE -.-> CTRL
@@ -132,7 +131,8 @@ Key boundary facts:
   completion to EX/WB.
 - The data target may delay request acceptance and response independently.
 - `commit_o` is the stable architectural observation boundary.
-- Response data is LSU-held but not yet carried inside EX/WB; that is AR-004.
+- EX/WB owns the completed request metadata, raw response, aligned load value,
+  and response-error status consumed by WB and commit.
 - Retirement, CSR writes, trap entry, and commit construction are still
   distributed across top-level and WB logic.
 
@@ -543,10 +543,9 @@ request had merely been presented, had been accepted, or had completed.
 - An unaccepted request can be killed; an accepted transaction is not
   cancelled.
 - The front of the pipeline blocks during each data transaction.
-- Response data/error are registered in the LSU, but not yet in EX/WB; AR-004
-  remains the next response-ownership step.
-- `rsp_error` is transported and checked but access-fault trap generation
-  remains open.
+- At the AR-003 boundary, response data/error were registered in the LSU but
+  not yet in EX/WB; AR-004 subsequently closed that ownership boundary.
+- AR-004 converts `rsp_error` into precise load/store access faults.
 
 **Evidence:** focused LSU protocol GREEN, zero-delay and inserted-wait-state
 full-core GREEN, 20/20 smoke, 4/4 utilities, and Vivado 2019.2 SoC
@@ -583,22 +582,32 @@ Required evidence for a resolved architecture issue:
 - synthesis/timing evidence when physical behavior is part of the decision;
 - updated knowledge and decision documentation.
 
-## 8. Open architecture decisions
+## 8. Decision status and open architecture decisions
 
 ### AR-004 — Registered memory response ownership
 
-**State:** Proposed
+**State:** Verified
 
-Required decision:
+**Decision:**
 
-- Add the LSU-held raw/aligned response data and error/fault status to the
+- Carry LSU-held raw/aligned response data and error status in the
   instruction's registered EX/WB memory-result packet.
+- Make WB, trap generation, and commit consume that packet rather than live LSU
+  response outputs.
+- Complete response errors as precise load/store access faults, preserving
+  request metadata while suppressing GPR writeback and invalid load data.
 
 Reason:
 
-- AR-003 removed the live bus timing dependency, but WB and commit still consume
-  LSU-held response state outside EX/WB. Instruction-owned packet state is
-  required before access faults and more independent pipeline movement.
+- AR-003 removed the live bus timing dependency, but WB and commit still
+  consumed LSU-held response state outside EX/WB. Instruction-owned packet
+  state was required before access faults and more independent pipeline
+  movement.
+
+**Evidence:** standalone packet ownership GREEN, precise load/store
+access-fault GREEN, unchanged AR-003 protocol GREEN, 22/22 smoke, 4/4 utilities,
+and Vivado 2019.2 synthesis in
+[`AR004_REGISTERED_MEMORY_RESULT.md`](AR004_REGISTERED_MEMORY_RESULT.md).
 
 ### AR-008 — Interrupt retirement boundary
 

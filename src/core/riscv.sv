@@ -100,7 +100,7 @@ module riscv #(
   assign wb_trap_event = ex2wb_pkt_out.valid &&
       (ex2wb_pkt_out.exc.illegal_instr || ex2wb_pkt_out.exc.ecall ||
        ex2wb_pkt_out.exc.ebreak || ex2wb_pkt_out.instr_misaligned ||
-       ex2wb_pkt_out.mem_misaligned);
+       ex2wb_pkt_out.mem_misaligned || ex2wb_pkt_out.mem_error);
   assign wb_mret_event = ex2wb_pkt_out.valid && ex2wb_pkt_out.is_mret;
 
   assign trap_redirect_en = wb_trap_event;
@@ -353,6 +353,16 @@ module riscv #(
         ex2wb_pkt_in_safe.mem_addr  = data_req_o.addr;
         ex2wb_pkt_in_safe.mem_wdata = data_req_o.wdata;
         ex2wb_pkt_in_safe.mem_wstrb = data_req_o.wstrb;
+        ex2wb_pkt_in_safe.mem_rdata = lsu_raw_rdata;
+        ex2wb_pkt_in_safe.mem_load_data = lsu_load_data;
+        ex2wb_pkt_in_safe.mem_error = lsu_load_fault || lsu_store_fault;
+        if (lsu_load_fault || lsu_store_fault) begin
+          ex2wb_pkt_in_safe.rf.we = 1'b0;
+          ex2wb_pkt_in_safe.wb_sel = WB_NONE;
+          ex2wb_pkt_in_safe.trap_cause =
+              lsu_store_fault ? MCAUSE_STORE_ACCESS : MCAUSE_LOAD_ACCESS;
+          ex2wb_pkt_in_safe.trap_val = data_req_o.addr;
+        end
       end else begin
         ex2wb_pkt_in_safe = EX_WB_PKT_BUBBLE;
       end
@@ -415,11 +425,10 @@ module riscv #(
   );
 
   // ============================================================
-  // 12. WB Stage (load_data from LSU)
+  // 12. WB Stage (memory result is owned by the EX/WB packet)
   // ============================================================
   wb_stage u_wb_stage (
     .pkt_wb_i    (ex2wb_pkt_out),
-    .load_data_i (lsu_load_data),
     .rf_wen_o    (wb_rf_wen),
     .rf_waddr_o  (wb_rf_waddr),
     .rf_wdata_o  (wb_rf_wdata),
@@ -489,8 +498,10 @@ module riscv #(
     commit_o.mem_we     = ex2wb_pkt_out.mem_we;
     commit_o.mem_addr   = ex2wb_pkt_out.mem_valid ? ex2wb_pkt_out.mem_addr : '0;
     commit_o.mem_wmask  = ex2wb_pkt_out.mem_we ? ex2wb_pkt_out.mem_wstrb : '0;
-    commit_o.mem_rdata  = (ex2wb_pkt_out.mem_valid && !ex2wb_pkt_out.mem_we) ?
-                          lsu_raw_rdata : '0;
+    commit_o.mem_rdata  = (ex2wb_pkt_out.mem_valid &&
+                           !ex2wb_pkt_out.mem_we &&
+                           !ex2wb_pkt_out.mem_error) ?
+                          ex2wb_pkt_out.mem_rdata : '0;
     commit_o.mem_wdata  = (ex2wb_pkt_out.mem_valid && ex2wb_pkt_out.mem_we) ?
                           ex2wb_pkt_out.mem_wdata : '0;
     commit_o.trap       = wb_trap_event;

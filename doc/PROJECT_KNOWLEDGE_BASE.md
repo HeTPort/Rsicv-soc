@@ -4,9 +4,9 @@
 
 **Audience:** New contributors and learners
 
-**Last updated:** 2026-07-28
+**Last updated:** 2026-07-29
 
-**Current reference:** `codex/architecture-review-roadmap`, post AR-003
+**Current reference:** `codex/architecture-review-roadmap`, post AR-004
 
 > Update this document whenever a change alters a module boundary, pipeline
 > timing, packet field, architectural behavior, memory map, verification
@@ -48,19 +48,19 @@ the minimal architecture needed for the first working system.
 - Single-outstanding, wait-state-capable CPU data bus.
 - Clocked LSU request/response transaction state machine.
 - Synchronous data RAM outside the CPU behind a core-bus adapter.
+- EX/WB-owned raw/aligned memory response data and error status.
+- Precise load/store access-fault completion.
 - M-mode CSR instructions, WARL behavior, trap entry, and `mret`.
 - Precise illegal-instruction, ECALL, EBREAK, instruction-misalignment, and
   load/store-misalignment traps.
 - Ordered architectural commit records.
 - ModelSim directed regression and test manifest.
 - ELF/image conversion and ACT4 integration adapters.
-- Current directed smoke baseline: 20/20 passing after AR-003.
+- Current directed smoke baseline: 22/22 passing after AR-004.
 
 ### Not implemented yet
 
 - SoC address decoder and default error target.
-- EX/WB-owned registered memory response packet.
-- Load/store access-fault completion.
 - Machine timer and interrupt input.
 - Implemented UART, GPIO, or other peripherals.
 - Firmware startup/linker/driver stack.
@@ -181,7 +181,7 @@ execute and LSU request generation
     |
 LSU REQUEST/RESPONSE wait while ID/EX is held
     |
-one LSU completion / EX-WB memory metadata
+one LSU completion / complete EX-WB memory result
     |
 EX/WB register
     |
@@ -190,8 +190,9 @@ writeback and architectural commit
 
 There is no explicit EX/MEM register and no MEM/WB register. The LSU holds the
 memory instruction in EX until a response completes, then lets it enter EX/WB
-once. EX/WB stores memory metadata, but response data/error are still held in
-the LSU rather than carried inside that packet; AR-004 will close that boundary.
+once. At that completion boundary, EX/WB captures the request metadata, raw
+response, aligned load value, and response-error status as one instruction-owned
+result.
 
 ### 6.1 Instruction fetch timing
 
@@ -360,9 +361,13 @@ For a load, the LSU captures the full response word, then uses its saved access
 size, unsigned flag, and byte offset to select and sign- or zero-extend the
 result for WB.
 
-The response is no longer live bus data, but it is still held in LSU registers
-outside EX/WB. AR-004 will move raw/aligned data and error status into the
-instruction-owned registered result packet.
+During COMPLETE, the raw response, aligned load value, and error status move
+from the LSU's transaction registers into the same EX/WB packet as the request
+metadata. WB and the commit interface consume only that packet.
+
+An error response completes as a valid precise trap: cause 5 for a load or 7
+for a store, `mtval` equal to the attempted address, and no GPR write. The
+commit record preserves request metadata but reports failed load data as zero.
 
 ### 10.4 Implemented single-outstanding core bus
 
@@ -532,15 +537,16 @@ Recommended waveform groups:
    obligations.
 9. Every accepted future bus request must receive exactly one completion.
 10. A failure is not fixed until its regression remains in the suite.
+11. A completed result's data, status, and identity must cross pipeline
+    boundaries together.
 
 ## 15. Current architecture risks and open questions
 
 | Topic | Current risk or question | Planned stage |
 |---|---|---|
 | Blocking LSU performance | Correct but the front end waits for every memory response | Measure before adding a MEM stage/cache |
-| Load response ownership | LSU-held response bypasses the EX/WB packet | Phase 2 / AR-004 |
 | Memory topology | Unified dual-port or split architectural regions | Phase 1 / AR-009 |
-| Access faults | Error bit exists, but there is no default error target or access-fault trap | Phase 2 |
+| Unmapped access faults | Precise access-fault traps exist, but the SoC has no centralized decoder/default error target | Phase 2 |
 | Interrupt boundary | Correct resume PC and outstanding transaction deferral | Phase 3 / AR-008 |
 | Timer | No `mtime`, `mtimecmp`, or hardware MTIP | Phase 3 |
 | RV32M timing | Combinational divide may fail FPGA timing | Early synthesis / AR-011 |

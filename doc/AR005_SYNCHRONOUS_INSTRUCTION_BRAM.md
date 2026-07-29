@@ -193,8 +193,11 @@ are intentionally not source-controlled.
    may still return after a redirect. Do not choose the number of kill cycles
    by trial and error.
 
-## Remaining Phase 0A work
+## Phase 0A handoff (now closed)
 
-AR-005 closes the instruction-memory timing item. Phase 0A is not yet complete:
-AR-003/AR-004 still require a wait-state-capable data transaction model and a
-registered load-response packet that advances and retires exactly once.
+At the AR-005 checkpoint, Phase 0A still required the AR-003 wait-state-capable
+data transaction model and the AR-004 registered memory-result packet. Those
+items have since been implemented and verified; all Phase 0A exit criteria are
+now satisfied. See [`AR003_WAIT_STATE_SAFE_LSU.md`](AR003_WAIT_STATE_SAFE_LSU.md)
+and
+[`AR004_REGISTERED_MEMORY_RESULT.md`](AR004_REGISTERED_MEMORY_RESULT.md).

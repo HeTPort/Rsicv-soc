@@ -251,20 +251,22 @@ synthesis/interface/resource evidence, not a timing-closure claim.
   steps are a dedicated MEM stage, buffering, caches, or multiple outstanding
   transactions; each requires stronger response ownership and ordering rules.
 
-## Deliberate AR-004 boundary
+## AR-004 handoff (now closed)
 
-AR-003 captures response data/error in LSU registers, which is sufficient to
-separate completion from live bus timing. However, EX/WB still contains only
-memory metadata. WB load data and commit raw read data are supplied from the
-LSU-held response rather than fields inside the registered EX/WB packet.
+At the AR-003 checkpoint, response data/error were captured in LSU registers,
+which was sufficient to separate completion from live bus timing. EX/WB still
+contained only memory metadata, while WB and commit consumed the LSU-held
+response.
 
-Therefore AR-004 remains open:
+AR-004 has since closed that deliberate boundary:
 
-- add raw/aligned response data and fault status to the registered memory result
+- raw/aligned response data and fault status are in the registered memory result
   packet;
-- make WB and commit consume only that packet;
-- connect `rsp_error` to load/store access-fault traps;
-- define the commit record for a faulting memory instruction.
+- WB and commit consume only that packet;
+- `rsp_error` produces precise load/store access-fault traps;
+- faulting memory commit records have explicit, tested semantics.
+
+See [`AR004_REGISTERED_MEMORY_RESULT.md`](AR004_REGISTERED_MEMORY_RESULT.md).
 
 ## Reusable design principles
 

@@ -53,15 +53,15 @@ Exit criteria:
 - [x] A killed or invalid packet cannot write a GPR, CSR, or memory in the
       current direct-RAM design.
 - [x] Every pipeline reset/flush creates a completely initialized bubble.
-- [ ] A memory instruction advances to WB exactly once, including with wait
+- [x] A memory instruction advances to WB exactly once, including with wait
       states.
-- [ ] Load response data and fault status are registered with their instruction.
+- [x] Load response data and fault status are registered with their instruction.
 - [x] Taken branch/JAL/JALR instruction-address misalignment traps correctly.
 - [x] Implemented CSR addresses and legal write/no-write behavior are explicit.
 - [x] Back-to-back CSR dependencies return the newest architectural value.
 - [x] Instruction fetch is verified against the memory latency that Vivado will
       actually synthesize.
-- [ ] Directed tests exist for every item above and the complete smoke suite is
+- [x] Directed tests exist for every item above and the complete smoke suite is
       green.
 
 ## Findings and handling plan
@@ -199,23 +199,25 @@ EX/WB.
 
 ### AR-004 — Load response data bypasses the pipeline packet
 
-**Evidence**
+**Status:** fixed and verified. See
+[`AR004_REGISTERED_MEMORY_RESULT.md`](AR004_REGISTERED_MEMORY_RESULT.md) for the
+packet and fault contracts, RED/GREEN evidence, implementation decisions,
+problems encountered, and reusable principles.
 
-- AR-003 now captures bus response data/error in LSU registers.
-- `riscv.sv` still sends LSU-held aligned data directly to WB.
-- The commit interface still reads LSU-held raw response data.
-- EX/WB carries memory metadata but not raw/aligned response data or error.
+**Original evidence**
 
-This is no longer dependent on live bus timing, but response ownership is still
-split between the LSU and EX/WB instruction packet.
+- AR-003 captured bus response data/error in LSU registers.
+- `riscv.sv` sent LSU-held aligned data directly to WB.
+- The commit interface read LSU-held raw response data.
+- EX/WB carried memory metadata but not raw/aligned response data or error.
 
 **Handling**
 
-- [ ] Extend the memory result packet with raw response data, aligned load data,
+- [x] Extend the memory result packet with raw response data, aligned load data,
       and response error/fault information.
-- [ ] Capture the response and its instruction metadata together.
-- [ ] Make WB and the commit interface consume only registered packet fields.
-- [ ] Define whether a faulting transaction reports memory masks/data in the
+- [x] Capture the response and its instruction metadata together.
+- [x] Make WB and the commit interface consume only registered packet fields.
+- [x] Define whether a faulting transaction reports memory masks/data in the
       commit record; apply the definition consistently in RTL and tests.
 
 ### AR-005 — Instruction memory is not the synchronous BRAM assumed by the plan

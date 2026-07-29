@@ -88,7 +88,9 @@ Implemented:
       redirects, verified as four `RAMB36E1` primitives in Vivado 2019.2.
 - [x] Single-outstanding wait-state-capable CPU data bus and LSU transaction
       state machine, with data RAM outside the CPU.
-- [x] Existing directed regression last verified at 20/20 passing, with converter
+- [x] Registered EX/WB memory results with precise load/store access-fault
+      completion and packet-owned WB/commit data.
+- [x] Existing directed regression last verified at 22/22 passing, with converter
   tests at 4/4 passing.
 
 Still missing:
@@ -164,11 +166,11 @@ difficult to isolate.
 - [x] Record the AR-005 timing contract, Vivado inference evidence, problems,
       handling decisions, and reusable principles in
   [`doc/AR005_SYNCHRONOUS_INSTRUCTION_BRAM.md`](doc/AR005_SYNCHRONOUS_INSTRUCTION_BRAM.md).
-- [ ] Complete the remaining Phase 0A exit criteria in
+- [x] Complete the remaining Phase 0A exit criteria in
   [`doc/ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md`](doc/ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md).
 
-Current verification after the AR-003 wait-state-safe LSU fix:
-directed smoke **20/20 passed**
+Current verification after the AR-004 registered memory-result fix:
+directed smoke **22/22 passed**
 and regression utility tests **4/4 passed**.
 
 ---
@@ -234,7 +236,7 @@ be adjusted using the final ELF size report rather than guesswork.
   `req_size`, `rsp_valid`, `rsp_rdata`, and `rsp_error`.
 - [x] Define how pipeline back-pressure uses `ex_stall` without duplicating or
   dropping a load/store.
-- [ ] Decide and document access-fault causes for unmapped or failed accesses.
+- [x] Decide and document access-fault causes for unmapped or failed accesses.
 - [ ] Add the memory map and peripheral register definitions to both
   SystemVerilog and C-visible headers without duplicating unexplained constants.
 
@@ -255,8 +257,8 @@ outside the CPU core.
 - [ ] Add centralized address decode and return-path multiplexing.
 - [x] Preserve byte/halfword store strobes, load sign extension, and
   misalignment behavior.
-- [ ] Connect `rsp_error` to load/store access-fault trap generation.
-- [ ] Keep the commit interface accurate for stalled, completed, and faulting
+- [x] Connect `rsp_error` to load/store access-fault trap generation.
+- [x] Keep the commit interface accurate for stalled, completed, and faulting
   memory instructions.
 - [x] Add assertions for stable requests during stalls, one response per
   accepted request, and no memory operation after a pipeline kill.
@@ -268,8 +270,11 @@ tests pass with zero-delay and inserted-wait-state targets.
 
 AR-003 transaction-control details and RED/GREEN evidence are recorded in
 [`doc/AR003_WAIT_STATE_SAFE_LSU.md`](doc/AR003_WAIT_STATE_SAFE_LSU.md).
-The AR-003 sub-gate is satisfied; Phase 2 remains open for address decode,
-default-error behavior, registered response ownership, and access-fault traps.
+AR-004 registered-result ownership and access-fault evidence are recorded in
+[`doc/AR004_REGISTERED_MEMORY_RESULT.md`](doc/AR004_REGISTERED_MEMORY_RESULT.md).
+The AR-003/AR-004 sub-gates are satisfied; Phase 2 remains open for centralized
+address decode, an unmapped-address default error target, and the remaining
+directed decoder/back-to-back-access coverage.
 
 ---
 
@@ -473,8 +478,9 @@ for the first FreeRTOS FPGA demonstration:
 ## Immediate next action
 
 1. Keep official ACT4 RV32I tests active as continuous Track A.
-2. Complete the remaining Phase 0A instruction-memory timing/BRAM work.
-3. Freeze the Phase 1 bus and memory-map contract, then implement Phase 2
-   wait-state-safe data transactions and registered responses.
+2. Freeze the Phase 1 memory map and implement the remaining Phase 2
+   centralized decoder plus side-effect-free default error target.
+3. Run the early synthesis/resource/timing study and decide whether the
+   combinational RV32M divider needs the existing back-pressure mechanism.
 4. Make the next functional milestone the CLINT-style timer and precise
    machine-timer-interrupt regression—not UART or FreeRTOS itself.

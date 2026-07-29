@@ -403,6 +403,9 @@ module execute #(
   assign pkt_exe_o.mem_addr            = '0;
   assign pkt_exe_o.mem_wdata           = '0;
   assign pkt_exe_o.mem_wstrb           = '0;
+  assign pkt_exe_o.mem_rdata           = '0;
+  assign pkt_exe_o.mem_load_data       = '0;
+  assign pkt_exe_o.mem_error           = 1'b0;
   assign pkt_exe_o.instr_misaligned    = wb_instr_misaligned_o;
   assign pkt_exe_o.mem_misaligned      = wb_mem_misaligned_o;
   assign pkt_exe_o.exc.illegal_instr   = wb_illegal_instr_o;

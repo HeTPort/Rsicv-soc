@@ -10,7 +10,6 @@ module wb_stage #(
   parameter int DW = riscv_pkg::DW
 )(
   input  ex_wb_pkt_t   pkt_wb_i,
-  input  logic [DW-1:0] load_data_i,   // from LSU (already aligned & extended)
 
   output logic          rf_wen_o,
   output logic [4:0]    rf_waddr_o,
@@ -28,7 +27,7 @@ module wb_stage #(
 );
 
   logic          valid_i, rf_wen_i, illegal_instr_i, ecall_i, ebreak_i;
-  logic          instr_misaligned_i, mem_misaligned_i;
+  logic          instr_misaligned_i, mem_misaligned_i, mem_error_i;
   logic [4:0]    rf_waddr_i;
   wb_sel_e       wb_sel_i;
   logic [DW-1:0] alu_data_i, pc4_data_i;
@@ -44,6 +43,7 @@ module wb_stage #(
   assign ebreak_i         = pkt_wb_i.exc.ebreak;
   assign instr_misaligned_i = pkt_wb_i.instr_misaligned;
   assign mem_misaligned_i = pkt_wb_i.mem_misaligned;
+  assign mem_error_i      = pkt_wb_i.mem_error;
 
   // CSR / trap outputs
   assign csr_we_o    = valid_i && pkt_wb_i.csr.valid && pkt_wb_i.csr.write;
@@ -67,7 +67,8 @@ module wb_stage #(
         !ecall_i &&
         !ebreak_i &&
         !instr_misaligned_i &&
-        !mem_misaligned_i) begin
+        !mem_misaligned_i &&
+        !mem_error_i) begin
       unique case (wb_sel_i)
         WB_NONE: begin
           rf_wen_o   = 1'b0;
@@ -79,7 +80,7 @@ module wb_stage #(
         end
         WB_MEM: begin
           rf_wen_o   = 1'b1;
-          rf_wdata_o = load_data_i;   // from LSU
+          rf_wdata_o = pkt_wb_i.mem_load_data;
         end
         WB_PC4: begin
           rf_wen_o   = 1'b1;
