@@ -464,7 +464,7 @@ sequenceDiagram
 
   EX->>EW: valid trap packet with pc/cause/mtval
   EW->>WB: trapping instruction reaches retirement
-  WB->>CSR: save mepc, mcause, mtval; update MIE/MPIE
+  WB->>CSR: save mepc, mcause, mtval , update MIE/MPIE
   WB->>CTRL: pipe_kill younger instructions
   CTRL->>EX: suppress younger LSU/register/CSR effects
   WB->>PC: redirect to mtvec
