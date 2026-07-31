@@ -1,90 +1,265 @@
-# Rsicv-soc
+# RV32IM RISC-V SoC
 
-## Start here
+A small 32-bit RISC-V processor and SoC, written in SystemVerilog as a learning
+project.
 
-- [Project knowledge base](doc/PROJECT_KNOWLEDGE_BASE.md) — a progressive
-  study guide to the current RTL, pipeline timing, traps, memory, and
-  verification workflow.
-- [Architecture design and decisions](doc/ARCHITECTURE_DESIGN_AND_DECISIONS.md)
-  — the living record of design stages, resolved problems, tradeoffs, evidence,
-  and open architecture decisions.
-- [Current implementation roadmap](TODO.md) — the staged path to the first
-  FreeRTOS-on-FPGA milestone.
+> "I am not trying to build the fastest RISC-V core. I am trying to understand
+> why every instruction retires exactly once, even when memory stalls, a branch
+> redirects the pipeline, or a trap interrupts the normal path."
 
-这是一个个人学习项目，目标是从零开始实现一个能够引导 Linux 内核的 RISC-V SoC。
+I started this project because CPU block diagrams make everything look tidy.
+The interesting lessons begin when the implementation is not tidy: a response
+returns late, a younger instruction must be killed, or two parts of the design
+disagree about which instruction owns a result.
 
-我深知从零写一个能跑 Linux 的芯片难度很大，且性能肯定无法与成熟的开源项目（如 PULP、NEORV32 等）相比。但为了深入理解计算机体系结构和底层系统，我还是决定动手尝试一下，并把过程记录在这里。
+The first practical goal is to run preemptive FreeRTOS on this custom RV32IM
+core in the programmable logic of a Zynq XC7Z010. Linux is still an interesting
+long-term direction, but it is not the current milestone. There is plenty to
+learn before adding an MMU, caches, S-mode, and the rest of a Linux-capable
+system.
 
-## 当前进度
-目前项目处于非常早期的阶段，刚刚完成基础核心的搭建。
+If this is your first visit, start with the
+[project knowledge base](doc/PROJECT_KNOWLEDGE_BASE.md). It explains the design
+gradually and links the code to the bugs and tests that shaped it.
 
-指令集：实现了 RV32IM（基础整数指令集 + 乘除法扩展）。
-微架构：采用经典的五级流水线结构（取指、译码、执行、访存、写回），包含了基础的流水线寄存器。
-SoC 框架：顶层 riscv_soc.sv 简单地将核心与程序 RAM 捆绑在一起，支持从外部加载机器码。
-验证环境：搭建了基于 ModelSim 的仿真环境，能够跑通自己写的简单汇编测试用例。
-注：目前还没有实现完整的总线互连、外设、特权架构和 Cache，只是一个能跑裸机程序的“裸核”。
+## Where the project is today
 
-## 跑通 **Linux** 的 **To-Do List**
-要实现最终目标，还有很长的路要走。以下是我给自己列的后续计划（不保证能全部完成）：
+The processor can execute RV32I instructions and the RV32M multiply/divide
+extension. It has M-mode CSR instructions, synchronous traps, `mret`, a
+synchronous instruction RAM, and a wait-state-safe load/store path.
 
-* 完善核心微架构：梳理并优化流水线冒险处理（数据转发、加载暂停等），增加基本的异常处理机制
+The latest recorded verification result is:
 
-* 引入标准总线：将现在的直连架构改为基于 AXI4-Lite 或 Wishbone 的标准总线互连
-
-* 添加基础外设：至少实现一个 UART（用于输出 Linux 启动日志）、一个 Timer 和简单的 GPIO
-
-* 实现特权架构：支持 RISC-V 的 M 态和 S 态，实现基本的 CSR 寄存器读写和特权指令
-
-* 实现中断控制器：集成 CLINT（核心本地中断器）和简单的 PLIC（平台级中断控制器）
-
-* 实现 MMU (Sv32)：这是跑标准 Linux 内核的硬指标，需要实现基本的页表 walk 和 TLB
-
-* 软件适配：尝试适配或移植 OpenSBI（作为 M 态固件），编写设备树 (Device Tree)，最后尝试编译并引导 Linux 内核
-
-## 目录结构说明
-代码仓库的结构划分如下，主要方便自己理清模块边界：
-```
-Rsicv-soc/
-├── src/ # RTL 源码
-│ ├── core/ # 处理器核心部分
-│ │ ├── riscv.sv # 核心顶层
-│ │ ├── riscv_pkg.sv # 参数和宏定义
-│ │ ├── pc_counter.sv # 程序计数器
-│ │ ├── decode.sv # 译码模块
-│ │ ├── execute.sv # 执行模块 (ALU)
-│ │ ├── regfile.sv # 寄存器堆
-│ │ ├── core_ctrl.sv # 控制单元
-│ │ └── ... # 其他流水线寄存器等
-│ ├── bus/ # 总线接口定义 (目前正在建设中)
-│ ├── mem/ # 存储器模型 (简单的 RAM)
-│ ├── periph/ # 外设模块 (目前为空)
-│ └── riscv_soc.sv # SoC 顶层封装
-├── sim/ # 仿真相关文件
-│ ├── tb/ # Testbench 文件
-│ ├── filelist.f # ModelSim 编译文件列表
-│ └── run.do # ModelSim 一键运行脚本
-├── doc/ # 一些早期的实验记录和测试汇编代码
-└── testdata/ # 仿真测试数据
+```text
+Directed ModelSim tests       22/22 passed
+Python converter tests         4/4 passed
+Regression false-pass test     passed
 ```
 
-## 如何运行仿真
+That result is a useful baseline, not a claim that the SoC is finished or that
+every corner of the ISA has been proven.
 
-如果你恰巧点进了这个仓库，想看看效果，可以使用 ModelSim 或 QuestaSim：
+| Area | Current state |
+|---|---|
+| CPU | RV32IM in-order core using packed pipeline packets |
+| Pipeline control | RAW stalls, redirect flushing, delayed fetch kill, and complete bubbles |
+| Traps and CSRs | M-mode CSR operations, legality checks, WARL behavior, precise synchronous traps, and `mret` |
+| Instruction path | One-cycle synchronous program RAM with PC and response pairing |
+| Data path | One outstanding request, inserted wait-state support, registered results, and precise access faults |
+| Verification | Architectural commit checking, `tohost`, ModelSim regression, ELF conversion, and ACT4 adapters |
+| Memory map | AR-009 proposal under review; centralized address decoding is not implemented yet |
+| Peripherals | Timer, UART, and GPIO are planned; their source files are placeholders |
+| Software | Startup code, final linker layout, drivers, and FreeRTOS are still to come |
+| FPGA | Block RAM inference has been checked; board timing and hardware testing have not been completed |
 
-1. 克隆代码到本地。
-2. 进入 `sim` 目录。
-3. 打开终端运行 ModelSim，执行以下命令（或直接在 GUI 中运行 `run.do` 脚本）：
-   ```
-   vsim -do run.do
-   ```
+## A short tour of the design
 
-仿真会自动编译文件列表中的代码，启动仿真并添加所有波形。可以通过查看顶层信号（如 test_case, reg_s10, reg_s11）来判断测试是否通过。
+```text
+                         +----------------------+
+                         | synchronous prog_ram |
+                         +----------+-----------+
+                                    |
+                                    v
+IF -> IF/ID -> ID -> ID/EX -> EX / LSU -> EX/WB -> WB
+ |                ^            |                  |
+ |                |            |                  +-> GPR / CSR / trap entry
+ +---- core_ctrl -+            |
+                              request/response bus
+                                    |
+                                    v
+                       core_bus_data_ram -> data_ram
+```
 
-##  关于代码
-需要说明的是，这个项目中的代码是我很大程度上借助 AI 了工具辅助。它是我学习计算机底层知识的一个实践产物，代码风格可能不够规范，架构设计也可能存在很多不优雅甚至错误的地方。
+Instruction memory takes one cycle to return a word. The front end therefore
+keeps the request PC beside the delayed response and discards stale responses
+after a redirect.
 
-如果你也在学习 RISC-V 或数字 IC 设计，希望这些代码能为你提供一点点参考或避坑经验。如果有任何建议或发现明显的 bug，或者说也想参与这个项目，欢迎提 Issue 告诉我。
+Loads and stores use a small request/response interface. The LSU accepts one
+transaction, keeps its payload stable while the target stalls, waits for one
+response, and moves the completed result into the EX/WB packet. RAM and future
+peripherals sit outside the CPU core.
 
+The design is deliberately modest. It has no cache, MMU, S-mode, PLIC, AXI
+fabric, or general forwarding network. RV32M multiply and divide are currently
+combinational. These are design choices to revisit when measurements or the
+next milestone justify the extra machinery.
 
+## What you can study here
 
-如果这个项目让你感到兴奋，或者你正在学习 RISC-V 和芯片设计，请考虑给它一个 ⭐️！
+The repository is intended to be readable as well as runnable. Some useful
+starting points are:
+
+- follow one instruction from fetch to architectural commit;
+- see why a pipeline bubble must clear the complete packet;
+- trace a stalled load through request, response, and writeback;
+- compare misalignment traps with bus access faults;
+- inspect RED and GREEN evidence for bugs that once produced wrong behavior;
+- see how a testbench, regression runner, linker plan, and RTL memory map must
+  agree.
+
+The focused reports in [`doc/`](doc/) describe the problem, root cause, options,
+decision, consequences, and verification evidence. They are written as a study
+record, not only as a changelog.
+
+## How it is tested
+
+Tests finish by committing a store to a configured `tohost` address:
+
+```text
+tohost == 1       PASS
+tohost != 0 or 1  FAIL with a test-specific code
+```
+
+The regression runner accepts PASS only when four signals agree:
+
+1. the simulator process exits with status zero;
+2. the architectural PASS marker appears;
+3. no fatal marker appears; and
+4. ModelSim reports zero errors.
+
+The testbench also checks ordered commits, x0 protection, trap and write
+exclusion, memory byte masks, single-outstanding data transactions, response
+pairing, and instruction-fetch timing.
+
+The repository has ACT4 adapters and a synthetic harness test. Importing and
+passing the full official RV32I/RV32M Architecture Test corpus remains open, so
+this project does not claim complete ISA compliance.
+
+## Try it
+
+### Requirements
+
+- ModelSim or QuestaSim, with `vlog` and `vsim` on `PATH`
+- Windows PowerShell for the regression scripts
+- Python 3 for the converter and importer tests
+- Vivado for the optional synthesis checks
+- a RISC-V GNU toolchain when rebuilding assembly programs
+
+### Run one simulation
+
+From the repository root:
+
+```powershell
+Set-Location .\sim
+vsim -do run.do
+```
+
+This rebuilds the ModelSim work library, compiles the files in
+[`sim/filelist.f`](sim/filelist.f), starts `tb_riscv_core`, and runs until the
+test reports completion.
+
+### Run the regression
+
+```powershell
+Set-Location .\sim\regress
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\run_regression.ps1 -Tag smoke
+.\test_regression_result.ps1
+python -m unittest test_elf_to_mem.py test_import_act4.py
+```
+
+A few useful selections:
+
+```powershell
+# Show the manifest without compiling.
+.\run_regression.ps1 -List
+
+# Run tests from selected areas.
+.\run_regression.ps1 -Tag lsu
+.\run_regression.ps1 -Tag csr,mret
+
+# Trace one test and request waveform output.
+.\run_regression.ps1 -Test ebreak -Trace -DumpWaves
+```
+
+The [regression guide](sim/regress/README.md) explains the manifest, generated
+files, ACT4 import flow, and result checks.
+
+### Check FPGA resource inference
+
+The synthesis scripts use the provisional `xc7z010clg400-1` part unless you
+override it with the documented environment variable.
+
+```powershell
+Set-Location .\sim\synth
+vivado -mode batch -source .\check_prog_ram_bram.tcl
+vivado -mode batch -source .\check_riscv_soc_ar003.tcl
+```
+
+These are out-of-context checks. They show that Vivado inferred Block RAM and
+retained the expected CPU, LSU, and RAM hierarchy. They do not prove timing on
+a physical board.
+
+## Repository map
+
+```text
+src/
+  core/       CPU pipeline, control, LSU, CSR file, and packet definitions
+  bus/        Active RAM adapter and future bus work
+  mem/        Synchronous program and data RAM
+  periph/     Placeholder timer, UART, and GPIO directories
+  riscv_soc.sv
+
+sim/
+  tb/         Directed and protocol testbenches
+  regress/    Regression runner, image tools, ACT4 adapters, and utility tests
+  synth/      Vivado out-of-context checks
+  filelist.f
+  run.do
+
+testdata/     Assembly sources and simulation memory images
+verif/act4/   RISC-V Architecture Test integration configuration
+doc/          Design decisions, focused problem reports, and study notes
+```
+
+The build scripts include files explicitly. Experimental alternatives and empty
+placeholder files do not participate in the active simulation or synthesis
+flow unless someone adds them to a build list.
+
+## Where it is going
+
+Phase 0A, which repaired retirement and pipeline side-effect precision, is
+complete. The next steps are:
+
+1. decide the AR-009 memory topology, capacities, and address map;
+2. add centralized address decoding and a default error target;
+3. compare candidate RAM depths using FPGA resource reports;
+4. implement precise machine-timer interrupts;
+5. add a polling UART and simple GPIO;
+6. build startup code, the linker layout, drivers, and bare-metal tests;
+7. integrate the official FreeRTOS RISC-V port;
+8. add board constraints, close timing, and test the design on hardware.
+
+[`TODO.md`](TODO.md) is the authoritative checklist. The roadmap is allowed to
+change when simulation, synthesis, or software gives a good reason.
+
+## Reading and design notes
+
+- [Project knowledge base](doc/PROJECT_KNOWLEDGE_BASE.md): a gradual guide to
+  the RTL, timing, traps, memory path, and verification flow
+- [Architecture design and decisions](doc/ARCHITECTURE_DESIGN_AND_DECISIONS.md):
+  design history, tradeoffs, evidence, and open gates
+- [Architecture review and action plan](doc/ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md):
+  review findings and their current status
+- [AR-009 memory-map proposal](doc/AR009_ARCHITECTURAL_MEMORY_MAP.md): the
+  current Phase 1 decision
+- [Memory-map contract guide](doc/MEMORY_MAP_CONTRACT_DESIGN_GUIDE.md): address
+  decoding, bus behavior, faults, and hardware/software consistency
+
+## A personal note
+
+This repository is a learning record, not a production-ready processor. Mature
+open-source RISC-V cores are far ahead in features, performance, and
+verification. That is not a reason to hide the unfinished parts. Those parts
+often contain the most useful lessons.
+
+AI tools have helped with parts of the implementation and documentation. I do
+not treat generated code or explanations as proof. The standard for accepting
+a change is still the same: understand the behavior, reproduce the failure,
+write a focused test, and keep the regression green.
+
+> "If one waveform, failed test, or design note helps someone understand their
+> own CPU, this repository has done something useful."
+
+Bug reports and technical review are welcome. If the project helps you learn or
+saves you time on your own design, starring it helps other learners find it.
