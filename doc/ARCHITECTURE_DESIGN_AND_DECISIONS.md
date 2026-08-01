@@ -4,11 +4,11 @@
 
 **Audience:** Designers, reviewers, learners, and future maintainers
 
-**Last updated:** 2026-07-29
+**Last updated:** 2026-08-01
 
-**Current milestone:** AR-003/AR-004 data-bus foundations and the AR-013
-regression exit-status gate implemented and verified; AR-009 memory map under
-review
+**Current milestone:** AR-014 machine-readable map generation and the AR-015
+16 KiB/64 KiB utilization/timing comparison are verified; AR-009 acceptance,
+multi-cycle MULDIV work, and exact-board timing closure remain open
 
 > This is the consolidated record of what the architecture is, why it evolved
 > this way, what was learned while fixing problems, and which decisions remain
@@ -657,8 +657,14 @@ through a side-effect-free default error target. A simulation-only `tohost`
 word is proposed at `0x8000_FFFC`.
 
 **Important unresolved consequence:** current RAM parameters expose 16 KiB per
-bank, while the proposed ranges reserve 64 KiB. Capacity, FPGA BRAM cost, and
-software requirements must be reconciled before acceptance.
+bank, while the proposed ranges reserve 64 KiB. AR-015 measured the physical
+cost of both choices, but software requirements, the exact FPGA/board budget,
+future peripherals, and timing must still be reconciled before acceptance.
+
+**Configuration infrastructure progress:** AR-014 now validates one proposed
+JSON map and deterministically generates SystemVerilog, C, linker, simulation,
+Tcl, and ACT4-facing artifacts. This removes future manual constant duplication
+but does not accept the proposal or change implemented decoding.
 
 **Required implementation after acceptance:**
 
@@ -692,19 +698,33 @@ Required decisions:
 
 ### AR-011 — Early FPGA feasibility
 
-**State:** Proposed with partial BRAM-inference evidence
+**State:** Utilization and early critical-path evidence verified; MULDIV
+redesign and exact-board closure open
 
 **Owning stage:** Early checkpoint after Phase 2; full closure in Phase 7
 
-Required evidence:
+Verified evidence:
 
-- BRAM count and inference;
-- LUT/FF/DSP use;
-- critical path, especially combinational divide;
-- provisional clock feasibility.
+- paired 16 KiB and 64 KiB BRAM count and inference;
+- paired LUT/FF/DSP use on provisional `xc7z010clg400-1`;
+- identical 87.102 ns post-synthesis combinational MULDIV critical paths for
+  both RAM sizes, failing 50 MHz with WNS -67.124 ns and 25 MHz with WNS
+  -47.124 ns.
 
-If RV32M fails timing, the Phase 2 completion/backpressure mechanism should be
-reused for a multi-cycle divider.
+Remaining evidence:
+
+- implement and verify a multi-cycle or otherwise pipelined divider;
+- repeat constrained timing after the MULDIV change;
+- exact-board placement, routing, power, and resource margin.
+
+Because RV32M fails this early timing check, the Phase 2
+completion/backpressure mechanism should be reused for a multi-cycle divider.
+
+The measured 64 KiB pair uses 32/60 RAMB36 tiles (53.33%), compared with 8/60
+(13.33%) for the 16 KiB pair. Capacity does not change the current dominant
+timing path; the combinational divider must change before either 25 MHz or
+50 MHz is feasible. Full evidence is in
+[`AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md`](AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md).
 
 ### AR-012 — Retirement and interface cleanup
 
@@ -747,6 +767,63 @@ dependency-free negative test exercises the production predicate.
 after the exit-status condition; Python utilities passed 4/4; directed
 ModelSim smoke passed 22/22 with every simulator exit zero. Full evidence is in
 [`AR013_REGRESSION_EXIT_STATUS_GATE.md`](AR013_REGRESSION_EXIT_STATUS_GATE.md).
+
+### AR-014 — Machine-readable SoC map
+
+**State:** Configuration infrastructure implemented and verified; map remains
+proposed
+
+**Owning stage:** Phase 1 contract tooling and future cross-language maintenance
+
+**Problem:** RTL parameters alone cannot keep SystemVerilog, C, GNU ld,
+simulation, Vivado Tcl, and ACT4 descriptions synchronized.
+
+**Decision:** Maintain one dependency-free, validated JSON source and generate
+all language-specific consumers. Keep the proposal status in every artifact,
+preserve current regression values, and derive named 16 KiB/64 KiB synthesis
+profiles for isolated capacity experiments.
+
+**Consequences:** Map edits have one owner and a deterministic stale-file gate.
+Generated constants are ready for future integration, but AR-009 and Phase 2
+remain open until the map is accepted and the decoder/error paths are built.
+
+**Evidence:** generation and `--check` passed, nine generator tests passed,
+and Python syntax compilation passed. Full rationale, validation rules,
+ownership, and artifact relationships are in
+[`AR014_MACHINE_READABLE_SOC_MAP.md`](AR014_MACHINE_READABLE_SOC_MAP.md).
+
+### AR-015 — RAM-capacity utilization and timing comparison
+
+**State:** Utilization and post-synthesis timing evidence implemented and
+verified
+
+**Owning stage:** AR-011 early FPGA feasibility evidence supporting the AR-009
+capacity decision
+
+**Problem:** The proposed 64 KiB banks and current 16 KiB defaults had not been
+measured in one controlled synthesis flow, so their resource tradeoff was
+unknown.
+
+**Decision:** Generate named capacity profiles from the machine-readable map,
+synthesize each profile independently with the same RTL, Vivado version, part,
+and out-of-context mode, then apply identical 25/50 MHz post-synthesis clock
+constraints and preserve utilization/timing reports.
+
+**Result:** On provisional `xc7z010clg400-1`, 16 KiB per bank uses 8/60
+RAMB36 tiles and 64 KiB uses 32/60. The larger pair fits synthesis but consumes
+53.33% of available Block RAM. LUT, register, and DSP deltas are negligible
+relative to the BRAM change.
+
+Both profiles have the same 87.102 ns, 305-level combinational divide path.
+WNS is -67.124 ns at 50 MHz and -47.124 ns at 25 MHz, so neither target is
+feasible with the current single-cycle divider. The result is idealized OOC
+static timing without board clock location, placement, or routing.
+
+**Consequences:** AR-011's early utilization and critical-path sub-gates are
+complete. AR-009 still needs software-capacity and exact-board decisions;
+AR-011 now requires a multi-cycle/pipelined divider followed by constrained
+timing and final physical closure. Full commands, limits, and raw reports are in
+[`AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md`](AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md).
 
 ## 9. Future stage architecture gates
 
@@ -856,5 +933,7 @@ An architecture-changing task is incomplete until this document is updated.
 - [AR-007 CSR contract](AR007_CSR_LEGALITY_WARL_AND_HAZARDS.md)
 - [AR-009 architectural memory map](AR009_ARCHITECTURAL_MEMORY_MAP.md)
 - [AR-013 regression exit-status gate](AR013_REGRESSION_EXIT_STATUS_GATE.md)
+- [AR-014 machine-readable SoC map](AR014_MACHINE_READABLE_SOC_MAP.md)
+- [AR-015 RAM-capacity utilization and timing comparison](AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md)
 - [ACT4 integration handoff](ACT4_RV32I_INTEGRATION_HANDOFF_2026-07-27.md)
 - [ACT4 integration guide](../verif/act4/README.md)

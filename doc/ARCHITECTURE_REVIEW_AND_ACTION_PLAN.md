@@ -42,9 +42,11 @@ Current ownership and status:
 | AR-008 | Phase 3 | Proposed; interrupt boundary work has not started |
 | AR-009 | Phase 1 | Proposed for review; current architecture decision gate |
 | AR-010 | Continuous verification track | Ongoing |
-| AR-011 | Early FPGA feasibility, then Phase 7 closure | Proposed; BRAM evidence exists, but utilization and timing gates remain open |
+| AR-011 | Early FPGA feasibility, then Phase 7 closure | Paired utilization/critical-path evidence verified; MULDIV redesign and exact-board closure remain open |
 | AR-012 | Cross-stage cleanup | Proposed; perform items when their owning interfaces stabilize |
 | AR-013 | Regression infrastructure | Implemented and verified |
+| AR-014 | Phase 1 contract tooling | Generation infrastructure implemented and verified; AR-009 remains proposed |
+| AR-015 | AR-011 evidence supporting Phase 1 | 16 KiB/64 KiB utilization and post-synthesis timing comparison verified |
 
 ## Verified baseline
 
@@ -431,6 +433,9 @@ Option B — physically and architecturally split instruction/data BRAM regions:
 
 **Handling**
 
+- [x] Establish a validated machine-readable proposed map and deterministically
+      generate SystemVerilog, C, linker, simulation, Vivado Tcl, and ACT4-facing
+      artifacts. AR-014 records why this does not accept or implement AR-009.
 - [ ] Record the selected option in `TODO.md` and the architecture documentation.
 - [ ] Express all memory sizes in bytes at the SoC contract boundary; translate
       to words only inside RAM modules.
@@ -472,10 +477,13 @@ is not in the manifest and still describes the obsolete halt behavior.
 
 ### AR-011 — FPGA feasibility checks should move earlier
 
-**Status:** proposed with partial evidence. **Target:** an early feasibility
-checkpoint after the remaining Phase 2 work, followed by full Phase 7 timing
-closure. Instruction and data BRAM inference has already been demonstrated;
-resource and critical-path acceptance remain open.
+**Status:** paired utilization and early critical-path checkpoints verified;
+MULDIV redesign and physical timing closure remain open.
+**Target:** an early feasibility checkpoint followed by full Phase 7 timing
+closure. Instruction/data BRAM inference and the 16 KiB/64 KiB resource
+comparison are recorded in AR-015. The same evidence identifies an 87.102 ns
+combinational divider path that fails both 25 MHz and 50 MHz; exact-board and
+physical implementation acceptance remain open.
 
 The current roadmap leaves the first divider critical-path and BRAM-inference
 inspection until the FPGA integration phase. A combinational RV32M divider or
@@ -484,12 +492,16 @@ area being redesigned for the bus.
 
 **Handling**
 
-- [ ] After Phase 0A/Phase 2, run an early out-of-context Vivado synthesis using
-      the intended XC7Z010 part.
-- [ ] Confirm instruction and data memories infer the expected number of Block
-      RAMs.
-- [ ] Record LUT/FF/BRAM/DSP utilization and the MULDIV critical path.
-- [ ] If the divider fails timing or consumes unreasonable area, reuse the new
+- [x] Run paired early out-of-context Vivado synthesis on provisional
+      `xc7z010clg400-1` using generated 16 KiB and 64 KiB profiles.
+- [x] Confirm instruction and data memories infer the expected number of Block
+      RAMs for both profiles.
+- [x] Record paired LUT/FF/BRAM/DSP utilization in AR-015.
+- [x] Record the MULDIV critical path with 25/50 MHz post-synthesis clock
+      constraints for both generated RAM profiles.
+- [ ] Rerun timing on the exact board part with its clock source and XDC when
+      known.
+- [ ] Because the divider fails timing, reuse the new
       EX completion/backpressure mechanism for a multi-cycle divider before
       interrupt and FreeRTOS work depends on it.
 - [ ] Keep full placement, routing, power, and board timing closure in the later

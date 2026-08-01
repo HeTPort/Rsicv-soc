@@ -109,9 +109,22 @@ accepted as implemented capacity until:
 
 - firmware and FreeRTOS stack/heap estimates justify the sizes;
 - `PROG_RAM_DEPTH` and `DATA_RAM_DEPTH` are updated consistently;
-- Vivado synthesis confirms the BRAM cost fits the XC7Z010 budget.
+- the exact board/part and future peripheral budget are known;
+- constrained Vivado implementation confirms timing and final resource margin.
 
 If 16 KiB banks are retained, the address ranges must be reduced to match.
+
+AR-015 now provides the missing early synthesis comparison on the provisional
+`xc7z010clg400-1`: two 16 KiB banks use 8/60 RAMB36 tiles (13.33%), while two
+64 KiB banks use 32/60 (53.33%). The larger pair fits out-of-context synthesis
+and leaves 28 tiles, but this utilization-only result does not decide the
+software capacity, peripheral budget, or exact-board questions.
+
+The paired AR-015 post-synthesis timing follow-up also shows that both RAM sizes
+have the same failing 87.102 ns combinational MULDIV path. Capacity therefore
+does not cause the current timing failure, but multi-cycle/pipelined division
+and later exact-board timing closure are required independently of the map
+choice.
 
 ### Simulation completion address
 
@@ -205,15 +218,19 @@ halves.
 
 ## One-source-of-truth requirement
 
-After acceptance, one authoritative machine-readable definition should produce
-or be mechanically checked against:
+AR-014 established [`config/soc_map.json`](../config/soc_map.json) as a
+validated machine-readable form of this proposal. It already produces:
 
 - SystemVerilog decoder constants;
 - C-visible firmware headers;
 - linker regions and reserved `tohost`;
-- testbench and regression manifest addresses;
-- ELF-to-memory conversion configuration;
-- ACT4/UDB descriptions.
+- normalized simulation data and Vivado Tcl parameters;
+- an ACT4-facing map fragment.
+
+After acceptance, the decoder, testbench/regression, ELF converter, complete
+firmware linker, and ACT4/UDB configuration must consume or be mechanically
+checked against these generated values. Generation alone does not make those
+integrations complete.
 
 Copying unexplained numeric constants into each consumer is not acceptable
 because map drift becomes a silent hardware/software ABI bug.
@@ -232,7 +249,9 @@ because map drift becomes a silent hardware/software ABI bug.
 10. One-hot decode and accepted-request/response/commit accounting.
 11. Timer reset, compare crossing, and safe RV32 high/low access.
 12. Clean smoke and applicable ACT4 reruns.
-13. Vivado BRAM utilization after final bank sizes are selected.
+13. Vivado BRAM utilization for candidate bank sizes and again after final
+    bank sizes and the exact part are selected. The first paired measurement is
+    recorded in AR-015.
 
 ## Review questions
 
@@ -266,5 +285,11 @@ The proposal should remain **Proposed** until reviewers answer:
 
 ## Verification evidence
 
-Documentation review only. No RTL behavior changed and no new simulation or
-synthesis claim is made by this proposal.
+AR-014 generation/check tests validate that the proposed constants are
+internally consistent and reproducible across consumer formats. AR-015 uses
+those generated profiles to compare 16 KiB and 64 KiB physical RAM cost and
+post-synthesis internal timing. No RTL behavior changed, and neither result
+proves the proposed decode/fault contract or accepts this map.
+
+See [`AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md`](AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md)
+for commands, limitations, and preserved raw reports.

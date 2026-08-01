@@ -114,6 +114,11 @@ Current planning position:
   centralized decode, a default error target, and system-level tests remain.
 - AR-008 belongs to Phase 3; AR-010 is continuous verification; AR-011 is an
   early FPGA feasibility gate; and AR-012 is cross-stage cleanup.
+- AR-014 machine-readable proposal generation is complete, but it does not
+  accept AR-009 or implement the decoder.
+- AR-015 paired 16 KiB/64 KiB utilization and post-synthesis timing evidence is
+  complete. Capacity does not change the failing combinational MULDIV path;
+  divider redesign and exact-board timing closure remain open.
 - AR identifiers are stable finding numbers, not phase numbers. Detailed
   ownership and status are maintained in
   [`doc/ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md`](doc/ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md).
@@ -245,6 +250,15 @@ The detailed split-memory proposal, consequences, verification plan, and review
 questions are recorded in
 [`doc/AR009_ARCHITECTURAL_MEMORY_MAP.md`](doc/AR009_ARCHITECTURAL_MEMORY_MAP.md).
 It remains proposed and must not be treated as implemented until reviewed.
+The candidate constants now have one validated machine-readable source and
+generated consumers, as recorded in
+[`doc/AR014_MACHINE_READABLE_SOC_MAP.md`](doc/AR014_MACHINE_READABLE_SOC_MAP.md).
+This infrastructure does not close the AR-009 acceptance gate.
+The paired resource measurement is recorded in
+[`doc/AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md`](doc/AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md):
+the 16 KiB pair uses 8/60 RAMB36 tiles and the 64 KiB pair uses 32/60 on the
+provisional `xc7z010clg400-1`. Software capacity and final-board margin remain
+decision inputs.
 
 Provisional memory map:
 
@@ -271,8 +285,17 @@ be adjusted using the final ELF size report rather than guesswork.
 - [x] Define how pipeline back-pressure uses `ex_stall` without duplicating or
   dropping a load/store.
 - [x] Decide and document access-fault causes for unmapped or failed accesses.
+- [x] Add a dependency-free generator and stale-file check for proposed
+      SystemVerilog, C, linker, simulation, Vivado Tcl, and ACT4-facing map
+      artifacts without changing current implemented addresses.
+- [x] Generate named 16 KiB/64 KiB RAM profiles and preserve paired Vivado
+      LUT/FF/BRAM/DSP utilization reports for the provisional XC7Z010 part.
+- [x] Apply identical 25/50 MHz post-synthesis clock constraints to both RAM
+      profiles and preserve WNS/TNS and critical-path reports; both identify
+      the same failing 87.102 ns combinational MULDIV path.
 - [ ] Add the memory map and peripheral register definitions to both
-  SystemVerilog and C-visible headers without duplicating unexplained constants.
+  implemented SystemVerilog and firmware consumers after AR-009 acceptance;
+  generated proposal files alone do not satisfy this gate.
 
 **Knowledge checkpoint:** explain request/response handshaking, why synchronous
 BRAM reads need a response phase, and why memory-mapped peripherals must be
@@ -457,8 +480,11 @@ ACT4 completion.
 - [ ] Add a non-interactive Vivado Tcl flow for project creation, synthesis,
   implementation, reports, and bitstream generation.
 - [ ] Initialize instruction/data BRAM images reproducibly in the bitstream.
-- [ ] Run an early synthesis checkpoint and inspect the combinational RV32M
-  divider critical path. Convert MULDIV to multi-cycle if timing requires it.
+- [x] Run the early post-synthesis timing checkpoint and inspect the
+      combinational RV32M divider critical path; AR-015 confirms it fails both
+      25 MHz and 50 MHz for both RAM capacities.
+- [ ] Convert MULDIV to multi-cycle or otherwise pipeline it, then rerun the
+      same internal timing comparison before board implementation.
 - [ ] Begin with a conservative 25 MHz core clock; attempt 50 MHz only after
   timing closes with margin.
 - [ ] Capture utilization, WNS/TNS, clock, BRAM, LUT, FF, and power estimates.
@@ -498,8 +524,8 @@ These may improve performance or broaden the SoC, but they are not prerequisites
 for the first FreeRTOS FPGA demonstration:
 
 - [ ] EX/MEM/WB forwarding and reduced RAW stalls.
-- [ ] Multi-cycle or pipelined RV32M implementation, unless required for FPGA
-  timing closure.
+- [ ] Further RV32M throughput optimization after the now-required multi-cycle
+  or pipelined timing fix is functionally verified.
 - [ ] UART RX FIFO and external UART interrupt.
 - [ ] Machine software interrupt (`msip`).
 - [ ] PLIC or a small external interrupt controller.
@@ -514,7 +540,8 @@ for the first FreeRTOS FPGA demonstration:
 1. Keep official ACT4 RV32I tests active as continuous Track A.
 2. Freeze the Phase 1 memory map and implement the remaining Phase 2
    centralized decoder plus side-effect-free default error target.
-3. Run the early synthesis/resource/timing study and decide whether the
-   combinational RV32M divider needs the existing back-pressure mechanism.
+3. Replace the confirmed failing combinational divider with a multi-cycle or
+   pipelined implementation using the existing back-pressure mechanism, then
+   rerun the AR-015 timing comparison.
 4. Make the next functional milestone the CLINT-style timer and precise
    machine-timer-interrupt regression—not UART or FreeRTOS itself.

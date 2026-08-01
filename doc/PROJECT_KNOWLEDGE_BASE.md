@@ -4,10 +4,11 @@
 
 **Audience:** New contributors and learners
 
-**Last updated:** 2026-07-29
+**Last updated:** 2026-08-01
 
-**Current reference:** `codex/architecture-review-roadmap`, post AR-013
-regression-gate verification with AR-009 memory-map proposal under review
+**Current reference:** `codex/architecture-review-roadmap`, post AR-015 paired
+RAM utilization/timing measurement with AR-009 acceptance, MULDIV redesign,
+and physical timing closure still open
 
 > Update this document whenever a change alters a module boundary, pipeline
 > timing, packet field, architectural behavior, memory map, verification
@@ -58,6 +59,12 @@ the minimal architecture needed for the first working system.
 - ModelSim directed regression and test manifest with native-exit,
   PASS-marker, fatal-marker, and error-count result gates.
 - ELF/image conversion and ACT4 integration adapters.
+- Dependency-free machine-readable SoC map validation and deterministic
+  cross-language generation for the proposed configuration. This is tooling,
+  not implemented address decoding.
+- Generated 16 KiB/64 KiB RAM experiment profiles and paired Vivado 2019.2
+  out-of-context utilization and post-synthesis internal timing evidence on
+  provisional `xc7z010clg400-1`.
 - Current directed smoke baseline: 22/22 passing after AR-013, with 4/4 Python
   utilities and the focused regression-result negative test passing.
 
@@ -86,11 +93,44 @@ The current mapping is:
 | AR-011 | Early FPGA feasibility plus later timing closure |
 | AR-012 | Cleanup performed as interfaces stabilize |
 | AR-013 | Regression infrastructure fix, implemented and verified |
+| AR-014 | Proposed-map generation infrastructure, implemented and verified |
+| AR-015 | Paired 16 KiB/64 KiB utilization/timing evidence, implemented and verified |
 
 The authoritative phase checklist is [`TODO.md`](../TODO.md); the detailed
 finding status is in
 [`ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md`](ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md).
 The overall review and FreeRTOS roadmap remain open.
+
+### Configuration source versus RTL parameters
+
+These mechanisms are complementary:
+
+- `riscv_soc` parameters tell Vivado how to elaborate one hardware instance;
+- [`config/soc_map.json`](../config/soc_map.json) describes the proposed
+  hardware/software address-map contract;
+- [`tools/gen_soc_map.py`](../tools/gen_soc_map.py) validates that contract and
+  generates consumer-specific syntax;
+- generated files must never be edited independently.
+
+The current source is explicitly `proposed`. Its 64 KiB word depths can drive
+an isolated utilization experiment, while current RTL decoding and directed
+test addresses remain unchanged. See
+[`AR014_MACHINE_READABLE_SOC_MAP.md`](AR014_MACHINE_READABLE_SOC_MAP.md) and
+[`config/README.md`](../config/README.md) for the complete relationship.
+
+The paired experiment found that two 16 KiB banks use 8/60 RAMB36 tiles
+(13.33%), while two 64 KiB banks use 32/60 (53.33%) on the provisional part.
+LUTs changed from 7,861 to 7,902, registers from 2,465 to 2,467, and DSPs stayed
+at 12. This is resource evidence only: no clock/XDC constraint, placement,
+peripherals, or exact-board budget was included.
+
+The follow-up post-synthesis STA applies ideal 25/50 MHz internal clock
+constraints. Both RAM sizes have the same 87.102 ns, 305-level combinational
+MULDIV path: WNS is -67.124 ns at 50 MHz and -47.124 ns at 25 MHz. Thus the RAM
+capacity choice does not cause the present timing failure; division must become
+multi-cycle or otherwise pipelined. Board clock location, placement, routing,
+I/O timing, and physical closure remain unmeasured. See
+[`AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md`](AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md).
 
 ## 3. Recommended learning order
 
@@ -510,6 +550,13 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 python -m unittest test_elf_to_mem.py test_import_act4.py
 ```
 
+From the repository root, validate generated SoC-map consumers with:
+
+```powershell
+python tools/gen_soc_map.py --check
+python -m unittest tools/test_gen_soc_map.py
+```
+
 For the original single testbench:
 
 ```powershell
@@ -577,11 +624,11 @@ Recommended waveform groups:
 | Topic | Current risk or question | Planned stage |
 |---|---|---|
 | Blocking LSU performance | Correct but the front end waits for every memory response | Measure before adding a MEM stage/cache |
-| Memory topology | Split instruction/data regions are proposed for review; capacity and tooling consequences remain open | Phase 1 / AR-009 |
+| Memory topology | Split instruction/data regions are proposed; 16/64 KiB BRAM cost is measured, but software need and final capacity remain open | Phase 1 / AR-009 |
 | Unmapped access faults | Precise access-fault traps exist, but the SoC has no centralized decoder/default error target | Phase 2 |
 | Interrupt boundary | Correct resume PC and outstanding transaction deferral | Phase 3 / AR-008 |
 | Timer | No `mtime`, `mtimecmp`, or hardware MTIP | Phase 3 |
-| RV32M timing | Combinational divide may fail FPGA timing | Early synthesis / AR-011 |
+| RV32M timing | Post-synthesis evidence confirms the combinational divider fails both 25 MHz and 50 MHz; redesign required | Early redesign / AR-011 |
 | Retirement ownership | CSR/trap/commit logic remains distributed | Cleanup / AR-012 |
 | Peripherals | UART/GPIO/timer files are placeholders | Phases 3–4 |
 
@@ -635,6 +682,8 @@ compare RAM data, `load_offset`, extracted value, and committed result.
 - [AR-006 control-flow misalignment](AR006_CONTROL_FLOW_MISALIGNMENT.md)
 - [AR-007 CSR contract](AR007_CSR_LEGALITY_WARL_AND_HAZARDS.md)
 - [AR-013 regression exit-status gate](AR013_REGRESSION_EXIT_STATUS_GATE.md)
+- [AR-014 machine-readable SoC map](AR014_MACHINE_READABLE_SOC_MAP.md)
+- [AR-015 RAM-capacity utilization and timing comparison](AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md)
 - [ACT4 integration](../verif/act4/README.md)
 - [Project roadmap](../TODO.md)
 

@@ -1,0 +1,2 @@
+# Preserve generated synthesis/timing evidence byte-for-byte.
+doc/evidence/** -text -diff

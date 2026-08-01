@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "name": "freertos_64k_proposal",
+  "status": "proposed",
+  "address_width": 32,
+  "data_width": 32,
+  "regions": [
+    {
+      "name": "prog_ram",
+      "kind": "ram",
+      "base": "0x00000000",
+      "size_bytes": "0x00010000",
+      "permissions": "rx"
+    },
+    {
+      "name": "timer",
+      "kind": "mmio",
+      "base": "0x02000000",
+      "size_bytes": "0x00010000",
+      "permissions": "rw"
+    },
+    {
+      "name": "uart",
+      "kind": "mmio",
+      "base": "0x10000000",
+      "size_bytes": "0x00001000",
+      "permissions": "rw"
+    },
+    {
+      "name": "gpio",
+      "kind": "mmio",
+      "base": "0x10001000",
+      "size_bytes": "0x00001000",
+      "permissions": "rw"
+    },
+    {
+      "name": "data_ram",
+      "kind": "ram",
+      "base": "0x80000000",
+      "size_bytes": "0x00010000",
+      "permissions": "rw"
+    }
+  ],
+  "registers": [
+    {
+      "name": "mtimecmp",
+      "region": "timer",
+      "offset": "0x00004000",
+      "width_bits": 64
+    },
+    {
+      "name": "mtime",
+      "region": "timer",
+      "offset": "0x0000bff8",
+      "width_bits": 64
+    }
+  ],
+  "simulation": {
+    "tohost": {
+      "region": "data_ram",
+      "placement": "last_word"
+    }
+  },
+  "default_target": {
+    "read_data": "0x00000000",
+    "response_error": true,
+    "write_side_effect": false
+  },
+  "utilization_experiments": {
+    "ram_bank_sizes_bytes": [
+      "0x00004000",
+      "0x00010000"
+    ]
+  }
+}

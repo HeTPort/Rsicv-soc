@@ -1,0 +1,43 @@
+Copyright 1986-2019 Xilinx, Inc. All Rights Reserved.
+-------------------------------------------------------------------------------------------------------------------------------------------------------
+| Tool Version : Vivado v.2019.2 (win64) Build 2708876 Wed Nov  6 21:40:23 MST 2019
+| Date         : Sat Aug  1 16:23:37 2026
+| Host         : LAPTOP-4V1L67HN running 64-bit major release  (build 9200)
+| Command      : report_utilization -hierarchical -hierarchical_depth 4 -file D:/Rsicv-soc/build/vivado_ram_64k/riscv_soc_hierarchical_utilization.rpt
+| Design       : riscv_soc
+| Device       : 7z010clg400-1
+| Design State : Synthesized
+-------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Utilization Design Information
+
+Table of Contents
+-----------------
+1. Utilization by Hierarchy
+
+1. Utilization by Hierarchy
+---------------------------
+
++---------------------+-------------------+------------+------------+---------+------+------+--------+--------+--------------+
+|       Instance      |       Module      | Total LUTs | Logic LUTs | LUTRAMs | SRLs |  FFs | RAMB36 | RAMB18 | DSP48 Blocks |
++---------------------+-------------------+------------+------------+---------+------+------+--------+--------+--------------+
+| riscv_soc           |             (top) |       7902 |       7902 |       0 |    0 | 2467 |     32 |      0 |           12 |
+|   (riscv_soc)       |             (top) |          0 |          0 |       0 |    0 |    0 |      0 |      0 |            0 |
+|   u_data_target     | core_bus_data_ram |         92 |         92 |       0 |    0 |   84 |     16 |      0 |            0 |
+|     (u_data_target) | core_bus_data_ram |         92 |         92 |       0 |    0 |   84 |      0 |      0 |            0 |
+|     u_data_ram      |          data_ram |          0 |          0 |       0 |    0 |    0 |     16 |      0 |            0 |
+|   u_prog_ram        |          prog_ram |         49 |         49 |       0 |    0 |   34 |     16 |      0 |            0 |
+|   u_riscv           |             riscv |       7761 |       7761 |       0 |    0 | 2349 |      0 |      0 |           12 |
+|     (u_riscv)       |             riscv |          1 |          1 |       0 |    0 |   97 |      0 |      0 |            0 |
+|     u_core_ctrl     |         core_ctrl |         19 |         19 |       0 |    0 |    1 |      0 |      0 |            0 |
+|     u_csr_regfile   |       csr_regfile |          9 |          9 |       0 |    0 |  384 |      0 |      0 |            0 |
+|     u_ex2wb         |             ex2wb |        398 |        398 |       0 |    0 |  356 |      0 |      0 |            0 |
+|     u_execute       |           execute |       4568 |       4568 |       0 |    0 |    0 |      0 |      0 |           12 |
+|     u_id2ex         |             id2ex |       1859 |       1859 |       0 |    0 |  302 |      0 |      0 |            0 |
+|     u_if2id         |             if2id |        310 |        310 |       0 |    0 |   79 |      0 |      0 |            0 |
+|     u_lsu           |               lsu |         49 |         49 |       0 |    0 |  106 |      0 |      0 |            0 |
+|     u_pc_counter    |        pc_counter |         15 |         15 |       0 |    0 |   32 |      0 |      0 |            0 |
+|     u_regfile       |           regfile |        593 |        593 |       0 |    0 |  992 |      0 |      0 |            0 |
++---------------------+-------------------+------------+------------+---------+------+------+--------+--------+--------------+
+
+

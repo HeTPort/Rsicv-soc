@@ -1,0 +1,74 @@
+{
+  "address_width": 32,
+  "data_width": 32,
+  "default_target": {
+    "read_data": 0,
+    "response_error": true,
+    "write_side_effect": false
+  },
+  "name": "freertos_64k_proposal",
+  "regions": [
+    {
+      "base": 0,
+      "depth_words": 16384,
+      "end": 65535,
+      "kind": "ram",
+      "name": "prog_ram",
+      "permissions": "rx",
+      "size_bytes": 65536
+    },
+    {
+      "base": 33554432,
+      "end": 33619967,
+      "kind": "mmio",
+      "name": "timer",
+      "permissions": "rw",
+      "size_bytes": 65536
+    },
+    {
+      "base": 268435456,
+      "end": 268439551,
+      "kind": "mmio",
+      "name": "uart",
+      "permissions": "rw",
+      "size_bytes": 4096
+    },
+    {
+      "base": 268439552,
+      "end": 268443647,
+      "kind": "mmio",
+      "name": "gpio",
+      "permissions": "rw",
+      "size_bytes": 4096
+    },
+    {
+      "base": 2147483648,
+      "depth_words": 16384,
+      "end": 2147549183,
+      "kind": "ram",
+      "name": "data_ram",
+      "permissions": "rw",
+      "size_bytes": 65536
+    }
+  ],
+  "registers": [
+    {
+      "address": 33570816,
+      "name": "mtimecmp",
+      "offset": 16384,
+      "region": "timer",
+      "width_bits": 64
+    },
+    {
+      "address": 33603576,
+      "name": "mtime",
+      "offset": 49144,
+      "region": "timer",
+      "width_bits": 64
+    }
+  ],
+  "schema_version": 1,
+  "status": "proposed",
+  "tohost_addr": 2147549180,
+  "word_bytes": 4
+}

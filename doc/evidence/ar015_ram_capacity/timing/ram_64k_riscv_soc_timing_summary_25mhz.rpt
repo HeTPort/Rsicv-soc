@@ -1,0 +1,1158 @@
+Copyright 1986-2019 Xilinx, Inc. All Rights Reserved.
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+| Tool Version : Vivado v.2019.2 (win64) Build 2708876 Wed Nov  6 21:40:23 MST 2019
+| Date         : Sat Aug  1 21:05:21 2026
+| Host         : LAPTOP-4V1L67HN running 64-bit major release  (build 9200)
+| Command      : report_timing_summary -delay_type max -max_paths 1 -nworst 1 -file D:/Rsicv-soc/build/vivado_ram_64k/timing/riscv_soc_timing_summary_25mhz.rpt
+| Design       : riscv_soc
+| Device       : 7z010-clg400
+| Speed File   : -1  PRODUCTION 1.11 2014-09-11
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Timing Summary Report
+
+------------------------------------------------------------------------------------------------
+| Timer Settings
+| --------------
+------------------------------------------------------------------------------------------------
+
+  Enable Multi Corner Analysis               :  Yes
+  Enable Pessimism Removal                   :  Yes
+  Pessimism Removal Resolution               :  Nearest Common Node
+  Enable Input Delay Default Clock           :  No
+  Enable Preset / Clear Arcs                 :  No
+  Disable Flight Delays                      :  No
+  Ignore I/O Paths                           :  No
+  Timing Early Launch at Borrowing Latches   :  No
+  Borrow Time for Max Delay Exceptions       :  Yes
+  Merge Timing Exceptions                    :  Yes
+
+  Corner  Analyze    Analyze    
+  Name    Max Paths  Min Paths  
+  ------  ---------  ---------  
+  Slow    Yes        Yes        
+  Fast    Yes        Yes        
+
+
+
+check_timing report
+
+Table of Contents
+-----------------
+1. checking no_clock
+2. checking constant_clock
+3. checking pulse_width_clock
+4. checking unconstrained_internal_endpoints
+5. checking no_input_delay
+6. checking no_output_delay
+7. checking multiple_clock
+8. checking generated_clocks
+9. checking loops
+10. checking partial_input_delay
+11. checking partial_output_delay
+12. checking latch_loops
+
+1. checking no_clock
+--------------------
+ There are 0 register/latch pins with no clock.
+
+
+2. checking constant_clock
+--------------------------
+ There are 0 register/latch pins with constant_clock.
+
+
+3. checking pulse_width_clock
+-----------------------------
+ There are 0 register/latch pins which need pulse_width check
+
+
+4. checking unconstrained_internal_endpoints
+--------------------------------------------
+ There are 0 pins that are not constrained for maximum delay.
+
+ There are 0 pins that are not constrained for maximum delay due to constant clock.
+
+
+5. checking no_input_delay
+--------------------------
+ There are 67 input ports with no input delay specified. (HIGH)
+
+ There are 0 input ports with no input delay but user has a false path constraint.
+
+
+6. checking no_output_delay
+---------------------------
+ There are 406 ports with no output delay specified. (HIGH)
+
+ There are 0 ports with no output delay but user has a false path constraint
+
+ There are 0 ports with no output delay but with a timing clock defined on it or propagating through it
+
+
+7. checking multiple_clock
+--------------------------
+ There are 0 register/latch pins with multiple clocks.
+
+
+8. checking generated_clocks
+----------------------------
+ There are 0 generated clocks that are not connected to a clock source.
+
+
+9. checking loops
+-----------------
+ There are 0 combinational loops in the design.
+
+
+10. checking partial_input_delay
+--------------------------------
+ There are 0 input ports with partial input delay specified.
+
+
+11. checking partial_output_delay
+---------------------------------
+ There are 0 ports with partial output delay specified.
+
+
+12. checking latch_loops
+------------------------
+ There are 0 combinational latch loops in the design through latch input
+
+
+
+------------------------------------------------------------------------------------------------
+| Design Timing Summary
+| ---------------------
+------------------------------------------------------------------------------------------------
+
+    WNS(ns)      TNS(ns)  TNS Failing Endpoints  TNS Total Endpoints     WPWS(ns)     TPWS(ns)  TPWS Failing Endpoints  TPWS Total Endpoints  
+    -------      -------  ---------------------  -------------------     --------     --------  ----------------------  --------------------  
+    -47.124    -1461.336                     32                 5242       19.500        0.000                       0                  2531  
+
+
+Timing constraints are not met.
+
+
+------------------------------------------------------------------------------------------------
+| Clock Summary
+| -------------
+------------------------------------------------------------------------------------------------
+
+Clock     Waveform(ns)       Period(ns)      Frequency(MHz)
+-----     ------------       ----------      --------------
+core_clk  {0.000 20.000}     40.000          25.000          
+
+
+------------------------------------------------------------------------------------------------
+| Intra Clock Table
+| -----------------
+------------------------------------------------------------------------------------------------
+
+Clock             WNS(ns)      TNS(ns)  TNS Failing Endpoints  TNS Total Endpoints     WPWS(ns)     TPWS(ns)  TPWS Failing Endpoints  TPWS Total Endpoints  
+-----             -------      -------  ---------------------  -------------------     --------     --------  ----------------------  --------------------  
+core_clk          -47.124    -1461.336                     32                 5242       19.500        0.000                       0                  2531  
+
+
+------------------------------------------------------------------------------------------------
+| Inter Clock Table
+| -----------------
+------------------------------------------------------------------------------------------------
+
+From Clock    To Clock          WNS(ns)      TNS(ns)  TNS Failing Endpoints  TNS Total Endpoints  
+----------    --------          -------      -------  ---------------------  -------------------  
+
+
+------------------------------------------------------------------------------------------------
+| Other Path Groups Table
+| -----------------------
+------------------------------------------------------------------------------------------------
+
+Path Group    From Clock    To Clock          WNS(ns)      TNS(ns)  TNS Failing Endpoints  TNS Total Endpoints  
+----------    ----------    --------          -------      -------  ---------------------  -------------------  
+
+
+------------------------------------------------------------------------------------------------
+| Timing Details
+| --------------
+------------------------------------------------------------------------------------------------
+
+
+---------------------------------------------------------------------------------------------------
+From Clock:  core_clk
+  To Clock:  core_clk
+
+Setup :           32  Failing Endpoints,  Worst Slack      -47.124ns,  Total Violation    -1461.336ns
+Hold  :           NA  Failing Endpoints,  Worst Slack           NA  ,  Total Violation           NA
+PW    :            0  Failing Endpoints,  Worst Slack       19.500ns,  Total Violation        0.000ns
+---------------------------------------------------------------------------------------------------
+
+
+Max Delay Paths
+--------------------------------------------------------------------------------------
+Slack (VIOLATED) :        -47.124ns  (required time - arrival time)
+  Source:                 u_riscv/u_id2ex/pkt2ex_q_reg[ex_data][op1][0]/C
+                            (rising edge-triggered cell FDCE clocked by core_clk  {rise@0.000ns fall@20.000ns period=40.000ns})
+  Destination:            u_riscv/u_ex2wb/pkt2wb_q_reg[alu_data][26]/D
+                            (rising edge-triggered cell FDCE clocked by core_clk  {rise@0.000ns fall@20.000ns period=40.000ns})
+  Path Group:             core_clk
+  Path Type:              Setup (Max at Slow Process Corner)
+  Requirement:            40.000ns  (core_clk rise@40.000ns - core_clk rise@0.000ns)
+  Data Path Delay:        87.102ns  (logic 60.860ns (69.872%)  route 26.242ns (30.128%))
+  Logic Levels:           305  (CARRY4=291 LUT1=2 LUT2=1 LUT5=5 LUT6=6)
+  Clock Path Skew:        -0.049ns (DCD - SCD + CPR)
+    Destination Clock Delay (DCD):    0.924ns = ( 40.924 - 40.000 ) 
+    Source Clock Delay      (SCD):    0.973ns
+    Clock Pessimism Removal (CPR):    0.000ns
+  Clock Uncertainty:      0.035ns  ((TSJ^2 + TIJ^2)^1/2 + DJ) / 2 + PE
+    Total System Jitter     (TSJ):    0.071ns
+    Total Input Jitter      (TIJ):    0.000ns
+    Discrete Jitter          (DJ):    0.000ns
+    Phase Error              (PE):    0.000ns
+
+    Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+  -------------------------------------------------------------------    -------------------
+                         (clock core_clk rise edge)
+                                                      0.000     0.000 r  
+                                                      0.000     0.000 r  clk (IN)
+                         net (fo=2530, unset)         0.973     0.973    u_riscv/u_id2ex/clk
+                         FDCE                                         r  u_riscv/u_id2ex/pkt2ex_q_reg[ex_data][op1][0]/C
+  -------------------------------------------------------------------    -------------------
+                         FDCE (Prop_fdce_C_Q)         0.496     1.469 f  u_riscv/u_id2ex/pkt2ex_q_reg[ex_data][op1][0]/Q
+                         net (fo=48, unplaced)        0.392     1.861    u_riscv/u_id2ex/Q[0]
+                         LUT1 (Prop_lut1_I0_O)        0.295     2.156 r  u_riscv/u_id2ex/pkt2wb_q[alu_data][7]_i_147/O
+                         net (fo=1, unplaced)         0.333     2.489    u_riscv/u_id2ex/pkt2wb_q[alu_data][7]_i_147_n_0
+                         CARRY4 (Prop_carry4_CYINIT_CO[3])
+                                                      0.580     3.069 r  u_riscv/u_id2ex/pkt2wb_q_reg[alu_data][7]_i_121/CO[3]
+                         net (fo=1, unplaced)         0.000     3.069    u_riscv/u_id2ex/pkt2wb_q_reg[alu_data][7]_i_121_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114     3.183 r  u_riscv/u_id2ex/pkt2wb_q_reg[alu_data][23]_i_496/CO[3]
+                         net (fo=1, unplaced)         0.000     3.183    u_riscv/u_id2ex/pkt2wb_q_reg[alu_data][23]_i_496_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114     3.297 r  u_riscv/u_id2ex/pkt2wb_q_reg[alu_data][31]_i_919/CO[3]
+                         net (fo=1, unplaced)         0.000     3.297    u_riscv/u_id2ex/pkt2wb_q_reg[alu_data][31]_i_919_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114     3.411 r  u_riscv/u_id2ex/pkt2wb_q_reg[alu_data][15]_i_213/CO[3]
+                         net (fo=1, unplaced)         0.000     3.411    u_riscv/u_id2ex/pkt2wb_q_reg[alu_data][15]_i_213_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114     3.525 r  u_riscv/u_id2ex/pkt2wb_q_reg[alu_data][18]_i_261/CO[3]
+                         net (fo=1, unplaced)         0.000     3.525    u_riscv/u_id2ex/pkt2wb_q_reg[alu_data][18]_i_261_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114     3.639 r  u_riscv/u_id2ex/pkt2wb_q_reg[alu_data][23]_i_632/CO[3]
+                         net (fo=1, unplaced)         0.000     3.639    u_riscv/u_id2ex/pkt2wb_q_reg[alu_data][23]_i_632_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114     3.753 r  u_riscv/u_id2ex/pkt2wb_q_reg[alu_data][23]_i_633/CO[3]
+                         net (fo=1, unplaced)         0.000     3.753    u_riscv/u_id2ex/pkt2wb_q_reg[alu_data][23]_i_633_n_0
+                         CARRY4 (Prop_carry4_CI_O[2])
+                                                      0.256     4.009 r  u_riscv/u_id2ex/pkt2wb_q_reg[alu_data][31]_i_920/O[2]
+                         net (fo=4, unplaced)         0.476     4.485    u_riscv/u_id2ex/u_execute/muldiv_result3[31]
+                         LUT2 (Prop_lut2_I0_O)        0.295     4.780 r  u_riscv/u_id2ex/pkt2wb_q[alu_data][31]_i_2750/O
+                         net (fo=1, unplaced)         0.000     4.780    u_riscv/u_execute/p_1_in_0[30]
+                         CARRY4 (Prop_carry4_DI[0]_CO[3])
+                                                      0.553     5.333 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2619/CO[3]
+                         net (fo=1, unplaced)         0.000     5.333    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2619_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114     5.447 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2614/CO[3]
+                         net (fo=1, unplaced)         0.000     5.447    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2614_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114     5.561 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2609/CO[3]
+                         net (fo=1, unplaced)         0.000     5.561    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2609_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114     5.675 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2604/CO[3]
+                         net (fo=1, unplaced)         0.000     5.675    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2604_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114     5.789 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2599/CO[3]
+                         net (fo=1, unplaced)         0.000     5.789    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2599_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114     5.903 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2594/CO[3]
+                         net (fo=1, unplaced)         0.000     5.903    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2594_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114     6.017 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2589/CO[3]
+                         net (fo=1, unplaced)         0.000     6.017    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2589_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114     6.131 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2586/CO[3]
+                         net (fo=1, unplaced)         0.000     6.131    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2586_n_0
+                         CARRY4 (Prop_carry4_CI_CO[0])
+                                                      0.293     6.424 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2585/CO[0]
+                         net (fo=35, unplaced)        0.384     6.808    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2585_n_3
+                         LUT5 (Prop_lut5_I0_O)        0.367     7.175 r  u_riscv/u_execute/pkt2wb_q[alu_data][31]_i_2627/O
+                         net (fo=1, unplaced)         0.000     7.175    u_riscv/u_execute/pkt2wb_q[alu_data][31]_i_2627_n_0
+                         CARRY4 (Prop_carry4_S[1]_CO[3])
+                                                      0.550     7.725 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2534/CO[3]
+                         net (fo=1, unplaced)         0.000     7.725    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2534_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114     7.839 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2529/CO[3]
+                         net (fo=1, unplaced)         0.000     7.839    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2529_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114     7.953 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2524/CO[3]
+                         net (fo=1, unplaced)         0.000     7.953    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2524_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114     8.067 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2519/CO[3]
+                         net (fo=1, unplaced)         0.000     8.067    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2519_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114     8.181 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2514/CO[3]
+                         net (fo=1, unplaced)         0.000     8.181    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2514_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114     8.295 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2509/CO[3]
+                         net (fo=1, unplaced)         0.000     8.295    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2509_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114     8.409 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2504/CO[3]
+                         net (fo=1, unplaced)         0.000     8.409    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2504_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114     8.523 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2501/CO[3]
+                         net (fo=1, unplaced)         0.000     8.523    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2501_n_0
+                         CARRY4 (Prop_carry4_CI_CO[1])
+                                                      0.178     8.701 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2500/CO[1]
+                         net (fo=35, unplaced)        0.598     9.299    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2500_n_2
+                         CARRY4 (Prop_carry4_CYINIT_CO[3])
+                                                      0.788    10.087 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2449/CO[3]
+                         net (fo=1, unplaced)         0.000    10.087    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2449_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    10.201 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2444/CO[3]
+                         net (fo=1, unplaced)         0.000    10.201    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2444_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    10.315 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2439/CO[3]
+                         net (fo=1, unplaced)         0.000    10.315    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2439_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    10.429 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2434/CO[3]
+                         net (fo=1, unplaced)         0.000    10.429    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2434_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    10.543 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2429/CO[3]
+                         net (fo=1, unplaced)         0.000    10.543    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2429_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    10.657 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2424/CO[3]
+                         net (fo=1, unplaced)         0.000    10.657    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2424_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    10.771 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2419/CO[3]
+                         net (fo=1, unplaced)         0.000    10.771    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2419_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    10.885 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2416/CO[3]
+                         net (fo=1, unplaced)         0.000    10.885    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2416_n_0
+                         CARRY4 (Prop_carry4_CI_CO[1])
+                                                      0.178    11.063 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2415/CO[1]
+                         net (fo=35, unplaced)        0.598    11.661    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2415_n_2
+                         CARRY4 (Prop_carry4_CYINIT_CO[3])
+                                                      0.788    12.449 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2364/CO[3]
+                         net (fo=1, unplaced)         0.000    12.449    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2364_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    12.563 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2359/CO[3]
+                         net (fo=1, unplaced)         0.000    12.563    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2359_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    12.677 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2354/CO[3]
+                         net (fo=1, unplaced)         0.000    12.677    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2354_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    12.791 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2349/CO[3]
+                         net (fo=1, unplaced)         0.000    12.791    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2349_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    12.905 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2344/CO[3]
+                         net (fo=1, unplaced)         0.000    12.905    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2344_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    13.019 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2339/CO[3]
+                         net (fo=1, unplaced)         0.000    13.019    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2339_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    13.133 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2334/CO[3]
+                         net (fo=1, unplaced)         0.000    13.133    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2334_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    13.247 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2331/CO[3]
+                         net (fo=1, unplaced)         0.000    13.247    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2331_n_0
+                         CARRY4 (Prop_carry4_CI_CO[1])
+                                                      0.178    13.425 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2330/CO[1]
+                         net (fo=35, unplaced)        0.598    14.023    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2330_n_2
+                         CARRY4 (Prop_carry4_CYINIT_CO[3])
+                                                      0.788    14.811 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2279/CO[3]
+                         net (fo=1, unplaced)         0.000    14.811    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2279_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    14.925 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2274/CO[3]
+                         net (fo=1, unplaced)         0.000    14.925    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2274_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    15.039 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2269/CO[3]
+                         net (fo=1, unplaced)         0.000    15.039    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2269_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    15.153 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2264/CO[3]
+                         net (fo=1, unplaced)         0.000    15.153    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2264_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    15.267 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2259/CO[3]
+                         net (fo=1, unplaced)         0.000    15.267    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2259_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    15.381 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2254/CO[3]
+                         net (fo=1, unplaced)         0.000    15.381    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2254_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    15.495 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2249/CO[3]
+                         net (fo=1, unplaced)         0.000    15.495    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2249_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    15.609 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2246/CO[3]
+                         net (fo=1, unplaced)         0.000    15.609    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2246_n_0
+                         CARRY4 (Prop_carry4_CI_CO[1])
+                                                      0.178    15.787 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2245/CO[1]
+                         net (fo=35, unplaced)        0.598    16.385    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2245_n_2
+                         CARRY4 (Prop_carry4_CYINIT_CO[3])
+                                                      0.788    17.173 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2194/CO[3]
+                         net (fo=1, unplaced)         0.000    17.173    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2194_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    17.287 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2189/CO[3]
+                         net (fo=1, unplaced)         0.000    17.287    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2189_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    17.401 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2184/CO[3]
+                         net (fo=1, unplaced)         0.000    17.401    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2184_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    17.515 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2179/CO[3]
+                         net (fo=1, unplaced)         0.000    17.515    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2179_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    17.629 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2174/CO[3]
+                         net (fo=1, unplaced)         0.000    17.629    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2174_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    17.743 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2169/CO[3]
+                         net (fo=1, unplaced)         0.000    17.743    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2169_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    17.857 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2164/CO[3]
+                         net (fo=1, unplaced)         0.000    17.857    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2164_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    17.971 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2161/CO[3]
+                         net (fo=1, unplaced)         0.000    17.971    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2161_n_0
+                         CARRY4 (Prop_carry4_CI_CO[1])
+                                                      0.178    18.149 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2160/CO[1]
+                         net (fo=35, unplaced)        0.598    18.747    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2160_n_2
+                         CARRY4 (Prop_carry4_CYINIT_CO[3])
+                                                      0.788    19.535 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2109/CO[3]
+                         net (fo=1, unplaced)         0.000    19.535    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2109_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    19.649 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2104/CO[3]
+                         net (fo=1, unplaced)         0.000    19.649    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2104_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    19.763 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2099/CO[3]
+                         net (fo=1, unplaced)         0.000    19.763    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2099_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    19.877 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2094/CO[3]
+                         net (fo=1, unplaced)         0.000    19.877    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2094_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    19.991 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2089/CO[3]
+                         net (fo=1, unplaced)         0.000    19.991    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2089_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    20.105 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2084/CO[3]
+                         net (fo=1, unplaced)         0.000    20.105    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2084_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    20.219 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2079/CO[3]
+                         net (fo=1, unplaced)         0.000    20.219    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2079_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    20.333 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2076/CO[3]
+                         net (fo=1, unplaced)         0.000    20.333    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2076_n_0
+                         CARRY4 (Prop_carry4_CI_CO[1])
+                                                      0.178    20.511 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2075/CO[1]
+                         net (fo=35, unplaced)        0.598    21.109    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2075_n_2
+                         CARRY4 (Prop_carry4_CYINIT_CO[3])
+                                                      0.788    21.897 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2024/CO[3]
+                         net (fo=1, unplaced)         0.000    21.897    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2024_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    22.011 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2019/CO[3]
+                         net (fo=1, unplaced)         0.000    22.011    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2019_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    22.125 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2014/CO[3]
+                         net (fo=1, unplaced)         0.000    22.125    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2014_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    22.239 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2009/CO[3]
+                         net (fo=1, unplaced)         0.000    22.239    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2009_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    22.353 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2004/CO[3]
+                         net (fo=1, unplaced)         0.000    22.353    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_2004_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    22.467 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1999/CO[3]
+                         net (fo=1, unplaced)         0.000    22.467    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1999_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    22.581 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1994/CO[3]
+                         net (fo=1, unplaced)         0.000    22.581    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1994_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    22.695 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1991/CO[3]
+                         net (fo=1, unplaced)         0.000    22.695    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1991_n_0
+                         CARRY4 (Prop_carry4_CI_CO[1])
+                                                      0.178    22.873 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1990/CO[1]
+                         net (fo=35, unplaced)        0.598    23.471    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1990_n_2
+                         CARRY4 (Prop_carry4_CYINIT_CO[3])
+                                                      0.788    24.259 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1939/CO[3]
+                         net (fo=1, unplaced)         0.000    24.259    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1939_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    24.373 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1934/CO[3]
+                         net (fo=1, unplaced)         0.000    24.373    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1934_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    24.487 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1929/CO[3]
+                         net (fo=1, unplaced)         0.000    24.487    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1929_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    24.601 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1924/CO[3]
+                         net (fo=1, unplaced)         0.000    24.601    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1924_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    24.715 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1919/CO[3]
+                         net (fo=1, unplaced)         0.000    24.715    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1919_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    24.829 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1914/CO[3]
+                         net (fo=1, unplaced)         0.000    24.829    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1914_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    24.943 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1909/CO[3]
+                         net (fo=1, unplaced)         0.000    24.943    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1909_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    25.057 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1906/CO[3]
+                         net (fo=1, unplaced)         0.000    25.057    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1906_n_0
+                         CARRY4 (Prop_carry4_CI_CO[1])
+                                                      0.178    25.235 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1905/CO[1]
+                         net (fo=35, unplaced)        0.598    25.833    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1905_n_2
+                         CARRY4 (Prop_carry4_CYINIT_CO[3])
+                                                      0.788    26.621 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1854/CO[3]
+                         net (fo=1, unplaced)         0.000    26.621    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1854_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    26.735 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1849/CO[3]
+                         net (fo=1, unplaced)         0.000    26.735    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1849_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    26.849 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1844/CO[3]
+                         net (fo=1, unplaced)         0.000    26.849    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1844_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    26.963 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1839/CO[3]
+                         net (fo=1, unplaced)         0.000    26.963    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1839_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    27.077 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1834/CO[3]
+                         net (fo=1, unplaced)         0.000    27.077    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1834_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    27.191 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1829/CO[3]
+                         net (fo=1, unplaced)         0.000    27.191    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1829_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    27.305 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1824/CO[3]
+                         net (fo=1, unplaced)         0.000    27.305    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1824_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    27.419 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1821/CO[3]
+                         net (fo=1, unplaced)         0.000    27.419    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1821_n_0
+                         CARRY4 (Prop_carry4_CI_CO[1])
+                                                      0.178    27.597 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1820/CO[1]
+                         net (fo=35, unplaced)        0.598    28.195    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1820_n_2
+                         CARRY4 (Prop_carry4_CYINIT_CO[3])
+                                                      0.788    28.983 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1769/CO[3]
+                         net (fo=1, unplaced)         0.000    28.983    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1769_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    29.097 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1764/CO[3]
+                         net (fo=1, unplaced)         0.000    29.097    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1764_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    29.211 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1759/CO[3]
+                         net (fo=1, unplaced)         0.000    29.211    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1759_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    29.325 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1754/CO[3]
+                         net (fo=1, unplaced)         0.000    29.325    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1754_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    29.439 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1749/CO[3]
+                         net (fo=1, unplaced)         0.000    29.439    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1749_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    29.553 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1744/CO[3]
+                         net (fo=1, unplaced)         0.000    29.553    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1744_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    29.667 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1739/CO[3]
+                         net (fo=1, unplaced)         0.000    29.667    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1739_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    29.781 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1736/CO[3]
+                         net (fo=1, unplaced)         0.000    29.781    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1736_n_0
+                         CARRY4 (Prop_carry4_CI_CO[1])
+                                                      0.178    29.959 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1735/CO[1]
+                         net (fo=35, unplaced)        0.598    30.557    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1735_n_2
+                         CARRY4 (Prop_carry4_CYINIT_CO[3])
+                                                      0.788    31.345 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1684/CO[3]
+                         net (fo=1, unplaced)         0.000    31.345    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1684_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    31.459 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1679/CO[3]
+                         net (fo=1, unplaced)         0.000    31.459    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1679_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    31.573 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1674/CO[3]
+                         net (fo=1, unplaced)         0.000    31.573    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1674_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    31.687 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1669/CO[3]
+                         net (fo=1, unplaced)         0.000    31.687    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1669_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    31.801 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1664/CO[3]
+                         net (fo=1, unplaced)         0.000    31.801    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1664_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    31.915 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1659/CO[3]
+                         net (fo=1, unplaced)         0.000    31.915    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1659_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    32.029 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1654/CO[3]
+                         net (fo=1, unplaced)         0.000    32.029    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1654_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    32.143 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1651/CO[3]
+                         net (fo=1, unplaced)         0.000    32.143    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1651_n_0
+                         CARRY4 (Prop_carry4_CI_CO[1])
+                                                      0.178    32.321 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1650/CO[1]
+                         net (fo=35, unplaced)        0.598    32.919    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1650_n_2
+                         CARRY4 (Prop_carry4_CYINIT_CO[3])
+                                                      0.788    33.707 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1599/CO[3]
+                         net (fo=1, unplaced)         0.000    33.707    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1599_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    33.821 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1594/CO[3]
+                         net (fo=1, unplaced)         0.000    33.821    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1594_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    33.935 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1589/CO[3]
+                         net (fo=1, unplaced)         0.000    33.935    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1589_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    34.049 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1584/CO[3]
+                         net (fo=1, unplaced)         0.000    34.049    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1584_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    34.163 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1579/CO[3]
+                         net (fo=1, unplaced)         0.000    34.163    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1579_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    34.277 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1574/CO[3]
+                         net (fo=1, unplaced)         0.000    34.277    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1574_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    34.391 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1569/CO[3]
+                         net (fo=1, unplaced)         0.000    34.391    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1569_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    34.505 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1566/CO[3]
+                         net (fo=1, unplaced)         0.000    34.505    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1566_n_0
+                         CARRY4 (Prop_carry4_CI_CO[1])
+                                                      0.178    34.683 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1565/CO[1]
+                         net (fo=35, unplaced)        0.598    35.281    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1565_n_2
+                         CARRY4 (Prop_carry4_CYINIT_CO[3])
+                                                      0.788    36.069 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1514/CO[3]
+                         net (fo=1, unplaced)         0.000    36.069    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1514_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    36.183 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1509/CO[3]
+                         net (fo=1, unplaced)         0.000    36.183    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1509_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    36.297 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1504/CO[3]
+                         net (fo=1, unplaced)         0.000    36.297    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1504_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    36.411 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1499/CO[3]
+                         net (fo=1, unplaced)         0.000    36.411    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1499_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    36.525 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1494/CO[3]
+                         net (fo=1, unplaced)         0.000    36.525    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1494_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    36.639 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1489/CO[3]
+                         net (fo=1, unplaced)         0.000    36.639    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1489_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    36.753 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1484/CO[3]
+                         net (fo=1, unplaced)         0.000    36.753    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1484_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    36.867 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1481/CO[3]
+                         net (fo=1, unplaced)         0.000    36.867    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1481_n_0
+                         CARRY4 (Prop_carry4_CI_CO[1])
+                                                      0.178    37.045 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1480/CO[1]
+                         net (fo=35, unplaced)        0.598    37.643    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1480_n_2
+                         CARRY4 (Prop_carry4_CYINIT_CO[3])
+                                                      0.788    38.431 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1429/CO[3]
+                         net (fo=1, unplaced)         0.000    38.431    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1429_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    38.545 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1424/CO[3]
+                         net (fo=1, unplaced)         0.000    38.545    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1424_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    38.659 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1419/CO[3]
+                         net (fo=1, unplaced)         0.000    38.659    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1419_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    38.773 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1414/CO[3]
+                         net (fo=1, unplaced)         0.000    38.773    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1414_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    38.887 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1409/CO[3]
+                         net (fo=1, unplaced)         0.000    38.887    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1409_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    39.001 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1404/CO[3]
+                         net (fo=1, unplaced)         0.000    39.001    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1404_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    39.115 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1399/CO[3]
+                         net (fo=1, unplaced)         0.000    39.115    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1399_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    39.229 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1396/CO[3]
+                         net (fo=1, unplaced)         0.000    39.229    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1396_n_0
+                         CARRY4 (Prop_carry4_CI_CO[1])
+                                                      0.178    39.407 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1395/CO[1]
+                         net (fo=35, unplaced)        0.598    40.005    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1395_n_2
+                         CARRY4 (Prop_carry4_CYINIT_CO[3])
+                                                      0.788    40.793 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1344/CO[3]
+                         net (fo=1, unplaced)         0.000    40.793    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1344_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    40.907 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1339/CO[3]
+                         net (fo=1, unplaced)         0.000    40.907    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1339_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    41.021 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1334/CO[3]
+                         net (fo=1, unplaced)         0.000    41.021    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1334_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    41.135 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1329/CO[3]
+                         net (fo=1, unplaced)         0.000    41.135    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1329_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    41.249 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1324/CO[3]
+                         net (fo=1, unplaced)         0.000    41.249    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1324_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    41.363 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1319/CO[3]
+                         net (fo=1, unplaced)         0.000    41.363    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1319_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    41.477 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1314/CO[3]
+                         net (fo=1, unplaced)         0.000    41.477    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1314_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    41.591 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1311/CO[3]
+                         net (fo=1, unplaced)         0.000    41.591    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1311_n_0
+                         CARRY4 (Prop_carry4_CI_CO[1])
+                                                      0.178    41.769 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1310/CO[1]
+                         net (fo=35, unplaced)        0.598    42.367    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1310_n_2
+                         CARRY4 (Prop_carry4_CYINIT_CO[3])
+                                                      0.788    43.155 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1259/CO[3]
+                         net (fo=1, unplaced)         0.000    43.155    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1259_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    43.269 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1254/CO[3]
+                         net (fo=1, unplaced)         0.000    43.269    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1254_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    43.383 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1249/CO[3]
+                         net (fo=1, unplaced)         0.000    43.383    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1249_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    43.497 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1244/CO[3]
+                         net (fo=1, unplaced)         0.000    43.497    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1244_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    43.611 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1239/CO[3]
+                         net (fo=1, unplaced)         0.000    43.611    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1239_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    43.725 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1234/CO[3]
+                         net (fo=1, unplaced)         0.000    43.725    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1234_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    43.839 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1229/CO[3]
+                         net (fo=1, unplaced)         0.000    43.839    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1229_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    43.953 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1226/CO[3]
+                         net (fo=1, unplaced)         0.000    43.953    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1226_n_0
+                         CARRY4 (Prop_carry4_CI_CO[1])
+                                                      0.178    44.131 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1225/CO[1]
+                         net (fo=35, unplaced)        0.598    44.729    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1225_n_2
+                         CARRY4 (Prop_carry4_CYINIT_CO[3])
+                                                      0.788    45.517 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1174/CO[3]
+                         net (fo=1, unplaced)         0.000    45.517    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1174_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    45.631 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1169/CO[3]
+                         net (fo=1, unplaced)         0.000    45.631    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1169_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    45.745 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1164/CO[3]
+                         net (fo=1, unplaced)         0.000    45.745    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1164_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    45.859 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1159/CO[3]
+                         net (fo=1, unplaced)         0.000    45.859    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1159_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    45.973 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1154/CO[3]
+                         net (fo=1, unplaced)         0.000    45.973    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1154_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    46.087 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1149/CO[3]
+                         net (fo=1, unplaced)         0.000    46.087    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1149_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    46.201 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1144/CO[3]
+                         net (fo=1, unplaced)         0.000    46.201    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1144_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    46.315 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1141/CO[3]
+                         net (fo=1, unplaced)         0.000    46.315    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1141_n_0
+                         CARRY4 (Prop_carry4_CI_CO[1])
+                                                      0.178    46.493 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1140/CO[1]
+                         net (fo=35, unplaced)        0.598    47.091    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1140_n_2
+                         CARRY4 (Prop_carry4_CYINIT_CO[3])
+                                                      0.788    47.879 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1089/CO[3]
+                         net (fo=1, unplaced)         0.000    47.879    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1089_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    47.993 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1084/CO[3]
+                         net (fo=1, unplaced)         0.000    47.993    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1084_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    48.107 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1079/CO[3]
+                         net (fo=1, unplaced)         0.000    48.107    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1079_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    48.221 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1074/CO[3]
+                         net (fo=1, unplaced)         0.000    48.221    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1074_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    48.335 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1069/CO[3]
+                         net (fo=1, unplaced)         0.000    48.335    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1069_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    48.449 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1064/CO[3]
+                         net (fo=1, unplaced)         0.000    48.449    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1064_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    48.563 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1059/CO[3]
+                         net (fo=1, unplaced)         0.000    48.563    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1059_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    48.677 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1056/CO[3]
+                         net (fo=1, unplaced)         0.000    48.677    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1056_n_0
+                         CARRY4 (Prop_carry4_CI_CO[1])
+                                                      0.178    48.855 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1055/CO[1]
+                         net (fo=35, unplaced)        0.598    49.453    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_1055_n_2
+                         CARRY4 (Prop_carry4_CYINIT_CO[3])
+                                                      0.788    50.241 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_997/CO[3]
+                         net (fo=1, unplaced)         0.000    50.241    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_997_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    50.355 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_992/CO[3]
+                         net (fo=1, unplaced)         0.000    50.355    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_992_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    50.469 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_987/CO[3]
+                         net (fo=1, unplaced)         0.000    50.469    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_987_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    50.583 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_982/CO[3]
+                         net (fo=1, unplaced)         0.000    50.583    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_982_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    50.697 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_977/CO[3]
+                         net (fo=1, unplaced)         0.000    50.697    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_977_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    50.811 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_972/CO[3]
+                         net (fo=1, unplaced)         0.000    50.811    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_972_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    50.925 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_967/CO[3]
+                         net (fo=1, unplaced)         0.000    50.925    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_967_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    51.039 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_964/CO[3]
+                         net (fo=1, unplaced)         0.000    51.039    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_964_n_0
+                         CARRY4 (Prop_carry4_CI_CO[1])
+                                                      0.178    51.217 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_963/CO[1]
+                         net (fo=35, unplaced)        0.598    51.815    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_963_n_2
+                         CARRY4 (Prop_carry4_CYINIT_CO[3])
+                                                      0.788    52.603 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_910/CO[3]
+                         net (fo=1, unplaced)         0.000    52.603    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_910_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    52.717 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_905/CO[3]
+                         net (fo=1, unplaced)         0.000    52.717    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_905_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    52.831 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_900/CO[3]
+                         net (fo=1, unplaced)         0.000    52.831    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_900_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    52.945 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_895/CO[3]
+                         net (fo=1, unplaced)         0.000    52.945    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_895_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    53.059 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_890/CO[3]
+                         net (fo=1, unplaced)         0.000    53.059    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_890_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    53.173 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_885/CO[3]
+                         net (fo=1, unplaced)         0.000    53.173    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_885_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    53.287 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_880/CO[3]
+                         net (fo=1, unplaced)         0.000    53.287    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_880_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    53.401 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_877/CO[3]
+                         net (fo=1, unplaced)         0.000    53.401    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_877_n_0
+                         CARRY4 (Prop_carry4_CI_CO[1])
+                                                      0.178    53.579 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_876/CO[1]
+                         net (fo=35, unplaced)        0.598    54.177    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_876_n_2
+                         CARRY4 (Prop_carry4_CYINIT_CO[3])
+                                                      0.788    54.965 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_817/CO[3]
+                         net (fo=1, unplaced)         0.000    54.965    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_817_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    55.079 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_812/CO[3]
+                         net (fo=1, unplaced)         0.000    55.079    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_812_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    55.193 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_807/CO[3]
+                         net (fo=1, unplaced)         0.000    55.193    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_807_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    55.307 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_802/CO[3]
+                         net (fo=1, unplaced)         0.000    55.307    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_802_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    55.421 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_797/CO[3]
+                         net (fo=1, unplaced)         0.000    55.421    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_797_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    55.535 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_792/CO[3]
+                         net (fo=1, unplaced)         0.000    55.535    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_792_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    55.649 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_787/CO[3]
+                         net (fo=1, unplaced)         0.000    55.649    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_787_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    55.763 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_784/CO[3]
+                         net (fo=1, unplaced)         0.000    55.763    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_784_n_0
+                         CARRY4 (Prop_carry4_CI_CO[1])
+                                                      0.178    55.941 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_783/CO[1]
+                         net (fo=35, unplaced)        0.598    56.539    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_783_n_2
+                         CARRY4 (Prop_carry4_CYINIT_CO[3])
+                                                      0.788    57.327 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_723/CO[3]
+                         net (fo=1, unplaced)         0.000    57.327    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_723_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    57.441 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_718/CO[3]
+                         net (fo=1, unplaced)         0.000    57.441    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_718_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    57.555 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_713/CO[3]
+                         net (fo=1, unplaced)         0.000    57.555    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_713_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    57.669 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_708/CO[3]
+                         net (fo=1, unplaced)         0.000    57.669    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_708_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    57.783 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_703/CO[3]
+                         net (fo=1, unplaced)         0.000    57.783    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_703_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    57.897 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_698/CO[3]
+                         net (fo=1, unplaced)         0.000    57.897    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_698_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    58.011 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_693/CO[3]
+                         net (fo=1, unplaced)         0.000    58.011    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_693_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    58.125 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_690/CO[3]
+                         net (fo=1, unplaced)         0.000    58.125    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_690_n_0
+                         CARRY4 (Prop_carry4_CI_CO[1])
+                                                      0.178    58.303 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_689/CO[1]
+                         net (fo=35, unplaced)        0.598    58.901    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_689_n_2
+                         CARRY4 (Prop_carry4_CYINIT_CO[3])
+                                                      0.788    59.689 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_626/CO[3]
+                         net (fo=1, unplaced)         0.000    59.689    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_626_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    59.803 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_621/CO[3]
+                         net (fo=1, unplaced)         0.000    59.803    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_621_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    59.917 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_616/CO[3]
+                         net (fo=1, unplaced)         0.000    59.917    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_616_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    60.031 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_611/CO[3]
+                         net (fo=1, unplaced)         0.000    60.031    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_611_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    60.145 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_606/CO[3]
+                         net (fo=1, unplaced)         0.000    60.145    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_606_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    60.259 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_601/CO[3]
+                         net (fo=1, unplaced)         0.000    60.259    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_601_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    60.373 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_596/CO[3]
+                         net (fo=1, unplaced)         0.000    60.373    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_596_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    60.487 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_593/CO[3]
+                         net (fo=1, unplaced)         0.000    60.487    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_593_n_0
+                         CARRY4 (Prop_carry4_CI_CO[1])
+                                                      0.178    60.665 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_592/CO[1]
+                         net (fo=35, unplaced)        0.598    61.263    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_592_n_2
+                         CARRY4 (Prop_carry4_CYINIT_CO[3])
+                                                      0.788    62.051 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][23]_i_416/CO[3]
+                         net (fo=1, unplaced)         0.000    62.051    u_riscv/u_execute/pkt2wb_q_reg[alu_data][23]_i_416_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    62.165 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_530/CO[3]
+                         net (fo=1, unplaced)         0.000    62.165    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_530_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    62.279 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_525/CO[3]
+                         net (fo=1, unplaced)         0.000    62.279    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_525_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    62.393 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_520/CO[3]
+                         net (fo=1, unplaced)         0.000    62.393    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_520_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    62.507 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_515/CO[3]
+                         net (fo=1, unplaced)         0.000    62.507    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_515_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    62.621 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_510/CO[3]
+                         net (fo=1, unplaced)         0.000    62.621    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_510_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    62.735 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_505/CO[3]
+                         net (fo=1, unplaced)         0.000    62.735    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_505_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    62.849 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_502/CO[3]
+                         net (fo=1, unplaced)         0.000    62.849    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_502_n_0
+                         CARRY4 (Prop_carry4_CI_CO[1])
+                                                      0.178    63.027 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_501/CO[1]
+                         net (fo=35, unplaced)        0.598    63.625    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_501_n_2
+                         CARRY4 (Prop_carry4_CYINIT_CO[3])
+                                                      0.788    64.413 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][23]_i_345/CO[3]
+                         net (fo=1, unplaced)         0.000    64.413    u_riscv/u_execute/pkt2wb_q_reg[alu_data][23]_i_345_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    64.527 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][23]_i_340/CO[3]
+                         net (fo=1, unplaced)         0.000    64.527    u_riscv/u_execute/pkt2wb_q_reg[alu_data][23]_i_340_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    64.641 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_444/CO[3]
+                         net (fo=1, unplaced)         0.000    64.641    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_444_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    64.755 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_439/CO[3]
+                         net (fo=1, unplaced)         0.000    64.755    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_439_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    64.869 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_434/CO[3]
+                         net (fo=1, unplaced)         0.000    64.869    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_434_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    64.983 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_429/CO[3]
+                         net (fo=1, unplaced)         0.000    64.983    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_429_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    65.097 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_424/CO[3]
+                         net (fo=1, unplaced)         0.000    65.097    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_424_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    65.211 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_421/CO[3]
+                         net (fo=1, unplaced)         0.000    65.211    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_421_n_0
+                         CARRY4 (Prop_carry4_CI_CO[1])
+                                                      0.178    65.389 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_420/CO[1]
+                         net (fo=35, unplaced)        0.598    65.987    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_420_n_2
+                         CARRY4 (Prop_carry4_CYINIT_CO[3])
+                                                      0.788    66.775 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][23]_i_335/CO[3]
+                         net (fo=1, unplaced)         0.000    66.775    u_riscv/u_execute/pkt2wb_q_reg[alu_data][23]_i_335_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    66.889 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][23]_i_275/CO[3]
+                         net (fo=1, unplaced)         0.000    66.889    u_riscv/u_execute/pkt2wb_q_reg[alu_data][23]_i_275_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    67.003 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][23]_i_270/CO[3]
+                         net (fo=1, unplaced)         0.000    67.003    u_riscv/u_execute/pkt2wb_q_reg[alu_data][23]_i_270_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    67.117 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_368/CO[3]
+                         net (fo=1, unplaced)         0.000    67.117    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_368_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    67.231 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_363/CO[3]
+                         net (fo=1, unplaced)         0.000    67.231    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_363_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    67.345 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_358/CO[3]
+                         net (fo=1, unplaced)         0.000    67.345    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_358_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    67.459 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_353/CO[3]
+                         net (fo=1, unplaced)         0.000    67.459    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_353_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    67.573 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_350/CO[3]
+                         net (fo=1, unplaced)         0.000    67.573    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_350_n_0
+                         CARRY4 (Prop_carry4_CI_CO[1])
+                                                      0.178    67.751 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_349/CO[1]
+                         net (fo=35, unplaced)        0.598    68.349    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_349_n_2
+                         CARRY4 (Prop_carry4_CYINIT_CO[3])
+                                                      0.788    69.137 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][18]_i_128/CO[3]
+                         net (fo=1, unplaced)         0.000    69.137    u_riscv/u_execute/pkt2wb_q_reg[alu_data][18]_i_128_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    69.251 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][23]_i_265/CO[3]
+                         net (fo=1, unplaced)         0.000    69.251    u_riscv/u_execute/pkt2wb_q_reg[alu_data][23]_i_265_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    69.365 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][23]_i_213/CO[3]
+                         net (fo=1, unplaced)         0.000    69.365    u_riscv/u_execute/pkt2wb_q_reg[alu_data][23]_i_213_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    69.479 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][23]_i_208/CO[3]
+                         net (fo=1, unplaced)         0.000    69.479    u_riscv/u_execute/pkt2wb_q_reg[alu_data][23]_i_208_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    69.593 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_302/CO[3]
+                         net (fo=1, unplaced)         0.000    69.593    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_302_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    69.707 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_297/CO[3]
+                         net (fo=1, unplaced)         0.000    69.707    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_297_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    69.821 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_292/CO[3]
+                         net (fo=1, unplaced)         0.000    69.821    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_292_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    69.935 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_289/CO[3]
+                         net (fo=1, unplaced)         0.000    69.935    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_289_n_0
+                         CARRY4 (Prop_carry4_CI_CO[1])
+                                                      0.178    70.113 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_288/CO[1]
+                         net (fo=35, unplaced)        0.598    70.711    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_288_n_2
+                         CARRY4 (Prop_carry4_CYINIT_CO[3])
+                                                      0.788    71.499 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][15]_i_113/CO[3]
+                         net (fo=1, unplaced)         0.000    71.499    u_riscv/u_execute/pkt2wb_q_reg[alu_data][15]_i_113_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    71.613 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][18]_i_98/CO[3]
+                         net (fo=1, unplaced)         0.000    71.613    u_riscv/u_execute/pkt2wb_q_reg[alu_data][18]_i_98_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    71.727 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][23]_i_203/CO[3]
+                         net (fo=1, unplaced)         0.000    71.727    u_riscv/u_execute/pkt2wb_q_reg[alu_data][23]_i_203_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    71.841 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][23]_i_161/CO[3]
+                         net (fo=1, unplaced)         0.000    71.841    u_riscv/u_execute/pkt2wb_q_reg[alu_data][23]_i_161_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    71.955 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][23]_i_156/CO[3]
+                         net (fo=1, unplaced)         0.000    71.955    u_riscv/u_execute/pkt2wb_q_reg[alu_data][23]_i_156_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    72.069 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_233/CO[3]
+                         net (fo=1, unplaced)         0.000    72.069    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_233_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    72.183 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_228/CO[3]
+                         net (fo=1, unplaced)         0.000    72.183    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_228_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    72.297 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_225/CO[3]
+                         net (fo=1, unplaced)         0.000    72.297    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_225_n_0
+                         CARRY4 (Prop_carry4_CI_CO[1])
+                                                      0.178    72.475 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_224/CO[1]
+                         net (fo=35, unplaced)        0.598    73.073    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_224_n_2
+                         CARRY4 (Prop_carry4_CYINIT_CO[3])
+                                                      0.788    73.861 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][11]_i_88/CO[3]
+                         net (fo=1, unplaced)         0.000    73.861    u_riscv/u_execute/pkt2wb_q_reg[alu_data][11]_i_88_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    73.975 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][15]_i_91/CO[3]
+                         net (fo=1, unplaced)         0.000    73.975    u_riscv/u_execute/pkt2wb_q_reg[alu_data][15]_i_91_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    74.089 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][18]_i_70/CO[3]
+                         net (fo=1, unplaced)         0.000    74.089    u_riscv/u_execute/pkt2wb_q_reg[alu_data][18]_i_70_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    74.203 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][23]_i_147/CO[3]
+                         net (fo=1, unplaced)         0.000    74.203    u_riscv/u_execute/pkt2wb_q_reg[alu_data][23]_i_147_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    74.317 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][23]_i_108/CO[3]
+                         net (fo=1, unplaced)         0.000    74.317    u_riscv/u_execute/pkt2wb_q_reg[alu_data][23]_i_108_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    74.431 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][23]_i_103/CO[3]
+                         net (fo=1, unplaced)         0.000    74.431    u_riscv/u_execute/pkt2wb_q_reg[alu_data][23]_i_103_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    74.545 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_154/CO[3]
+                         net (fo=1, unplaced)         0.000    74.545    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_154_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    74.659 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_151/CO[3]
+                         net (fo=1, unplaced)         0.000    74.659    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_151_n_0
+                         CARRY4 (Prop_carry4_CI_CO[1])
+                                                      0.178    74.837 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_150/CO[1]
+                         net (fo=35, unplaced)        0.598    75.435    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_150_n_2
+                         CARRY4 (Prop_carry4_CYINIT_CO[3])
+                                                      0.788    76.223 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][7]_i_66/CO[3]
+                         net (fo=1, unplaced)         0.000    76.223    u_riscv/u_execute/pkt2wb_q_reg[alu_data][7]_i_66_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    76.337 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][11]_i_64/CO[3]
+                         net (fo=1, unplaced)         0.000    76.337    u_riscv/u_execute/pkt2wb_q_reg[alu_data][11]_i_64_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    76.451 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][15]_i_64/CO[3]
+                         net (fo=1, unplaced)         0.000    76.451    u_riscv/u_execute/pkt2wb_q_reg[alu_data][15]_i_64_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    76.565 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][18]_i_47/CO[3]
+                         net (fo=1, unplaced)         0.000    76.565    u_riscv/u_execute/pkt2wb_q_reg[alu_data][18]_i_47_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    76.679 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][23]_i_97/CO[3]
+                         net (fo=1, unplaced)         0.000    76.679    u_riscv/u_execute/pkt2wb_q_reg[alu_data][23]_i_97_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    76.793 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][23]_i_66/CO[3]
+                         net (fo=1, unplaced)         0.000    76.793    u_riscv/u_execute/pkt2wb_q_reg[alu_data][23]_i_66_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    76.907 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][23]_i_65/CO[3]
+                         net (fo=1, unplaced)         0.000    76.907    u_riscv/u_execute/pkt2wb_q_reg[alu_data][23]_i_65_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    77.021 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_86/CO[3]
+                         net (fo=1, unplaced)         0.000    77.021    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_86_n_0
+                         CARRY4 (Prop_carry4_CI_CO[1])
+                                                      0.178    77.199 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_85/CO[1]
+                         net (fo=35, unplaced)        0.598    77.797    u_riscv/u_execute/pkt2wb_q_reg[alu_data][31]_i_85_n_2
+                         CARRY4 (Prop_carry4_CYINIT_O[1])
+                                                      0.821    78.618 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][3]_i_37/O[1]
+                         net (fo=5, unplaced)         0.639    79.257    u_riscv/u_id2ex/O[0]
+                         LUT6 (Prop_lut6_I2_O)        0.306    79.563 f  u_riscv/u_id2ex/pkt2wb_q[alu_data][3]_i_39/O
+                         net (fo=5, unplaced)         0.447    80.010    u_riscv/u_id2ex/pkt2ex_q_reg[ex_data][op2][31]_rep__15_0
+                         LUT5 (Prop_lut5_I0_O)        0.124    80.134 f  u_riscv/u_id2ex/pkt2wb_q[alu_data][5]_i_28/O
+                         net (fo=6, unplaced)         1.143    81.277    u_riscv/u_id2ex/pkt2ex_q_reg[ex_data][op2][31]_rep__15_23
+                         LUT6 (Prop_lut6_I2_O)        0.124    81.401 f  u_riscv/u_id2ex/pkt2wb_q[alu_data][8]_i_30/O
+                         net (fo=6, unplaced)         1.143    82.544    u_riscv/u_id2ex/pkt2ex_q_reg[ex_data][op2][4]_rep__0_0
+                         LUT5 (Prop_lut5_I0_O)        0.124    82.668 r  u_riscv/u_id2ex/pkt2wb_q[alu_data][16]_i_38/O
+                         net (fo=3, unplaced)         0.467    83.135    u_riscv/u_id2ex/pkt2wb_q[alu_data][16]_i_63
+                         LUT5 (Prop_lut5_I0_O)        0.124    83.259 r  u_riscv/u_id2ex/pkt2wb_q[alu_data][19]_i_41/O
+                         net (fo=2, unplaced)         0.460    83.719    u_riscv/u_execute/pkt2wb_q[alu_data][18]_i_11
+                         LUT6 (Prop_lut6_I3_O)        0.124    83.843 f  u_riscv/u_execute/pkt2wb_q[alu_data][18]_i_20/O
+                         net (fo=2, unplaced)         0.460    84.303    u_riscv/u_execute/pkt2ex_q_reg[ex_data][op2][31]_rep__15_15
+                         LUT1 (Prop_lut1_I0_O)        0.124    84.427 r  u_riscv/u_execute/pkt2wb_q[alu_data][20]_i_33/O
+                         net (fo=1, unplaced)         0.000    84.427    u_riscv/u_execute/pkt2wb_q[alu_data][20]_i_33_n_0
+                         CARRY4 (Prop_carry4_S[1]_CO[3])
+                                                      0.550    84.977 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][20]_i_19/CO[3]
+                         net (fo=1, unplaced)         0.000    84.977    u_riscv/u_execute/pkt2wb_q_reg[alu_data][20]_i_19_n_0
+                         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    85.091 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][24]_i_19/CO[3]
+                         net (fo=1, unplaced)         0.000    85.091    u_riscv/u_execute/pkt2wb_q_reg[alu_data][24]_i_19_n_0
+                         CARRY4 (Prop_carry4_CI_O[1])
+                                                      0.348    85.439 r  u_riscv/u_execute/pkt2wb_q_reg[alu_data][28]_i_19/O[1]
+                         net (fo=1, unplaced)         0.611    86.050    u_riscv/u_id2ex/pkt2wb_q[alu_data][28]_i_4_1[1]
+                         LUT6 (Prop_lut6_I3_O)        0.306    86.356 r  u_riscv/u_id2ex/pkt2wb_q[alu_data][26]_i_10/O
+                         net (fo=1, unplaced)         0.449    86.805    u_riscv/u_id2ex/pkt2wb_q[alu_data][26]_i_10_n_0
+                         LUT6 (Prop_lut6_I5_O)        0.124    86.929 r  u_riscv/u_id2ex/pkt2wb_q[alu_data][26]_i_4/O
+                         net (fo=1, unplaced)         0.449    87.378    u_riscv/u_id2ex/pkt2wb_q[alu_data][26]_i_4_n_0
+                         LUT6 (Prop_lut6_I2_O)        0.124    87.502 r  u_riscv/u_id2ex/pkt2wb_q[alu_data][26]_i_2/O
+                         net (fo=1, unplaced)         0.449    87.951    u_riscv/u_id2ex/ex2wb_pkt_in[alu_data][26]
+                         LUT5 (Prop_lut5_I4_O)        0.124    88.075 r  u_riscv/u_id2ex/pkt2wb_q[alu_data][26]_i_1/O
+                         net (fo=1, unplaced)         0.000    88.075    u_riscv/u_ex2wb/pkt2wb_q_reg[alu_data][26]_0
+                         FDCE                                         r  u_riscv/u_ex2wb/pkt2wb_q_reg[alu_data][26]/D
+  -------------------------------------------------------------------    -------------------
+
+                         (clock core_clk rise edge)
+                                                     40.000    40.000 r  
+                                                      0.000    40.000 r  clk (IN)
+                         net (fo=2530, unset)         0.924    40.924    u_riscv/u_ex2wb/clk
+                         FDCE                                         r  u_riscv/u_ex2wb/pkt2wb_q_reg[alu_data][26]/C
+                         clock pessimism              0.000    40.924    
+                         clock uncertainty           -0.035    40.889    
+                         FDCE (Setup_fdce_C_D)        0.062    40.951    u_riscv/u_ex2wb/pkt2wb_q_reg[alu_data][26]
+  -------------------------------------------------------------------
+                         required time                         40.951    
+                         arrival time                         -88.075    
+  -------------------------------------------------------------------
+                         slack                                -47.124    
+
+
+
+
+
+Pulse Width Checks
+--------------------------------------------------------------------------------------
+Clock Name:         core_clk
+Waveform(ns):       { 0.000 20.000 }
+Period(ns):         40.000
+Sources:            { clk }
+
+Check Type        Corner  Lib Pin             Reference Pin  Required(ns)  Actual(ns)  Slack(ns)  Location  Pin
+Min Period        n/a     RAMB36E1/CLKARDCLK  n/a            2.944         40.000      37.056               u_prog_ram/mem_reg_6/CLKARDCLK
+Low Pulse Width   Slow    FDCE/C              n/a            0.500         20.000      19.500               u_data_target/FSM_sequential_state_q_reg/C
+High Pulse Width  Slow    FDCE/C              n/a            0.500         20.000      19.500               u_data_target/FSM_sequential_state_q_reg/C
+
+
+

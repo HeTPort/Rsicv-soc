@@ -175,7 +175,21 @@ A few useful selections:
 The [regression guide](sim/regress/README.md) explains the manifest, generated
 files, ACT4 import flow, and result checks.
 
-### Check FPGA resource inference
+### Generate and check the proposed SoC map
+
+```powershell
+python .\tools\gen_soc_map.py
+python .\tools\gen_soc_map.py --check
+python -m unittest tools/test_gen_soc_map.py
+```
+
+[`config/soc_map.json`](config/soc_map.json) is the sole editable source for the
+proposed 64 KiB map. It generates SystemVerilog, C, linker, simulation, Vivado
+Tcl, and ACT4-facing artifacts. The proposal status is preserved in every
+artifact: generation does not mean the decoder or software map is implemented.
+See the [configuration guide](config/README.md).
+
+### Check FPGA resource inference and early internal timing
 
 The synthesis scripts use the provisional `xc7z010clg400-1` part unless you
 override it with the documented environment variable.
@@ -184,11 +198,21 @@ override it with the documented environment variable.
 Set-Location .\sim\synth
 vivado -mode batch -source .\check_prog_ram_bram.tcl
 vivado -mode batch -source .\check_riscv_soc_ar003.tcl
+vivado -mode batch -source .\check_riscv_soc_configured_ram.tcl
+vivado -mode batch -source .\compare_riscv_soc_ram_utilization.tcl -tclargs ram_16k
+vivado -mode batch -source .\compare_riscv_soc_ram_utilization.tcl -tclargs ram_64k
+vivado -mode batch -source .\report_riscv_soc_ram_timing.tcl -tclargs ram_16k
+vivado -mode batch -source .\report_riscv_soc_ram_timing.tcl -tclargs ram_64k
 ```
 
 These are out-of-context checks. They show that Vivado inferred Block RAM and
 retained the expected CPU, LSU, and RAM hierarchy. They do not prove timing on
-a physical board.
+a physical board. The paired capacity result and preserved raw reports are in
+[AR-015](doc/AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md): 16 KiB per bank uses
+8/60 RAMB36 tiles, while 64 KiB per bank uses 32/60 on the provisional part.
+Post-synthesis internal timing is identical for both sizes and exposes an
+87.102 ns combinational MULDIV path that fails both 25 MHz and 50 MHz. These
+checks are not post-route board timing closure.
 
 ## Repository map
 
@@ -196,11 +220,13 @@ a physical board.
 src/
   core/       CPU pipeline, control, LSU, CSR file, and packet definitions
   bus/        Active RAM adapter and future bus work
+  generated/  Generated proposed SoC-map constants
   mem/        Synchronous program and data RAM
   periph/     Placeholder timer, UART, and GPIO directories
   riscv_soc.sv
 
 sim/
+  generated/  Generated normalized map and Vivado Tcl constants
   tb/         Directed and protocol testbenches
   regress/    Regression runner, image tools, ACT4 adapters, and utility tests
   synth/      Vivado out-of-context checks
@@ -208,6 +234,9 @@ sim/
   run.do
 
 testdata/     Assembly sources and simulation memory images
+config/       Authoritative proposed SoC map and generation contract
+firmware/     Generated C/linker map consumers; implementation follows later
+tools/        Dependency-free configuration generator and tests
 verif/act4/   RISC-V Architecture Test integration configuration
 doc/          Design decisions, focused problem reports, and study notes
 ```
