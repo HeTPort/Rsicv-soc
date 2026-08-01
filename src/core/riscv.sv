@@ -91,6 +91,18 @@ module riscv #(
   logic           ex_kill;
   logic           ex_mem_transaction;
 
+  // Iterative divider <-> pipeline interface
+  logic           ex_div_instruction;
+  logic           div_start;
+  logic           div_signed;
+  logic           div_busy;
+  logic           div_complete;
+  logic           div_wait;
+  logic           ex_wait;
+  logic [DW-1:0]  div_quotient;
+  logic [DW-1:0]  div_remainder;
+  logic [DW-1:0]  div_result;
+
   // ============================================================
   // 3. Control Unit Interface Signals
   // ============================================================
@@ -129,7 +141,7 @@ module riscv #(
     .wb_rf_we       (ex2wb_pkt_out.rf.we),
     .ex_redirect_en (ex_redirect_en),
     .ex_flush_req   (ex_flush_req),
-    .ex_wait_i      (lsu_busy),
+    .ex_wait_i      (ex_wait),
     .trap_redirect_en(trap_redirect_en),
     .wb_trap_event  (wb_trap_event),
     .pc_stall       (pc_stall),
@@ -285,11 +297,69 @@ module riscv #(
     .pkt2ex_o (id2ex_pkt_out)
   );
 
-  // EX kill for LSU: pipe_kill or any EX-stage exception
+  // EX kill for outstanding LSU or divider work: pipe_kill or any EX exception.
   assign ex_kill = pipe_kill |
                    id2ex_pkt_out.exc.illegal_instr |
                    id2ex_pkt_out.exc.ecall |
                    id2ex_pkt_out.exc.ebreak;
+
+  // DIV/DIVU/REM/REMU hold ID/EX until the one-cycle divider completion.
+  // `div_wait` includes the initial start cycle, avoiding an early advance
+  // before the divider's registered busy state becomes visible.
+  always_comb begin
+    ex_div_instruction = 1'b0;
+    div_signed         = 1'b0;
+    div_result         = div_quotient;
+
+    if (id2ex_pkt_out.valid && id2ex_pkt_out.ex_ctrl.muldiv_valid) begin
+      unique case (id2ex_pkt_out.ex_ctrl.muldiv_op)
+        MULDIV_DIV: begin
+          ex_div_instruction = 1'b1;
+          div_signed         = 1'b1;
+          div_result         = div_quotient;
+        end
+        MULDIV_DIVU: begin
+          ex_div_instruction = 1'b1;
+          div_result         = div_quotient;
+        end
+        MULDIV_REM: begin
+          ex_div_instruction = 1'b1;
+          div_signed         = 1'b1;
+          div_result         = div_remainder;
+        end
+        MULDIV_REMU: begin
+          ex_div_instruction = 1'b1;
+          div_result         = div_remainder;
+        end
+        default: begin
+          ex_div_instruction = 1'b0;
+        end
+      endcase
+    end
+  end
+
+  assign div_start = ex_div_instruction &&
+                     !div_busy &&
+                     !div_complete &&
+                     !ex_kill;
+  assign div_wait  = ex_div_instruction && !div_complete && !ex_kill;
+  assign ex_wait   = lsu_busy || div_wait;
+
+  radix2_divider #(
+    .DW(DW)
+  ) u_radix2_divider (
+    .clk_i       (clk_i),
+    .rst_ni      (rst_ni),
+    .start_i     (div_start),
+    .kill_i      (ex_kill),
+    .signed_i    (div_signed),
+    .dividend_i  (id2ex_pkt_out.ex_data.op1),
+    .divisor_i   (id2ex_pkt_out.ex_data.op2),
+    .busy_o      (div_busy),
+    .complete_o  (div_complete),
+    .quotient_o  (div_quotient),
+    .remainder_o (div_remainder)
+  );
 
   // ============================================================
   // 7. Execute (no longer drives data_ram directly)
@@ -302,6 +372,7 @@ module riscv #(
     .csr_read_only_i  (csr_read_only),
     .csr_privilege_ok_i(csr_privilege_ok),
     .mepc_i           (csr_mepc_for_ex),
+    .div_result_i     (div_result),
     .redirect_en_o    (ex_redirect_en),
     .redirect_pc_o    (ex_redirect_pc),
     .flush_req_o      (ex_flush_req),
@@ -336,7 +407,7 @@ module riscv #(
 
   // ============================================================
   // 9. ex2wb_pkt_in_safe assembly
-  //    A memory instruction enters EX/WB only on LSU completion.
+  //    A memory or divide instruction enters EX/WB only on completion.
   // ============================================================
   assign ex_mem_transaction = id2ex_pkt_out.valid &&
                               id2ex_pkt_out.ex_ctrl.mem_req &&
@@ -368,6 +439,9 @@ module riscv #(
       end
     end
 
+    if (ex_div_instruction && !div_complete)
+      ex2wb_pkt_in_safe = EX_WB_PKT_BUBBLE;
+
     if (pipe_kill)
       ex2wb_pkt_in_safe = EX_WB_PKT_BUBBLE;
   end
@@ -386,7 +460,17 @@ module riscv #(
           else $error("Pipeline kill did not clear EX/WB side effects");
         assert (!data_req_valid_o)
           else $error("Pipeline kill did not suppress the LSU request");
+        assert (!div_start)
+          else $error("Pipeline kill did not suppress divider start");
       end
+
+      if (ex_div_instruction && !div_complete) begin
+        assert (!ex2wb_pkt_in_safe.valid)
+          else $error("Incomplete divide instruction entered EX/WB");
+      end
+
+      assert (!(div_start && div_busy))
+        else $error("Divider restarted while busy");
     end
   end
 `endif

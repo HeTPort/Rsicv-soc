@@ -47,7 +47,7 @@ every corner of the ISA has been proven.
 | Instruction path | One-cycle synchronous program RAM with PC and response pairing |
 | Data path | One outstanding request, inserted wait-state support, registered results, and precise access faults |
 | Verification | Architectural commit checking, `tohost`, ModelSim regression, ELF conversion, and ACT4 adapters |
-| Memory map | AR-009 proposal under review; centralized address decoding is not implemented yet |
+| Memory map | AR-009 split 64 KiB map accepted; centralized address decoding is not implemented yet |
 | Peripherals | Timer, UART, and GPIO are planned; their source files are placeholders |
 | Software | Startup code, final linker layout, drivers, and FreeRTOS are still to come |
 | FPGA | Block RAM inference has been checked; board timing and hardware testing have not been completed |
@@ -80,9 +80,9 @@ response, and moves the completed result into the EX/WB packet. RAM and future
 peripherals sit outside the CPU core.
 
 The design is deliberately modest. It has no cache, MMU, S-mode, PLIC, AXI
-fabric, or general forwarding network. RV32M multiply and divide are currently
-combinational. These are design choices to revisit when measurements or the
-next milestone justify the extra machinery.
+fabric, or general forwarding network. RV32M multiplication remains
+combinational, while DIV/DIVU/REM/REMU use a 32-iteration Radix-2 divider and
+the existing EX backpressure mechanism.
 
 ## What you can study here
 
@@ -175,7 +175,7 @@ A few useful selections:
 The [regression guide](sim/regress/README.md) explains the manifest, generated
 files, ACT4 import flow, and result checks.
 
-### Generate and check the proposed SoC map
+### Generate and check the accepted SoC map
 
 ```powershell
 python .\tools\gen_soc_map.py
@@ -184,9 +184,10 @@ python -m unittest tools/test_gen_soc_map.py
 ```
 
 [`config/soc_map.json`](config/soc_map.json) is the sole editable source for the
-proposed 64 KiB map. It generates SystemVerilog, C, linker, simulation, Vivado
-Tcl, and ACT4-facing artifacts. The proposal status is preserved in every
-artifact: generation does not mean the decoder or software map is implemented.
+accepted split 64 KiB map. It generates SystemVerilog, C, linker, simulation,
+Vivado Tcl, and ACT4-facing artifacts. The lifecycle status is preserved in
+every artifact: `accepted` freezes the ABI but does not mean the decoder or
+software map is implemented.
 See the [configuration guide](config/README.md).
 
 ### Check FPGA resource inference and early internal timing
@@ -210,9 +211,12 @@ retained the expected CPU, LSU, and RAM hierarchy. They do not prove timing on
 a physical board. The paired capacity result and preserved raw reports are in
 [AR-015](doc/AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md): 16 KiB per bank uses
 8/60 RAMB36 tiles, while 64 KiB per bank uses 32/60 on the provisional part.
-Post-synthesis internal timing is identical for both sizes and exposes an
-87.102 ns combinational MULDIV path that fails both 25 MHz and 50 MHz. These
-checks are not post-route board timing closure.
+Its historical baseline exposed an 87.102 ns combinational MULDIV path that
+failed both 25 MHz and 50 MHz. [AR-017](doc/AR017_RADIX2_ITERATIVE_DIVIDER.md)
+replaces that path with the verified iterative divider: both profiles now pass
+50 MHz OOC post-synthesis STA with WNS +7.373 ns, and the new worst path is
+12.605 ns multiply-high logic. These checks are not post-route board timing
+closure.
 
 ## Repository map
 
@@ -220,7 +224,7 @@ checks are not post-route board timing closure.
 src/
   core/       CPU pipeline, control, LSU, CSR file, and packet definitions
   bus/        Active RAM adapter and future bus work
-  generated/  Generated proposed SoC-map constants
+  generated/  Generated accepted SoC-map constants
   mem/        Synchronous program and data RAM
   periph/     Placeholder timer, UART, and GPIO directories
   riscv_soc.sv
@@ -234,7 +238,7 @@ sim/
   run.do
 
 testdata/     Assembly sources and simulation memory images
-config/       Authoritative proposed SoC map and generation contract
+config/       Authoritative accepted SoC map and generation contract
 firmware/     Generated C/linker map consumers; implementation follows later
 tools/        Dependency-free configuration generator and tests
 verif/act4/   RISC-V Architecture Test integration configuration
@@ -247,17 +251,17 @@ flow unless someone adds them to a build list.
 
 ## Where it is going
 
-Phase 0A, which repaired retirement and pipeline side-effect precision, is
-complete. The next steps are:
+Phase 0A, which repaired retirement and pipeline side-effect precision, and
+Phase 1, which froze the core-to-SoC contract, are complete. The next steps are:
 
-1. decide the AR-009 memory topology, capacities, and address map;
-2. add centralized address decoding and a default error target;
-3. compare candidate RAM depths using FPGA resource reports;
-4. implement precise machine-timer interrupts;
-5. add a polling UART and simple GPIO;
-6. build startup code, the linker layout, drivers, and bare-metal tests;
-7. integrate the official FreeRTOS RISC-V port;
-8. add board constraints, close timing, and test the design on hardware.
+1. implement Phase 2 centralized address decoding and the default error target;
+2. migrate the RTL, linker, images, `tohost`, regression, and ACT4 flow to the
+   accepted split 64 KiB map as one verified change;
+3. implement precise machine-timer interrupts;
+4. add a polling UART and simple GPIO;
+5. build startup code, drivers, and bare-metal tests;
+6. integrate the official FreeRTOS RISC-V port;
+7. add board constraints, close timing, and test the design on hardware.
 
 [`TODO.md`](TODO.md) is the authoritative checklist. The roadmap is allowed to
 change when simulation, synthesis, or software gives a good reason.
@@ -270,8 +274,10 @@ change when simulation, synthesis, or software gives a good reason.
   design history, tradeoffs, evidence, and open gates
 - [Architecture review and action plan](doc/ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md):
   review findings and their current status
-- [AR-009 memory-map proposal](doc/AR009_ARCHITECTURAL_MEMORY_MAP.md): the
-  current Phase 1 decision
+- [AR-009 accepted memory map](doc/AR009_ARCHITECTURAL_MEMORY_MAP.md): the
+  frozen Phase 1 hardware/software ABI
+- [AR-016 core-to-SoC environment contract](doc/AR016_CORE_TO_SOC_ENVIRONMENT_CONTRACT.md):
+  ownership, request routing, fault behavior, and the Phase 2 handoff
 - [Memory-map contract guide](doc/MEMORY_MAP_CONTRACT_DESIGN_GUIDE.md): address
   decoding, bus behavior, faults, and hardware/software consistency
 

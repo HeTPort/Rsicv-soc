@@ -24,6 +24,7 @@ set rtl_files [list \
   [file join $repo_root src core id2ex.sv] \
   [file join $repo_root src core ex2wb.sv] \
   [file join $repo_root src core decode.sv] \
+  [file join $repo_root src core radix2_divider.sv] \
   [file join $repo_root src core execute.sv] \
   [file join $repo_root src core lsu.sv] \
   [file join $repo_root src core wb_stage.sv] \

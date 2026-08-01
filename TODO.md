@@ -109,16 +109,19 @@ Current planning position:
 
 - Phase 0A is complete; this closes its correctness gate, not the whole
   architecture review or FreeRTOS roadmap.
-- Phase 1 is current, with AR-009 awaiting a memory-map decision.
-- Phase 2 is partially complete: AR-003 and AR-004 were finished early, while
+- Phase 1 is complete: AR-009 and the generated
+  `freertos_split_64k_v1` hardware/software ABI are accepted.
+- Phase 2 is current and partially complete: AR-003 and AR-004 were finished
+  early, while
   centralized decode, a default error target, and system-level tests remain.
 - AR-008 belongs to Phase 3; AR-010 is continuous verification; AR-011 is an
   early FPGA feasibility gate; and AR-012 is cross-stage cleanup.
-- AR-014 machine-readable proposal generation is complete, but it does not
-  accept AR-009 or implement the decoder.
-- AR-015 paired 16 KiB/64 KiB utilization and post-synthesis timing evidence is
-  complete. Capacity does not change the failing combinational MULDIV path;
-  divider redesign and exact-board timing closure remain open.
+- AR-014 accepted-map generation infrastructure is complete. It records the
+  accepted ABI but does not implement the decoder.
+- AR-015 records the paired 16 KiB/64 KiB baseline and its failing
+  combinational MULDIV path. AR-017 replaces that divider with a verified
+  Radix-2 iterative implementation; both profiles now pass the 25/50 MHz OOC
+  post-synthesis checks. Exact-board timing closure remains open.
 - AR identifiers are stable finding numbers, not phase numbers. Detailed
   ownership and status are maintained in
   [`doc/ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md`](doc/ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md).
@@ -238,29 +241,31 @@ ACT4 remains active throughout all later phases; it is not a one-time task.
 
 ## Phase 1 — Define the minimal FreeRTOS SoC contract
 
-**Status:** in progress; AR-009 is the current decision gate.
+**Status:** complete. AR-009 and the 64 KiB split-memory ABI were accepted on
+2026-08-01. Behavioral RTL adoption remains Phase 2 work.
 
 **Purpose:** freeze the memory map and bus behavior before writing peripherals
 or software.
 
-The design rules, transaction invariants, unresolved topology decision, and
-freeze criteria are recorded in
+The accepted design rules, transaction invariants, topology decision, and
+freeze evidence are recorded in
 [`doc/MEMORY_MAP_CONTRACT_DESIGN_GUIDE.md`](doc/MEMORY_MAP_CONTRACT_DESIGN_GUIDE.md).
-The detailed split-memory proposal, consequences, verification plan, and review
-questions are recorded in
+The detailed accepted split-memory decision, consequences, verification plan,
+and review answers are recorded in
 [`doc/AR009_ARCHITECTURAL_MEMORY_MAP.md`](doc/AR009_ARCHITECTURAL_MEMORY_MAP.md).
-It remains proposed and must not be treated as implemented until reviewed.
-The candidate constants now have one validated machine-readable source and
+It is accepted but must not be treated as implemented until Phase 2 is
+verified. The accepted constants have one validated machine-readable source and
 generated consumers, as recorded in
 [`doc/AR014_MACHINE_READABLE_SOC_MAP.md`](doc/AR014_MACHINE_READABLE_SOC_MAP.md).
-This infrastructure does not close the AR-009 acceptance gate.
+The complete core-to-SoC ownership and integration boundary is recorded in
+[`doc/AR016_CORE_TO_SOC_ENVIRONMENT_CONTRACT.md`](doc/AR016_CORE_TO_SOC_ENVIRONMENT_CONTRACT.md).
 The paired resource measurement is recorded in
 [`doc/AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md`](doc/AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md):
-the 16 KiB pair uses 8/60 RAMB36 tiles and the 64 KiB pair uses 32/60 on the
-provisional `xc7z010clg400-1`. Software capacity and final-board margin remain
-decision inputs.
+the 16 KiB pair uses 8/60 RAMB36 tiles and the selected 64 KiB pair uses 32/60
+on the provisional `xc7z010clg400-1`. Exact-board resource and timing closure
+remain mandatory implementation gates.
 
-Provisional memory map:
+Accepted first-milestone memory map:
 
 | Region | Address | Initial size / registers |
 |---|---:|---|
@@ -274,28 +279,35 @@ The linker will place `.text` in instruction BRAM and `.rodata`, `.data`,
 `.bss`, heap, and stacks in data BRAM. Memory sizes remain parameters and must
 be adjusted using the final ELF size report rather than guesswork.
 
-- [ ] Document byte addressing, little-endian lanes, alignment rules, response
+- [x] Document byte addressing, little-endian lanes, alignment rules, response
   latency, unmapped access behavior, and reset behavior.
-- [ ] Review and accept, revise, or reject the AR-009 split-memory proposal,
-      including RAM capacity, `tohost`, instruction access faults, and default
+- [x] Review and accept the AR-009 split-memory contract,
+      including topology, `tohost`, instruction access faults, and default
       target behavior.
+- [x] Select 64 KiB for each instruction/data RAM bank, informed by the AR-015
+      provisional utilization and timing comparison.
 - [x] Define a small single-outstanding-transaction core bus:
   `req_valid`, `req_ready`, `req_addr`, `req_write`, `req_wdata`, `req_wstrb`,
   `req_size`, `rsp_valid`, `rsp_rdata`, and `rsp_error`.
 - [x] Define how pipeline back-pressure uses `ex_stall` without duplicating or
   dropping a load/store.
 - [x] Decide and document access-fault causes for unmapped or failed accesses.
-- [x] Add a dependency-free generator and stale-file check for proposed
+- [x] Add a dependency-free generator and stale-file check for accepted
       SystemVerilog, C, linker, simulation, Vivado Tcl, and ACT4-facing map
       artifacts without changing current implemented addresses.
 - [x] Generate named 16 KiB/64 KiB RAM profiles and preserve paired Vivado
       LUT/FF/BRAM/DSP utilization reports for the provisional XC7Z010 part.
 - [x] Apply identical 25/50 MHz post-synthesis clock constraints to both RAM
       profiles and preserve WNS/TNS and critical-path reports; both identify
-      the same failing 87.102 ns combinational MULDIV path.
-- [ ] Add the memory map and peripheral register definitions to both
-  implemented SystemVerilog and firmware consumers after AR-009 acceptance;
-  generated proposal files alone do not satisfy this gate.
+      the same failing 87.102 ns combinational MULDIV baseline. AR-017 records
+      the later iterative-divider GREEN comparison.
+- [x] Generate accepted memory-map and peripheral-register definitions for
+      SystemVerilog, C, GNU linker, simulation, Vivado Tcl, and ACT4-facing
+      consumers. Behavioral RTL/test adoption remains a Phase 2 gate.
+
+**Exit gate:** satisfied. A review can answer the owner, address, access width,
+latency, response, and fault behavior for every first-milestone region without
+claiming that Phase 2 RTL has implemented it.
 
 **Knowledge checkpoint:** explain request/response handshaking, why synchronous
 BRAM reads need a response phase, and why memory-mapped peripherals must be
@@ -304,6 +316,8 @@ outside the CPU core.
 ---
 
 ## Phase 2 — Externalize the data bus
+
+**Status:** in progress; this is the current implementation phase.
 
 **Purpose:** allow load/store instructions to reach RAM or peripherals.
 
@@ -483,8 +497,9 @@ ACT4 completion.
 - [x] Run the early post-synthesis timing checkpoint and inspect the
       combinational RV32M divider critical path; AR-015 confirms it fails both
       25 MHz and 50 MHz for both RAM capacities.
-- [ ] Convert MULDIV to multi-cycle or otherwise pipeline it, then rerun the
-      same internal timing comparison before board implementation.
+- [x] Replace DIV/DIVU/REM/REMU with the AR-017 Radix-2 iterative divider and
+      rerun the paired internal timing comparison. Both profiles pass 50 MHz
+      with WNS +7.373 ns; the worst path is now multiply-high.
 - [ ] Begin with a conservative 25 MHz core clock; attempt 50 MHz only after
   timing closes with margin.
 - [ ] Capture utilization, WNS/TNS, clock, BRAM, LUT, FF, and power estimates.
@@ -524,8 +539,8 @@ These may improve performance or broaden the SoC, but they are not prerequisites
 for the first FreeRTOS FPGA demonstration:
 
 - [ ] EX/MEM/WB forwarding and reduced RAW stalls.
-- [ ] Further RV32M throughput optimization after the now-required multi-cycle
-  or pipelined timing fix is functionally verified.
+- [ ] Further RV32M throughput optimization only if measured software workload
+  or routed timing justifies it; AR-017's required divider fix is verified.
 - [ ] UART RX FIFO and external UART interrupt.
 - [ ] Machine software interrupt (`msip`).
 - [ ] PLIC or a small external interrupt controller.
@@ -538,10 +553,11 @@ for the first FreeRTOS FPGA demonstration:
 ## Immediate next action
 
 1. Keep official ACT4 RV32I tests active as continuous Track A.
-2. Freeze the Phase 1 memory map and implement the remaining Phase 2
-   centralized decoder plus side-effect-free default error target.
-3. Replace the confirmed failing combinational divider with a multi-cycle or
-   pipelined implementation using the existing back-pressure mechanism, then
-   rerun the AR-015 timing comparison.
-4. Make the next functional milestone the CLINT-style timer and precise
+2. Implement the remaining Phase 2 centralized decoder plus side-effect-free
+   default error target.
+3. Migrate the accepted 64 KiB depths, fetch-error path, linker, images,
+   `tohost`, regression, and ACT4 constants as one verified Phase 2 change.
+4. Keep the verified AR-017 iterative-divider regression and timing checkpoint
+   active while exact-board closure remains pending.
+5. Make the next functional milestone the CLINT-style timer and precise
    machine-timer-interrupt regression—not UART or FreeRTOS itself.

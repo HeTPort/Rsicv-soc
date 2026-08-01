@@ -40,13 +40,15 @@ Current ownership and status:
 | AR-001, AR-002, AR-005, AR-006, AR-007 | Phase 0A | Implemented and verified |
 | AR-003, AR-004 | Phase 2 sub-gates completed early | Implemented and verified; the remaining Phase 2 decoder work is open |
 | AR-008 | Phase 3 | Proposed; interrupt boundary work has not started |
-| AR-009 | Phase 1 | Proposed for review; current architecture decision gate |
+| AR-009 | Phase 1 | Accepted; Phase 1 contract complete, Phase 2 implementation pending |
 | AR-010 | Continuous verification track | Ongoing |
-| AR-011 | Early FPGA feasibility, then Phase 7 closure | Paired utilization/critical-path evidence verified; MULDIV redesign and exact-board closure remain open |
+| AR-011 | Early FPGA feasibility, then Phase 7 closure | AR-017 closes the MULDIV OOC blocker; exact-board closure remains open |
 | AR-012 | Cross-stage cleanup | Proposed; perform items when their owning interfaces stabilize |
 | AR-013 | Regression infrastructure | Implemented and verified |
-| AR-014 | Phase 1 contract tooling | Generation infrastructure implemented and verified; AR-009 remains proposed |
+| AR-014 | Phase 1 contract tooling | Accepted contract generation implemented and verified |
 | AR-015 | AR-011 evidence supporting Phase 1 | 16 KiB/64 KiB utilization and post-synthesis timing comparison verified |
+| AR-016 | Phase 1 architecture boundary | Core-to-SoC ownership and environment contract accepted |
+| AR-017 | AR-011 timing optimization | Radix-2 iterative divider implemented and verified; exact-board closure open |
 
 ## Verified baseline
 
@@ -397,23 +399,24 @@ mstatus.MIE && mie.MTIE && mip.MTIP
 - [ ] Repeated interrupt/`mret` loop with no duplicate or skipped work.
 - [ ] At least 10,000 simulated timer interrupts before closing Phase 3.
 
-### AR-009 — The proposed memory map conflicts with the current ACT4 flow
+### AR-009 — The accepted memory map requires migration from the current ACT4 flow
 
-**Status:** proposed for review. **Target:** Phase 1; this is the current
-architecture decision gate.
+**Status:** accepted on 2026-08-01; not yet implemented. **Target:** Phase 1
+complete, with behavioral adoption owned by Phase 2.
 
 **Evidence**
 
-- The provisional map in [`TODO.md`](../TODO.md#phase-1--define-the-minimal-freertos-soc-contract)
+- The accepted map in [`TODO.md`](../TODO.md#phase-1--define-the-minimal-freertos-soc-contract)
   places instruction BRAM at `0x0000_0000` and data BRAM at `0x8000_0000`.
 - The current ACT4 linker uses one 16 KiB executable/readable/writable region at
   zero in [`link.ld`](../verif/act4/rv32im_core/link.ld#L4).
 - The current converter copies every loadable segment into both Harvard images
   in [`elf_to_mem.py`](../sim/regress/elf_to_mem.py#L1).
 - Current SoC defaults are 4096 words, or 16 KiB at 32 bits per word, in
-  [`riscv_soc.sv`](../src/riscv_soc.sv#L3), while the TODO proposes 64 KiB banks.
+  [`riscv_soc.sv`](../src/riscv_soc.sv#L3), while the accepted contract requires
+  64 KiB banks.
 
-**Decision required before Phase 1 closes**
+**Decision accepted to close Phase 1**
 
 Option A — one dual-port BRAM in a unified architectural address region:
 
@@ -423,7 +426,8 @@ Option A — one dual-port BRAM in a unified architectural address region:
 - physical memory capacity is not duplicated;
 - self-modifying code remains unsupported or explicitly constrained.
 
-Option B — physically and architecturally split instruction/data BRAM regions:
+Selected Option B — physically and architecturally split instruction/data BRAM
+regions:
 
 - preserves the existing two-array implementation style;
 - requires a split linker script and address-aware image generation;
@@ -433,16 +437,19 @@ Option B — physically and architecturally split instruction/data BRAM regions:
 
 **Handling**
 
-- [x] Establish a validated machine-readable proposed map and deterministically
+- [x] Establish a validated machine-readable accepted map and deterministically
       generate SystemVerilog, C, linker, simulation, Vivado Tcl, and ACT4-facing
-      artifacts. AR-014 records why this does not accept or implement AR-009.
-- [ ] Record the selected option in `TODO.md` and the architecture documentation.
-- [ ] Express all memory sizes in bytes at the SoC contract boundary; translate
+      artifacts. AR-014 records their provenance and validation; generation does
+      not implement the RTL decoder.
+- [x] Select 64 KiB per instruction/data RAM bank using the paired AR-015
+      resource and timing evidence.
+- [x] Record the selected option in `TODO.md` and the architecture documentation.
+- [x] Express all memory sizes in bytes at the SoC contract boundary; translate
       to words only inside RAM modules.
 - [ ] Update hardware parameters, linker scripts, firmware image generation,
       ACT4 configuration, and testbench ranges in the same change.
 - [ ] Use an explicit default error target for unmapped data-bus addresses.
-- [ ] Reserve a large enough timer decode window for standard offsets:
+- [x] Reserve a large enough timer decode window for standard offsets:
       `mtimecmp=0x4000` and `mtime=0xBFF8` require a window extending beyond
       4 KiB.
 
@@ -478,12 +485,14 @@ is not in the manifest and still describes the obsolete halt behavior.
 ### AR-011 — FPGA feasibility checks should move earlier
 
 **Status:** paired utilization and early critical-path checkpoints verified;
-MULDIV redesign and physical timing closure remain open.
+AR-017 closes the MULDIV OOC timing blocker, while physical timing closure
+remains open.
 **Target:** an early feasibility checkpoint followed by full Phase 7 timing
 closure. Instruction/data BRAM inference and the 16 KiB/64 KiB resource
-comparison are recorded in AR-015. The same evidence identifies an 87.102 ns
-combinational divider path that fails both 25 MHz and 50 MHz; exact-board and
-physical implementation acceptance remain open.
+comparison are recorded in AR-015. That RED evidence identifies an 87.102 ns
+combinational divider path that fails both 25 MHz and 50 MHz. AR-017 replaces
+it with a functionally verified iterative divider and both profiles now pass
+the same OOC constraints; exact-board physical acceptance remains open.
 
 The current roadmap leaves the first divider critical-path and BRAM-inference
 inspection until the FPGA integration phase. A combinational RV32M divider or
@@ -499,11 +508,12 @@ area being redesigned for the bus.
 - [x] Record paired LUT/FF/BRAM/DSP utilization in AR-015.
 - [x] Record the MULDIV critical path with 25/50 MHz post-synthesis clock
       constraints for both generated RAM profiles.
+- [x] Implement and verify the AR-017 restoring Radix-2 divider using the
+      existing EX completion/backpressure mechanism.
+- [x] Repeat paired constrained timing: both profiles pass 50 MHz with WNS
+      +7.373 ns and 25 MHz with WNS +27.373 ns.
 - [ ] Rerun timing on the exact board part with its clock source and XDC when
       known.
-- [ ] Because the divider fails timing, reuse the new
-      EX completion/backpressure mechanism for a multi-cycle divider before
-      interrupt and FreeRTOS work depends on it.
 - [ ] Keep full placement, routing, power, and board timing closure in the later
       FPGA phase.
 
@@ -544,10 +554,9 @@ the PASS predicate ignored it. Result classification now requires a zero
 simulator exit together with the existing PASS-marker, fatal-marker, and
 ModelSim error-count checks.
 
-## Proposed data-bus contract
+## Accepted data-bus contract
 
-The Phase 1 contract should state the following behavior, not just list signal
-names:
+The Phase 1 contract states the following behavior, not just the signal names:
 
 ```systemverilog
 req_valid
@@ -595,11 +604,10 @@ For the initial single-hart FreeRTOS target:
 
 ## Revised execution order and current position
 
-Steps 1 and 2 are complete. Step 3, the AR-009 memory-map decision, is the
-current gate. AR-003 and AR-004 completed the transaction and registered-result
-parts of step 4 early, but the address decoder, default target, and system-level
-negative tests remain open. The early synthesis checkpoint and AR-008 timer
-interrupt work follow those gates.
+Steps 1–3 are complete. AR-003 and AR-004 completed the transaction and
+registered-result parts of step 4 early, but the address decoder, default
+target, accepted-map migration, and system-level negative tests remain open.
+AR-017's MULDIV redesign and repeated OOC timing checkpoint are complete.
 
 1. **Checkpoint the current working tree and archived 9/9 + 4/4 evidence.**
 2. **Complete Phase 0A:** precise side-effect gating, complete bubbles, CSR
@@ -608,8 +616,9 @@ interrupt work follow those gates.
    and converter descriptions together.
 4. **Externalize the data bus.** Implement the LSU transaction FSM, decoder,
    registered responses, access faults, and protocol assertions.
-5. **Run early synthesis.** Confirm BRAM inference and decide whether MULDIV must
-   become multi-cycle.
+5. **Run early synthesis and close the MULDIV blocker.** BRAM inference is
+   confirmed and AR-017's multi-cycle divider passes the repeated OOC timing
+   checkpoint; exact-board closure remains later work.
 6. **Add the machine timer interrupt.** Implement retirement-boundary entry,
    hardware MTIP, timer MMIO, WFI, and long repeated-interrupt tests.
 7. **Add startup/linker/driver infrastructure.** This should begin immediately

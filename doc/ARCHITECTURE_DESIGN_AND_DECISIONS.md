@@ -6,9 +6,10 @@
 
 **Last updated:** 2026-08-01
 
-**Current milestone:** AR-014 machine-readable map generation and the AR-015
-16 KiB/64 KiB utilization/timing comparison are verified; AR-009 acceptance,
-multi-cycle MULDIV work, and exact-board timing closure remain open
+**Current milestone:** Phase 1 and the AR-009/AR-016
+`freertos_split_64k_v1` core-to-SoC contract accepted; Phase 2 decoder,
+timer/peripheral work, and exact-board timing closure remain open. AR-017's
+multi-cycle divider is implemented and verified.
 
 > This is the consolidated record of what the architecture is, why it evolved
 > this way, what was learned while fixing problems, and which decisions remain
@@ -635,9 +636,9 @@ Likely requirement:
 
 ### AR-009 — Architectural memory topology and map
 
-**State:** Proposed for review; must close before the remaining Phase 2 decoder
+**State:** Accepted; behavioral implementation remains Phase 2
 
-**Owning stage:** Phase 1; current architecture decision gate
+**Owning stage:** Phase 1, complete
 
 Options:
 
@@ -646,27 +647,28 @@ Options:
 | Unified architectural region, dual-port BRAM | Simple linker/ACT4 view; no duplicated capacity | Requires dual-port implementation and clear self-modifying-code policy |
 | Split instruction/data architectural regions | Matches current two-array RTL | Coordinated split linker, images, ACT4 config, and sum of both BRAM capacities |
 
-**Recommendation for review:** use split architectural instruction/data regions
+**Decision:** use split architectural instruction/data regions
 for the first FreeRTOS milestone because that matches the verified two-array
 Harvard implementation and avoids an immediate dual-port/coherency refactor.
 
-The proposed map keeps instruction BRAM at `0x0000_0000`, data BRAM at
+The accepted map keeps instruction BRAM at `0x0000_0000`, data BRAM at
 `0x8000_0000`, a 64 KiB CLINT window at `0x0200_0000`, and 4 KiB UART/GPIO
 windows at `0x1000_0000`/`0x1000_1000`. All other data addresses complete
-through a side-effect-free default error target. A simulation-only `tohost`
-word is proposed at `0x8000_FFFC`.
+through a side-effect-free registered default error target. The simulation-only
+`tohost` word is accepted at `0x8000_FFFC`.
 
-**Important unresolved consequence:** current RAM parameters expose 16 KiB per
-bank, while the proposed ranges reserve 64 KiB. AR-015 measured the physical
-cost of both choices, but software requirements, the exact FPGA/board budget,
-future peripherals, and timing must still be reconciled before acceptance.
+**Accepted capacity sub-decision:** use 64 KiB for each instruction/data RAM
+bank. AR-015 measured the pair at 32/60 RAMB36 tiles on provisional
+`xc7z010clg400-1` and showed that capacity does not cause the current timing
+failure. The current RTL still defaults to 16 KiB, and the exact FPGA/board,
+future-peripheral margin, and physical timing remain implementation gates.
 
-**Configuration infrastructure progress:** AR-014 now validates one proposed
+**Configuration infrastructure:** AR-014 validates the accepted
 JSON map and deterministically generates SystemVerilog, C, linker, simulation,
 Tcl, and ACT4-facing artifacts. This removes future manual constant duplication
-but does not accept the proposal or change implemented decoding.
+but does not change implemented decoding.
 
-**Required implementation after acceptance:**
+**Required Phase 2 implementation:**
 
 - full-address centralized decode and base-address subtraction;
 - latched response-source selection;
@@ -679,9 +681,9 @@ The full context, problem, recommendation, consequences, review questions,
 verification plan, and reusable principles are in
 [`AR009_ARCHITECTURAL_MEMORY_MAP.md`](AR009_ARCHITECTURAL_MEMORY_MAP.md).
 
-No RTL behavior changes with this proposal. The final accepted decision must
-update RTL constants, linker scripts, firmware headers, converters, ACT4
-descriptions, and tests together.
+No RTL behavior changed when this contract was accepted. Phase 2 must update
+RTL constants, linker scripts, firmware headers, converters, ACT4 descriptions,
+and tests together.
 
 ### AR-010 — Verification depth
 
@@ -698,8 +700,8 @@ Required decisions:
 
 ### AR-011 — Early FPGA feasibility
 
-**State:** Utilization and early critical-path evidence verified; MULDIV
-redesign and exact-board closure open
+**State:** Utilization and early critical-path evidence verified; AR-017
+closes the MULDIV OOC timing blocker; exact-board closure remains open
 
 **Owning stage:** Early checkpoint after Phase 2; full closure in Phase 7
 
@@ -709,22 +711,25 @@ Verified evidence:
 - paired LUT/FF/DSP use on provisional `xc7z010clg400-1`;
 - identical 87.102 ns post-synthesis combinational MULDIV critical paths for
   both RAM sizes, failing 50 MHz with WNS -67.124 ns and 25 MHz with WNS
-  -47.124 ns.
+  -47.124 ns;
+- AR-017 restoring Radix-2 divider functional verification and refreshed
+  paired STA: WNS +7.373 ns at 50 MHz and +27.373 ns at 25 MHz, with zero
+  failing setup endpoints.
 
 Remaining evidence:
 
-- implement and verify a multi-cycle or otherwise pipelined divider;
-- repeat constrained timing after the MULDIV change;
 - exact-board placement, routing, power, and resource margin.
 
-Because RV32M fails this early timing check, the Phase 2
-completion/backpressure mechanism should be reused for a multi-cycle divider.
+AR-017 reuses the Phase 2 completion/backpressure mechanism for a multi-cycle
+divider. DIV/REM now occupy 32 iterative run cycles while unrelated instruction
+classes retain their existing latency.
 
 The measured 64 KiB pair uses 32/60 RAMB36 tiles (53.33%), compared with 8/60
-(13.33%) for the 16 KiB pair. Capacity does not change the current dominant
-timing path; the combinational divider must change before either 25 MHz or
-50 MHz is feasible. Full evidence is in
-[`AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md`](AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md).
+(13.33%) for the 16 KiB pair. Capacity does not change either the old divider
+path or the new multiply-high path. The baseline is in
+[`AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md`](AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md)
+and the implemented follow-up is in
+[`AR017_RADIX2_ITERATIVE_DIVIDER.md`](AR017_RADIX2_ITERATIVE_DIVIDER.md).
 
 ### AR-012 — Retirement and interface cleanup
 
@@ -770,8 +775,8 @@ ModelSim smoke passed 22/22 with every simulator exit zero. Full evidence is in
 
 ### AR-014 — Machine-readable SoC map
 
-**State:** Configuration infrastructure implemented and verified; map remains
-proposed
+**State:** Configuration infrastructure implemented and verified; accepted map
+artifacts generated
 
 **Owning stage:** Phase 1 contract tooling and future cross-language maintenance
 
@@ -779,13 +784,13 @@ proposed
 simulation, Vivado Tcl, and ACT4 descriptions synchronized.
 
 **Decision:** Maintain one dependency-free, validated JSON source and generate
-all language-specific consumers. Keep the proposal status in every artifact,
+all language-specific consumers. Keep the lifecycle status in every artifact,
 preserve current regression values, and derive named 16 KiB/64 KiB synthesis
 profiles for isolated capacity experiments.
 
 **Consequences:** Map edits have one owner and a deterministic stale-file gate.
-Generated constants are ready for future integration, but AR-009 and Phase 2
-remain open until the map is accepted and the decoder/error paths are built.
+Generated constants now carry the accepted ABI. Phase 2 remains open until the
+decoder/error paths and current consumers adopt it.
 
 **Evidence:** generation and `--check` passed, nine generator tests passed,
 and Python syntax compilation passed. Full rationale, validation rules,
@@ -800,7 +805,7 @@ verified
 **Owning stage:** AR-011 early FPGA feasibility evidence supporting the AR-009
 capacity decision
 
-**Problem:** The proposed 64 KiB banks and current 16 KiB defaults had not been
+**Problem:** The then-candidate 64 KiB banks and current 16 KiB defaults had not been
 measured in one controlled synthesis flow, so their resource tradeoff was
 unknown.
 
@@ -820,16 +825,68 @@ feasible with the current single-cycle divider. The result is idealized OOC
 static timing without board clock location, placement, or routing.
 
 **Consequences:** AR-011's early utilization and critical-path sub-gates are
-complete. AR-009 still needs software-capacity and exact-board decisions;
-AR-011 now requires a multi-cycle/pipelined divider followed by constrained
-timing and final physical closure. Full commands, limits, and raw reports are in
+complete, and the project selected the measured 64 KiB-per-bank option.
+AR-009 is accepted. AR-017 has now supplied the multi-cycle divider and repeated
+the constrained OOC comparison successfully; final physical closure remains.
+The historical commands, limits, and raw RED reports are in
 [`AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md`](AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md).
+
+### AR-016 — Core-to-SoC environment contract
+
+**State:** Accepted; Phase 1 complete
+
+**Owning stage:** Phase 1 architecture boundary and Phase 2 implementation input
+
+**Problem:** The core-level pipeline/LSU contract, SoC map, target ownership,
+software layout, and verification environments were documented separately. A
+reader could not trace one fetch or data transaction from the CPU through the
+SoC and distinguish current RTL from the accepted target architecture.
+
+**Decision:** Freeze one end-to-end boundary: the core owns architectural
+requests, alignment, ordering, and traps; the SoC owns full-address decode,
+local translation, targets, default error completion, and response routing;
+generated artifacts own the cross-language ABI; core- and SoC-level testbenches
+prove different scopes.
+
+**Consequences:** Phase 1 can close without falsely claiming Phase 2 behavior.
+The decoder, instruction error, accepted RAM depths, linker/images, regression,
+and ACT4 migration now have one ordered implementation and verification plan.
+
+**Evidence:** the accepted addresses, ownership table, transaction lifecycles,
+fault mapping, reset/boot boundary, verification split, and Phase 2 order are in
+[`AR016_CORE_TO_SOC_ENVIRONMENT_CONTRACT.md`](AR016_CORE_TO_SOC_ENVIRONMENT_CONTRACT.md).
+
+### AR-017 â€” Radix-2 iterative divider
+
+**State:** Implemented and functionally verified; 25/50 MHz OOC
+post-synthesis timing passes, exact-board closure open
+
+**Problem:** Single-cycle `/` and `%` produced an 87.102 ns/305-level path,
+failed both proposed clock targets, and consumed more than 4,000 additional
+LUTs.
+
+**Options:** Keep the combinational implementation, use vendor IP, implement a
+higher-radix/pipelined unit, or use a portable restoring Radix-2 unit. The
+Radix-2 option was selected because FreeRTOS needs timing margin more than high
+divide throughput and the core already has generic EX backpressure.
+
+**Decision:** Add `radix2_divider.sv`; hold the divide instruction in ID/EX;
+bubble EX/WB until one completion; combine `div_wait` with `lsu_busy`; reuse
+`ex_kill`; keep decode/packet encodings unchanged; retain combinational
+multiplication.
+
+**Evidence and consequences:** 42 focused divider cases, 2/2 RV32M integration,
+22/22 smoke, LSU protocol, and regression-classifier tests pass. LUT use falls
+to 3,504/3,542 for the two profiles. Both pass 50 MHz OOC STA with WNS +7.373
+ns; multiply-high is now the 12.605 ns critical path. Complete principle,
+signals, module relationships, commands, and limitations are in
+[`AR017_RADIX2_ITERATIVE_DIVIDER.md`](AR017_RADIX2_ITERATIVE_DIVIDER.md).
 
 ## 9. Future stage architecture gates
 
 | Stage | Architecture decisions required before implementation | Exit evidence |
 |---|---|---|
-| Phase 1: contract freeze | Memory topology, byte map, faults, timer atomicity; bus lifecycle is verified | Reviewed contract can answer every address/access/error case |
+| Phase 1: contract freeze | Complete: AR-009/AR-016 accept topology, byte map, faults, timer atomicity, and bus lifecycle | Accepted contract answers every address/access/error case |
 | Phase 2: external data bus | Address decode, default error target, EX/WB response packet, access-fault traps; LSU FSM/backpressure are verified | Unmapped/error tests plus the already-green wait-state and old LSU suites |
 | Phase 3: timer interrupt | MTIP ownership, eligibility, retirement boundary, MRET, WFI | Long repeated-interrupt test and precise commit assertions |
 | Phase 4: UART/GPIO | Register semantics, partial writes, reset, decode exclusivity | Peripheral and SoC-level scoreboards |
@@ -935,5 +992,7 @@ An architecture-changing task is incomplete until this document is updated.
 - [AR-013 regression exit-status gate](AR013_REGRESSION_EXIT_STATUS_GATE.md)
 - [AR-014 machine-readable SoC map](AR014_MACHINE_READABLE_SOC_MAP.md)
 - [AR-015 RAM-capacity utilization and timing comparison](AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md)
+- [AR-016 core-to-SoC environment contract](AR016_CORE_TO_SOC_ENVIRONMENT_CONTRACT.md)
+- [AR-017 Radix-2 iterative divider](AR017_RADIX2_ITERATIVE_DIVIDER.md)
 - [ACT4 integration handoff](ACT4_RV32I_INTEGRATION_HANDOFF_2026-07-27.md)
 - [ACT4 integration guide](../verif/act4/README.md)

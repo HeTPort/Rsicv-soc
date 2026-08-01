@@ -5,16 +5,22 @@
 **Paired out-of-context utilization and post-synthesis static-timing
 experiments completed and verified on 2026-08-01.**
 
+**Historical RED baseline:** AR-017 subsequently replaced the timing-dominant
+combinational divider and records the refreshed GREEN utilization/timing
+comparison. The measurements below intentionally preserve the pre-fix design.
+
 This evidence answers the narrow questions of how 16 KiB and 64 KiB
 instruction/data RAM banks affect synthesized resources and whether RAM
-capacity changes the current internal critical path. It does not accept the
-AR-009 memory map, prove post-route timing closure, or reserve resources for the
-future decoder, timer, UART, GPIO, and board wrapper.
+capacity changes the current internal critical path. This experiment did not by
+itself accept the AR-009 memory map, prove post-route timing closure, or reserve
+resources for the future decoder, timer, UART, GPIO, and board wrapper. AR-009
+was subsequently accepted using this evidence and the remaining contract
+decisions.
 
 ## Question
 
 The checked-in RTL defaults to 4096 32-bit words, or 16 KiB, in each RAM bank.
-The proposed FreeRTOS map reserves 64 KiB per bank. Before changing the
+The accepted FreeRTOS map reserves 64 KiB per bank. Before changing the
 implemented map, measure both capacities with the same RTL, tool, part, and
 synthesis mode.
 
@@ -131,7 +137,7 @@ an idealized post-synthesis indication, not a routed Fmax.
 
 The important result is therefore not that 64 KiB makes timing worse. RAM size
 has no observed effect on the dominant path; the current combinational divider
-fails both proposed 25 MHz and 50 MHz targets in both configurations.
+fails both candidate 25 MHz and 50 MHz targets in both configurations.
 
 ## Preserved evidence
 
@@ -185,11 +191,14 @@ The larger checkpoints, journals, and complete logs remain ignored under
 ## Decision consequence
 
 AR-011's paired utilization and early critical-path checkpoints are now
-complete. They show that a multi-cycle or otherwise pipelined divider is needed
-before 25/50 MHz feasibility can be reassessed. Exact-board placement/routing
-and timing closure remain open. AR-009 remains proposed because the capacity
-decision also needs firmware image, stack, heap, peripheral, and exact-board
-resource budgets.
+complete. Based on this evidence, the project selected 64 KiB for each RAM bank
+on 2026-08-01. This is an architectural capacity choice, not proof of current
+RTL implementation or final board closure. AR-017 subsequently implemented and
+verified a restoring Radix-2 divider. The refreshed paired STA passes 50 MHz
+with WNS +7.373 ns and 25 MHz with WNS +27.373 ns; exact-board
+placement/routing and timing closure remain open. AR-009 and the Phase 1 ABI
+are accepted; decoder and consumer adoption remain Phase 2. See
+[`AR017_RADIX2_ITERATIVE_DIVIDER.md`](AR017_RADIX2_ITERATIVE_DIVIDER.md).
 
 ## Reusable principle
 

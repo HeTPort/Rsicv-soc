@@ -4,6 +4,7 @@
 ./../src/core/id2ex.sv
 ./../src/core/ex2wb.sv
 ./../src/core/decode.sv
+./../src/core/radix2_divider.sv
 ./../src/core/execute.sv
 ./../src/core/lsu.sv
 ./../src/core/wb_stage.sv
@@ -17,3 +18,4 @@
 ./../src/riscv_soc.sv
 ./tb/tb_riscv_core.sv
 ./tb/tb_lsu_protocol.sv
+./tb/tb_radix2_divider.sv

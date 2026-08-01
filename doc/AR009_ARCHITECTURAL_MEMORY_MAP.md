@@ -2,14 +2,15 @@
 
 ## Status
 
-**Proposed for review on 2026-07-29. Not yet accepted or implemented.**
+**Accepted on 2026-08-01. Not yet implemented.**
 
-This document records the recommended first-milestone memory topology and map
-for the FreeRTOS target. It is a review proposal, not a statement that the
-current RTL, linker, tests, or firmware already use these addresses.
+This document records the accepted first-milestone memory topology and map for
+the FreeRTOS target. Acceptance freezes the hardware/software ABI; it is not a
+statement that current RTL, linker, tests, or firmware already use the map.
 
-Acceptance of this proposal is the Phase 1 gate before the remaining Phase 2
-address decoder and default error target are implemented.
+Acceptance closes the Phase 1 gate. The remaining Phase 2 address decoder,
+default error target, instruction-error path, and consumer migration implement
+the contract.
 
 ## Problem
 
@@ -24,9 +25,9 @@ have a complete software-visible memory-map contract:
   access-fault cause 1;
 - timer, UART, and GPIO files are placeholders;
 - current tests use `tohost=0x0000_1000`, which is incompatible with the
-  proposed split map;
+  accepted split map;
 - the default 4096-word RAM parameters provide 16 KiB per bank, while the
-  roadmap provisionally reserves 64 KiB per bank.
+  selected first-milestone capacity is 64 KiB per bank.
 
 A final map must align hardware, linker scripts, firmware headers, test
 manifests, image conversion, ACT4 configuration, and FPGA resource use.
@@ -64,10 +65,10 @@ manifests, image conversion, ACT4 configuration, and FPGA resource use.
 | Unified architectural region backed by dual-port BRAM | Simpler linker and ACT4 view; code and data can share capacity | Requires a larger memory refactor, a second data-side program-memory port, collision semantics, and a self-modifying-code policy |
 | Split instruction and data architectural regions | Matches the existing two-array Harvard implementation and minimizes near-term RTL change | Requires coordinated split linker/images, data-side placement of constants, and ACT4/tool configuration updates |
 
-## Recommendation for review
+## Accepted decision
 
-Use **split architectural instruction and data regions** for the first
-FreeRTOS milestone.
+Use **split architectural instruction and data regions** for the first FreeRTOS
+milestone.
 
 Reasons:
 
@@ -82,7 +83,7 @@ Reasons:
 This recommendation deliberately trades a more complex software/linker view
 for a smaller and more understandable first hardware implementation.
 
-## Proposed first-milestone map
+## Accepted first-milestone map
 
 | Region | Inclusive address range | Size | Permissions | Initial behavior |
 |---|---:|---:|---|---|
@@ -104,15 +105,14 @@ The current default RAM depth is 4096 32-bit words:
 4096 words × 4 bytes = 16 KiB
 ```
 
-A 64 KiB bank requires 16,384 words. The proposed 64 KiB ranges must not be
-accepted as implemented capacity until:
+A 64 KiB bank requires 16,384 words. This capacity is selected for the first
+milestone based on the AR-015 comparison and the project owner's 2026-08-01
+decision. It must not be described as implemented or physically closed until:
 
 - firmware and FreeRTOS stack/heap estimates justify the sizes;
 - `PROG_RAM_DEPTH` and `DATA_RAM_DEPTH` are updated consistently;
 - the exact board/part and future peripheral budget are known;
 - constrained Vivado implementation confirms timing and final resource margin.
-
-If 16 KiB banks are retained, the address ranges must be reduced to match.
 
 AR-015 now provides the missing early synthesis comparison on the provisional
 `xc7z010clg400-1`: two 16 KiB banks use 8/60 RAMB36 tiles (13.33%), while two
@@ -121,10 +121,10 @@ and leaves 28 tiles, but this utilization-only result does not decide the
 software capacity, peripheral budget, or exact-board questions.
 
 The paired AR-015 post-synthesis timing follow-up also shows that both RAM sizes
-have the same failing 87.102 ns combinational MULDIV path. Capacity therefore
-does not cause the current timing failure, but multi-cycle/pipelined division
-and later exact-board timing closure are required independently of the map
-choice.
+have the same failing 87.102 ns combinational MULDIV baseline. Capacity is not
+the cause. AR-017 replaces that path with the verified iterative divider and
+both capacity profiles pass the refreshed 25/50 MHz OOC checks. Exact-board
+timing closure remains required independently of the map choice.
 
 ### Simulation completion address
 
@@ -136,7 +136,7 @@ tohost = 0x8000_FFFC
 
 The linker must reserve that word so stack, heap, and program sections cannot
 overlap it. Existing directed tests and manifests currently using
-`0x0000_1000` must be regenerated only after this proposal is accepted.
+`0x0000_1000` must be migrated with the Phase 2 decoder and images.
 
 ## Access and fault contract
 
@@ -218,8 +218,8 @@ halves.
 
 ## One-source-of-truth requirement
 
-AR-014 established [`config/soc_map.json`](../config/soc_map.json) as a
-validated machine-readable form of this proposal. It already produces:
+AR-014 established [`config/soc_map.json`](../config/soc_map.json) as the
+validated machine-readable form of this accepted contract. It produces:
 
 - SystemVerilog decoder constants;
 - C-visible firmware headers;
@@ -227,7 +227,7 @@ validated machine-readable form of this proposal. It already produces:
 - normalized simulation data and Vivado Tcl parameters;
 - an ACT4-facing map fragment.
 
-After acceptance, the decoder, testbench/regression, ELF converter, complete
+During Phase 2, the decoder, testbench/regression, ELF converter, complete
 firmware linker, and ACT4/UDB configuration must consume or be mechanically
 checked against these generated values. Generation alone does not make those
 integrations complete.
@@ -253,19 +253,19 @@ because map drift becomes a silent hardware/software ABI bug.
     bank sizes and the exact part are selected. The first paired measurement is
     recorded in AR-015.
 
-## Review questions
+## Acceptance record
 
-The proposal should remain **Proposed** until reviewers answer:
+All Phase 1 review questions are answered:
 
-1. Is split architectural instruction/data memory accepted for the first
-   milestone?
-2. Are 64 KiB banks justified, or should the initial map expose the current
-   16 KiB capacity?
-3. Is `0x8000_FFFC` accepted as the reserved simulation-only `tohost` word?
-4. Is data-side access to instruction BRAM intentionally unsupported?
-5. Should every invalid peripheral offset return an access fault?
-6. Is one-cycle default-target response latency acceptable?
-7. What exact board/FPGA BRAM budget should gate the final capacity?
+1. [x] Use split architectural instruction/data memory for the first milestone.
+2. [x] Use 64 KiB for each instruction/data RAM bank. AR-015 records the
+   provisional cost of 32/60 RAMB36 tiles for the pair.
+3. [x] Reserve `0x8000_FFFC` as the simulation-only `tohost` word.
+4. [x] Data-side access to instruction BRAM is intentionally unsupported.
+5. [x] Every invalid peripheral offset returns an access fault.
+6. [x] The default target returns one registered error response after one cycle.
+7. [x] Use the provisional `xc7z010clg400-1` evidence for planning; require a
+   rerun on the exact board part and final post-route resource/timing closure.
 
 ## Reusable principles
 
@@ -285,11 +285,16 @@ The proposal should remain **Proposed** until reviewers answer:
 
 ## Verification evidence
 
-AR-014 generation/check tests validate that the proposed constants are
+AR-014 generation/check tests validate that the accepted constants are
 internally consistent and reproducible across consumer formats. AR-015 uses
 those generated profiles to compare 16 KiB and 64 KiB physical RAM cost and
-post-synthesis internal timing. No RTL behavior changed, and neither result
-proves the proposed decode/fault contract or accepts this map.
+post-synthesis internal timing. That evidence informed the 64 KiB capacity
+selection. The project owner's explicit acceptance of every review question
+closes the Phase 1 architecture decision. No RTL behavior changed, and the
+evidence does not prove Phase 2 implementation.
 
 See [`AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md`](AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md)
 for commands, limitations, and preserved raw reports.
+See [`AR016_CORE_TO_SOC_ENVIRONMENT_CONTRACT.md`](AR016_CORE_TO_SOC_ENVIRONMENT_CONTRACT.md)
+for the complete ownership and transaction boundary from the core through the
+SoC and verification environment.

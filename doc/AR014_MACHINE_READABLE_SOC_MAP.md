@@ -4,14 +4,18 @@
 
 **Configuration infrastructure implemented and verified on 2026-08-01.**
 
-AR-014 does not accept or implement the AR-009 map. It makes the proposed
-`freertos_64k_proposal` deterministic and consumable by capacity experiments
-and future integrations. Current RTL decoding, regression addresses, and ACT4
-execution layout remain unchanged.
+AR-014 did not itself decide AR-009. It makes the accepted
+`freertos_split_64k_v1` contract deterministic and consumable by capacity
+experiments and future integrations. Current RTL decoding, regression
+addresses, and ACT4 execution layout remain unchanged.
+
+The project accepted the complete map on 2026-08-01 after reviewing AR-015 and
+answering every AR-009 question. The configuration state is now `accepted`, not
+`implemented`.
 
 ## Problem
 
-The proposed memory map appeared as repeated prose and numeric constants. A RAM
+The candidate memory map appeared as repeated prose and numeric constants. A RAM
 size or base-address change would require coordinated manual edits to RTL,
 firmware, linker scripts, simulation, synthesis, and ACT4 descriptions.
 Top-level SystemVerilog parameters alone would make hardware elaboration
@@ -72,11 +76,11 @@ address and width follow capacity/data-width changes without a second edit.
 
 | Component | Owns | Must not own |
 |---|---|---|
-| `config/soc_map.json` | Proposed regions, sizes in bytes, registers, `tohost`, default-target policy, and proposal status | RTL behavior or generated syntax |
+| `config/soc_map.json` | Accepted regions, sizes in bytes, registers, `tohost`, default-target policy, and lifecycle status | RTL behavior or generated syntax |
 | `tools/gen_soc_map.py` | Structural/semantic validation and deterministic rendering | Architecture acceptance |
 | Generated SystemVerilog package | RTL-readable constants and RAM word-depth derivations | Independent editable values |
 | Generated C header/linker fragment | Firmware-visible addresses, capacities, and reserved completion word | Hardware decoding |
-| Generated simulation JSON | Normalized data for future regression/converter consumers | Current directed-test migration before acceptance |
+| Generated simulation JSON | Normalized data for future regression/converter consumers | Current directed-test migration before Phase 2 integration |
 | Generated Tcl | Scalar map parameters plus named capacity profiles for Vivado | Proof of functional decoding |
 | Generated ACT4 YAML | Future map integration fragment | Complete UDB configuration or current ACT4 simulation layout |
 
@@ -98,22 +102,24 @@ Generation rejects:
 - a `tohost` that is not the aligned final data-RAM word;
 - a default target that fails to report an error or permits a write side effect.
 
-## Proposal versus implementation boundary
+## Acceptance versus implementation boundary
 
-The generated files say `freertos_64k_proposal (proposed)`. They must not be
+The generated files say `freertos_split_64k_v1 (accepted)`. They must not be
 interpreted as proof that:
 
 - 64 KiB per bank fits the final FPGA budget;
-- the SoC decodes the proposed bases;
+- the SoC decodes the accepted bases;
 - high unmapped addresses no longer alias RAM;
 - invalid instruction fetches generate cause 1;
-- current firmware, tests, or ACT4 execute at the proposed addresses.
+- current firmware, tests, or ACT4 execute at the accepted addresses.
 
-Those remain AR-009 acceptance and Phase 2 implementation work.
+The final-board budget remains a physical-closure gate. Decode, fault,
+firmware, test, and ACT4 migration remain Phase 2 implementation work; they are
+not conditions for the already-frozen Phase 1 ABI.
 
 ## Utilization-experiment relationship
 
-`sim/synth/check_riscv_soc_configured_ram.tcl` remains the single-proposal
+`sim/synth/check_riscv_soc_configured_ram.tcl` remains the single-contract
 capacity entry point. For controlled comparison,
 `sim/synth/compare_riscv_soc_ram_utilization.tcl` sources the generated map and
 capacity-profile Tcl files, then overrides `PROG_RAM_DEPTH` and
@@ -149,7 +155,7 @@ Observed result:
 
 The GNU linker fragment is semantically checked by the generator. A native
 bare-metal link was not run in this environment: the available MinGW linker
-parsed the script but cannot link its PE unwind relocations into the proposed
+  parsed the script but cannot link its PE unwind relocations into the generated
 bare-metal regions, and WSL toolchain access was unavailable. The future
 firmware/toolchain phase must parse the fragment with the selected RISC-V GNU
 linker before treating it as an active linker input.

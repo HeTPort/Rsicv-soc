@@ -31,9 +31,11 @@ class SocMapGeneratorTests(unittest.TestCase):
         cls.source_path = REPO_ROOT / "config" / "soc_map.json"
         cls.raw = json.loads(cls.source_path.read_text(encoding="utf-8"))
 
-    def test_normalizes_proposed_64k_map(self) -> None:
+    def test_normalizes_accepted_64k_map(self) -> None:
         config = load_config(self.source_path)
         regions = {region["name"]: region for region in config["regions"]}
+        self.assertEqual(config["name"], "freertos_split_64k_v1")
+        self.assertEqual(config["status"], "accepted")
         self.assertEqual(regions["prog_ram"]["depth_words"], 16_384)
         self.assertEqual(regions["data_ram"]["depth_words"], 16_384)
         self.assertEqual(config["simulation"]["tohost"]["address"], 0x8000_FFFC)

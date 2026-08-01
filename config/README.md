@@ -1,9 +1,10 @@
 # SoC Memory-Map Configuration
 
 [`soc_map.json`](soc_map.json) is the authoritative machine-readable source for
-the proposed first FreeRTOS SoC map. It currently describes the
-`freertos_64k_proposal`; `status: proposed` means the values are available for
-review and utilization experiments but are not yet the implemented RTL ABI.
+the accepted first FreeRTOS SoC map. It describes
+`freertos_split_64k_v1`; `status: accepted` freezes the hardware/software ABI
+for Phase 2 implementation but does not claim that current RTL or software has
+implemented it.
 
 ## Generate and check
 
@@ -24,15 +25,15 @@ review the complete diff, and run `--check`.
 
 | File | Function | Current consumer/status |
 |---|---|---|
-| `config/soc_map.json` | Sole editable definition and proposal status | Input to the generator |
+| `config/soc_map.json` | Sole editable definition and lifecycle status | Input to the generator |
 | `tools/gen_soc_map.py` | Schema/semantic validation and deterministic rendering | Developer and CI command |
-| `src/generated/soc_mem_map_pkg.sv` | RTL bases, bounds, byte sizes, word depths, timer registers, and default-target policy | Future decoder/SoC integration; parsed by the utilization synthesis |
-| `firmware/include/soc_memory_map.h` | C-visible addresses and sizes | Future startup, drivers, and FreeRTOS port |
-| `firmware/linker/soc_memory.ldh` | GNU linker `MEMORY` regions and reserved `tohost` symbol | Include fragment for the future firmware linker script |
+| `src/generated/soc_mem_map_pkg.sv` | RTL bases, bounds, byte sizes, word depths, timer registers, and default-target policy | Accepted RTL contract; Phase 2 decoder integration pending |
+| `firmware/include/soc_memory_map.h` | C-visible addresses and sizes | Accepted firmware contract; startup/drivers pending |
+| `firmware/linker/soc_memory.ldh` | GNU linker `MEMORY` regions and reserved `tohost` symbol | Accepted linker fragment; complete firmware linker pending |
 | `sim/generated/soc_map.json` | Normalized numeric data for Python/PowerShell/test consumers | Future address-aware regression integration |
 | `sim/generated/soc_map.tcl` | Vivado-safe scalar values | Used by `check_riscv_soc_configured_ram.tcl` |
 | `sim/generated/soc_ram_utilization_profiles.tcl` | Named candidate bank capacities and derived word depths | Used by the paired 16 KiB/64 KiB synthesis comparison |
-| `verif/act4/generated_memory_map.yaml` | Proposed map fragment | Future ACT4/UDB integration; not a complete UDB file |
+| `verif/act4/generated_memory_map.yaml` | Accepted map fragment | Future ACT4/UDB integration; not a complete UDB file |
 
 The generator rejects overlapping regions, missing RAM regions, invalid widths,
 non-power-of-two or misaligned windows, duplicate registers, timer registers
@@ -43,12 +44,12 @@ an error or perform a write.
 offset. Changing data-RAM capacity therefore regenerates the completion address
 automatically.
 
-## Boundary between proposal and implementation
+## Boundary between acceptance and implementation
 
 Current directed tests still use the implemented legacy map and their existing
-`tohost` values. The generated proposal must not replace those values until
-AR-009 is accepted and the decoder, base subtraction, instruction error path,
-linker, images, and tests change together.
+`tohost` values. The accepted generated contract must replace those values only
+when the decoder, base subtraction, instruction error path, linker, images, and
+tests change together in Phase 2.
 
 The generated capacity profiles drive a paired physical-resource experiment:
 

@@ -6,9 +6,10 @@
 
 **Last updated:** 2026-08-01
 
-**Current reference:** `codex/architecture-review-roadmap`, post AR-015 paired
-RAM utilization/timing measurement with AR-009 acceptance, MULDIV redesign,
-and physical timing closure still open
+**Current reference:** `codex/architecture-review-roadmap`, with Phase 1 and the
+AR-009/AR-016 split 64 KiB core-to-SoC contract accepted; Phase 2 implementation,
+timer/peripheral work, and physical timing closure remain open. AR-017 has
+implemented and verified the multi-cycle divider optimization.
 
 > Update this document whenever a change alters a module boundary, pipeline
 > timing, packet field, architectural behavior, memory map, verification
@@ -43,6 +44,8 @@ the minimal architecture needed for the first working system.
 ### Implemented
 
 - RV32IM decode and execution.
+- Radix-2 iterative DIV/DIVU/REM/REMU with EX backpressure and kill support;
+  multiplication remains combinational.
 - Packed pipeline packets.
 - Canonical, side-effect-free pipeline bubbles.
 - Register file with same-cycle WB-to-ID bypass.
@@ -60,8 +63,10 @@ the minimal architecture needed for the first working system.
   PASS-marker, fatal-marker, and error-count result gates.
 - ELF/image conversion and ACT4 integration adapters.
 - Dependency-free machine-readable SoC map validation and deterministic
-  cross-language generation for the proposed configuration. This is tooling,
+  cross-language generation for the accepted configuration. This is tooling,
   not implemented address decoding.
+- Accepted Phase 1 core-to-SoC ownership, memory-map, bus, error, software, and
+  verification-environment contract.
 - Generated 16 KiB/64 KiB RAM experiment profiles and paired Vivado 2019.2
   out-of-context utilization and post-synthesis internal timing evidence on
   provisional `xc7z010clg400-1`.
@@ -87,14 +92,16 @@ The current mapping is:
 |---|---|
 | AR-001, AR-002, AR-005, AR-006, AR-007 | Phase 0A work, implemented and verified |
 | AR-003, AR-004 | Phase 2 sub-gates completed early; the decoder/default-target work is still open |
-| AR-009 | Phase 1 memory-map proposal, currently under review |
+| AR-009 | Phase 1 split 64 KiB map accepted; Phase 2 implementation pending |
 | AR-008 | Future Phase 3 interrupt-boundary work |
 | AR-010 | Ongoing verification-depth work across phases |
 | AR-011 | Early FPGA feasibility plus later timing closure |
 | AR-012 | Cleanup performed as interfaces stabilize |
 | AR-013 | Regression infrastructure fix, implemented and verified |
-| AR-014 | Proposed-map generation infrastructure, implemented and verified |
+| AR-014 | Accepted-map generation infrastructure, implemented and verified |
 | AR-015 | Paired 16 KiB/64 KiB utilization/timing evidence, implemented and verified |
+| AR-016 | Core-to-SoC environment contract accepted; Phase 1 complete |
+| AR-017 | Radix-2 iterative divider, implemented and verified; physical closure remains Phase 7 |
 
 The authoritative phase checklist is [`TODO.md`](../TODO.md); the detailed
 finding status is in
@@ -106,31 +113,33 @@ The overall review and FreeRTOS roadmap remain open.
 These mechanisms are complementary:
 
 - `riscv_soc` parameters tell Vivado how to elaborate one hardware instance;
-- [`config/soc_map.json`](../config/soc_map.json) describes the proposed
+- [`config/soc_map.json`](../config/soc_map.json) describes the accepted
   hardware/software address-map contract;
 - [`tools/gen_soc_map.py`](../tools/gen_soc_map.py) validates that contract and
   generates consumer-specific syntax;
 - generated files must never be edited independently.
 
-The current source is explicitly `proposed`. Its 64 KiB word depths can drive
-an isolated utilization experiment, while current RTL decoding and directed
-test addresses remain unchanged. See
+The current source is `accepted`: it freezes the split 64 KiB ABI while current
+RTL decoding, RAM defaults, and directed test addresses remain unchanged. See
 [`AR014_MACHINE_READABLE_SOC_MAP.md`](AR014_MACHINE_READABLE_SOC_MAP.md) and
 [`config/README.md`](../config/README.md) for the complete relationship.
 
-The paired experiment found that two 16 KiB banks use 8/60 RAMB36 tiles
-(13.33%), while two 64 KiB banks use 32/60 (53.33%) on the provisional part.
-LUTs changed from 7,861 to 7,902, registers from 2,465 to 2,467, and DSPs stayed
-at 12. This is resource evidence only: no clock/XDC constraint, placement,
-peripherals, or exact-board budget was included.
+The AR-015 baseline found that two 16 KiB banks use 8/60 RAMB36 tiles (13.33%),
+while two 64 KiB banks use 32/60 (53.33%) on the provisional part. Its
+single-cycle divider produced an identical 87.102 ns/305-level path for both
+profiles and failed 50 MHz with WNS -67.124 ns and 25 MHz with WNS -47.124 ns.
 
-The follow-up post-synthesis STA applies ideal 25/50 MHz internal clock
-constraints. Both RAM sizes have the same 87.102 ns, 305-level combinational
-MULDIV path: WNS is -67.124 ns at 50 MHz and -47.124 ns at 25 MHz. Thus the RAM
-capacity choice does not cause the present timing failure; division must become
-multi-cycle or otherwise pipelined. Board clock location, placement, routing,
-I/O timing, and physical closure remain unmeasured. See
-[`AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md`](AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md).
+AR-017 replaced only DIV/DIVU/REM/REMU with a 32-iteration restoring Radix-2
+unit. LUT use fell to 3,504 for the 16 KiB profile and 3,542 for 64 KiB;
+registers became 2,601, while RAMB36 and DSP counts stayed unchanged. Refreshed
+OOC post-synthesis STA gives WNS +7.373 ns at 50 MHz and +27.373 ns at 25 MHz,
+with a 12.605 ns/19-level multiply-high path now dominant for both profiles.
+Board clock location, placement, routing, I/O timing, and physical closure
+remain unmeasured. See
+[`AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md`](AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md)
+for the RED baseline and
+[`AR017_RADIX2_ITERATIVE_DIVIDER.md`](AR017_RADIX2_ITERATIVE_DIVIDER.md) for the
+GREEN optimization.
 
 ## 3. Recommended learning order
 
@@ -203,8 +212,9 @@ target, and peripherals.
 | `src/core/riscv.sv` | CPU integration, redirect/trap arbitration, external data bus, and commit wiring |
 | `src/core/riscv_pkg.sv` | ISA constants, enums, packet definitions, trap causes |
 | `src/core/decode.sv` | Instruction fields, immediates, operands, and control generation |
-| `src/core/execute.sv` | ALU, branches/jumps, RV32M, CSR operations, trap metadata |
-| `src/core/core_ctrl.sv` | RAW hazards, LSU wait, stalls, flushes, delayed fetch kill |
+| `src/core/execute.sv` | ALU, branches/jumps, multiply/completed-divide selection, CSR operations, trap metadata |
+| `src/core/radix2_divider.sv` | Iterative DIV/DIVU/REM/REMU arithmetic, completion, and kill handling |
+| `src/core/core_ctrl.sv` | RAW hazards, LSU/divider EX wait, stalls, flushes, delayed fetch kill |
 | `src/core/lsu.sv` | Effective address, alignment, store lanes, transaction FSM, load extension |
 | `src/core/csr_regfile.sv` | M-mode CSR state, legality, WARL, counters, trap entry |
 | `src/core/regfile.sv` | 32 integer registers, x0 behavior, WB-to-read bypass |
@@ -599,6 +609,8 @@ Recommended waveform groups:
 - `ex_redirect_en`, `ex_redirect_pc`, `wb_trap_event`;
 - `data_req_valid_o`, `data_req_ready_i`, `data_req_o`;
 - `data_rsp_valid_i`, `data_rsp_i`, `lsu_busy`, `lsu_complete`;
+- `div_start`, `div_busy`, `div_complete`, `div_wait`, `div_quotient`,
+  `div_remainder`;
 - `wb_rf_wen_safe`, `wb_rf_waddr`, `wb_rf_wdata`;
 - CSR address/read/write/effective values;
 - `commit_o`.
@@ -624,11 +636,11 @@ Recommended waveform groups:
 | Topic | Current risk or question | Planned stage |
 |---|---|---|
 | Blocking LSU performance | Correct but the front end waits for every memory response | Measure before adding a MEM stage/cache |
-| Memory topology | Split instruction/data regions are proposed; 16/64 KiB BRAM cost is measured, but software need and final capacity remain open | Phase 1 / AR-009 |
+| Memory-map implementation | Split 64 KiB topology and policies are accepted; current RTL still needs decoder, fetch errors, defaults, and consumer migration | Phase 2 / AR-009/AR-016 |
 | Unmapped access faults | Precise access-fault traps exist, but the SoC has no centralized decoder/default error target | Phase 2 |
 | Interrupt boundary | Correct resume PC and outstanding transaction deferral | Phase 3 / AR-008 |
 | Timer | No `mtime`, `mtimecmp`, or hardware MTIP | Phase 3 |
-| RV32M timing | Post-synthesis evidence confirms the combinational divider fails both 25 MHz and 50 MHz; redesign required | Early redesign / AR-011 |
+| RV32M timing | Iterative divider passes 25/50 MHz OOC post-synthesis checks; exact-board routed closure and multiply-high margin remain | Phase 7 / AR-011/AR-017 |
 | Retirement ownership | CSR/trap/commit logic remains distributed | Cleanup / AR-012 |
 | Peripherals | UART/GPIO/timer files are placeholders | Phases 3–4 |
 
@@ -675,7 +687,8 @@ compare RAM data, `load_offset`, extracted value, and committed result.
 - [Architecture review and action plan](ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md)
 - [Verification framework](../docs/verification_framework.md)
 - [Memory-map and bus design guide](MEMORY_MAP_CONTRACT_DESIGN_GUIDE.md)
-- [AR-009 architectural memory-map proposal](AR009_ARCHITECTURAL_MEMORY_MAP.md)
+- [AR-009 accepted architectural memory map](AR009_ARCHITECTURAL_MEMORY_MAP.md)
+- [AR-016 core-to-SoC environment contract](AR016_CORE_TO_SOC_ENVIRONMENT_CONTRACT.md)
 - [AR-001 precise CSR squash](AR001_PRECISE_CSR_SQUASH_FIX.md)
 - [AR-002 canonical bubbles](AR002_CANONICAL_PIPELINE_BUBBLES.md)
 - [AR-005 synchronous instruction BRAM](AR005_SYNCHRONOUS_INSTRUCTION_BRAM.md)
@@ -684,6 +697,8 @@ compare RAM data, `load_offset`, extracted value, and committed result.
 - [AR-013 regression exit-status gate](AR013_REGRESSION_EXIT_STATUS_GATE.md)
 - [AR-014 machine-readable SoC map](AR014_MACHINE_READABLE_SOC_MAP.md)
 - [AR-015 RAM-capacity utilization and timing comparison](AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md)
+- [AR-016 core-to-SoC environment contract](AR016_CORE_TO_SOC_ENVIRONMENT_CONTRACT.md)
+- [AR-017 Radix-2 iterative divider](AR017_RADIX2_ITERATIVE_DIVIDER.md)
 - [ACT4 integration](../verif/act4/README.md)
 - [Project roadmap](../TODO.md)
 

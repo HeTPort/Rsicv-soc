@@ -22,6 +22,9 @@ module execute #(
   input  logic          csr_privilege_ok_i,
   input  logic [AW-1:0] mepc_i,
 
+  // Completed multi-cycle divider result selected by the core top level.
+  input  logic [DW-1:0] div_result_i,
+
   // 横向输出信号
   output logic          redirect_en_o,
   output logic [AW-1:0] redirect_pc_o,
@@ -171,12 +174,8 @@ module execute #(
       (control_target[IALIGN_LSB-1:0] != '0);
 
   // ------------------------------------------------------------
-  // RV32M combinational multiply/divide
+  // RV32M combinational multiply. Division is provided by radix2_divider.
   // ------------------------------------------------------------
-  logic signed [DW-1:0] signed_op1;
-  logic signed [DW-1:0] signed_op2;
-  assign signed_op1 = signed'(op1_i);
-  assign signed_op2 = signed'(op2_i);
   logic signed [(2*DW)-1:0] mul_op1_ss;
   logic signed [(2*DW)-1:0] mul_op2_ss;
   logic signed [(2*DW)-1:0] mul_op1_su;
@@ -196,12 +195,6 @@ module execute #(
   assign product_su = mul_op1_su * mul_op2_su;
   assign product_uu = mul_op1_uu * mul_op2_uu;
   logic [DW-1:0] muldiv_result;
-  logic          div_by_zero;
-  logic          div_overflow;
-  assign div_by_zero = (op2_i == '0);
-  assign div_overflow =
-      (op1_i == {1'b1, {(DW-1){1'b0}}}) &&
-      (op2_i == {DW{1'b1}});
   always_comb begin
     muldiv_result = '0;
     unique case (muldiv_op_i)
@@ -221,42 +214,16 @@ module execute #(
         muldiv_result = product_uu[(2*DW)-1:DW];
       end
       MULDIV_DIV: begin
-        if (div_by_zero) begin
-          muldiv_result = {DW{1'b1}};
-        end
-        else if (div_overflow) begin
-          muldiv_result = {1'b1, {(DW-1){1'b0}}};
-        end
-        else begin
-          muldiv_result = DW'($signed(signed_op1) / $signed(signed_op2));
-        end
+        muldiv_result = div_result_i;
       end
       MULDIV_DIVU: begin
-        if (div_by_zero) begin
-          muldiv_result = {DW{1'b1}};
-        end
-        else begin
-          muldiv_result = op1_i / op2_i;
-        end
+        muldiv_result = div_result_i;
       end
       MULDIV_REM: begin
-        if (div_by_zero) begin
-          muldiv_result = op1_i;
-        end
-        else if (div_overflow) begin
-          muldiv_result = '0;
-        end
-        else begin
-          muldiv_result = DW'($signed(signed_op1) % $signed(signed_op2));
-        end
+        muldiv_result = div_result_i;
       end
       MULDIV_REMU: begin
-        if (div_by_zero) begin
-          muldiv_result = op1_i;
-        end
-        else begin
-          muldiv_result = op1_i % op2_i;
-        end
+        muldiv_result = div_result_i;
       end
       default: begin
         muldiv_result = '0;
