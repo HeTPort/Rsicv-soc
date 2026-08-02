@@ -18,6 +18,7 @@ if {[info exists ::env(AR003_PART)] && $::env(AR003_PART) ne ""} {
 file mkdir $output_dir
 
 set rtl_files [list \
+  [file join $repo_root src generated soc_mem_map_pkg.sv] \
   [file join $repo_root src core riscv_pkg.sv] \
   [file join $repo_root src core pc_counter.sv] \
   [file join $repo_root src core if2id.sv] \
@@ -34,6 +35,8 @@ set rtl_files [list \
   [file join $repo_root src mem prog_ram.sv] \
   [file join $repo_root src mem data_ram.sv] \
   [file join $repo_root src bus core_bus_data_ram.sv] \
+  [file join $repo_root src bus core_bus_default_target.sv] \
+  [file join $repo_root src bus soc_data_fabric.sv] \
   [file join $repo_root src core riscv.sv] \
   [file join $repo_root src riscv_soc.sv] \
 ]

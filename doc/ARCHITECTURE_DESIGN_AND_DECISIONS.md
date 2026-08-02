@@ -4,12 +4,14 @@
 
 **Audience:** Designers, reviewers, learners, and future maintainers
 
-**Last updated:** 2026-08-01
+**Last updated:** 2026-08-02
 
 **Current milestone:** Phase 1 and the AR-009/AR-016
-`freertos_split_64k_v1` core-to-SoC contract accepted; Phase 2 decoder,
-timer/peripheral work, and exact-board timing closure remain open. AR-017's
-multi-cycle divider is implemented and verified.
+`freertos_split_64k_v1` core-to-SoC contract are accepted. AR-019 implements
+and verifies its centralized data decoder/default target, while AR-017
+implements the multi-cycle divider. Phase 2 instruction errors,
+timer/peripheral work, and exact-board timing closure remain open. AR-018 now
+has two GREEN data cases and one isolated fetch RED.
 
 > This is the consolidated record of what the architecture is, why it evolved
 > this way, what was learned while fixing problems, and which decisions remain
@@ -65,7 +67,7 @@ programmable logic of a Zynq XC7Z010:
 - Blocking, single-outstanding CPU data bus with target-controlled request and
   response latency.
 - No general forwarding network beyond register-file write-first bypass.
-- Combinational RV32M implementation.
+- Combinational RV32M multiplication plus iterative multi-cycle division.
 - Vivado 2019.2 and ModelSim 2019.2 compatibility matter.
 
 ### 2.3 Deliberate non-goals for the FreeRTOS milestone
@@ -326,8 +328,9 @@ The architecture review froze a green baseline, then intentionally repaired
 precision and timing invariants before introducing wait states or interrupts.
 AR-003 and AR-004 are Phase 2 sub-gates that were completed early because the
 Phase 0A exit criteria also required wait-state correctness and packet-owned
-memory results. This closes Phase 0A, not Phase 2; address decode, the default
-error target, and system-level negative tests remain open.
+memory results. This closes Phase 0A, not Phase 2; AR-018 now provides initial
+system-level negative RED tests, while address decode, the default error target,
+and complete GREEN system coverage remain open.
 
 Reason for ordering:
 
@@ -660,30 +663,33 @@ through a side-effect-free registered default error target. The simulation-only
 **Accepted capacity sub-decision:** use 64 KiB for each instruction/data RAM
 bank. AR-015 measured the pair at 32/60 RAMB36 tiles on provisional
 `xc7z010clg400-1` and showed that capacity does not cause the current timing
-failure. The current RTL still defaults to 16 KiB, and the exact FPGA/board,
+failure. AR-019 promotes both SoC RTL defaults to 64 KiB. The exact FPGA/board,
 future-peripheral margin, and physical timing remain implementation gates.
 
 **Configuration infrastructure:** AR-014 validates the accepted
 JSON map and deterministically generates SystemVerilog, C, linker, simulation,
 Tcl, and ACT4-facing artifacts. This removes future manual constant duplication
-but does not change implemented decoding.
+and AR-019 now consumes the SystemVerilog map constants for data decode/default
+behavior. Remaining consumers must still migrate together.
 
-**Required Phase 2 implementation:**
+**Phase 2 implementation status:**
 
-- full-address centralized decode and base-address subtraction;
-- latched response-source selection;
-- default error completion for unmapped/invalid-offset data accesses;
+- full-address centralized data decode and base-address subtraction — complete;
+- latched response-source selection — complete;
+- default error completion for unmapped/invalid-offset data accesses — complete;
 - explicit instruction response-error handling for cause 1;
 - synchronized SystemVerilog/C/linker/test/converter/ACT4 constants;
-- boundary, negative, wait-state, and cross-target verification.
+- initial data boundary, negative, request-wait, and cross-target verification —
+  complete; expand with each real peripheral target.
 
 The full context, problem, recommendation, consequences, review questions,
 verification plan, and reusable principles are in
 [`AR009_ARCHITECTURAL_MEMORY_MAP.md`](AR009_ARCHITECTURAL_MEMORY_MAP.md).
 
-No RTL behavior changed when this contract was accepted. Phase 2 must update
-RTL constants, linker scripts, firmware headers, converters, ACT4 descriptions,
-and tests together.
+No RTL behavior changed when this contract was accepted. AR-019 later adopted
+the data-fabric and default-depth portion. Phase 2 must still update linker
+scripts, firmware headers, converters, ACT4 descriptions, instruction faults,
+and remaining tests together.
 
 ### AR-010 — Verification depth
 
@@ -882,12 +888,74 @@ ns; multiply-high is now the 12.605 ns critical path. Complete principle,
 signals, module relationships, commands, and limitations are in
 [`AR017_RADIX2_ITERATIVE_DIVIDER.md`](AR017_RADIX2_ITERATIVE_DIVIDER.md).
 
+### AR-018 — SoC fabric contract tests
+
+**State:** Data cases GREEN through AR-019; instruction-fetch case RED
+
+**Problem:** The accepted split map and access-fault rules had no executable
+SoC-level negative tests. Core-level error injection proved precise trap entry
+but bypassed the missing address decoder and instruction-error boundary.
+
+**Root cause:** The original `riscv_soc` routed every data request directly to
+data RAM, whose low-bit index permitted high-address aliasing. Invalid
+instruction fetches still have no error signal and are represented by a
+substituted EBREAK instruction.
+
+**Options:** Reuse injected core tests, add a compile-only future-interface
+test, force internal bus signals, or execute directed firmware through the real
+SoC wrapper. Firmware plus `commit_o` was selected because it remains stable
+across the upcoming fabric implementation and verifies architectural effects.
+
+**Decision:** Add `tb_riscv_soc`, an isolated `soc_red_tests.json` manifest,
+optional backward-compatible runner top selection, and three cases for load
+cause 5, store cause 7/no side effect, and fetch cause 1. Do not place expected
+RED failures in the default smoke suite.
+
+**Evidence and consequences:** The original 3/3 RED baseline is preserved.
+After AR-019, the unmapped load/store cases pass through the real SoC wrapper
+with precise causes 5/7 and no invalid-store RAM side effect. Invalid fetch
+still reaches failure code 2 after EBREAK/cause 3. The smoke suite remains
+22/22 and the result-classifier test passes. The remaining predicate is in
+[`AR018_SOC_FABRIC_RED_TESTS.md`](AR018_SOC_FABRIC_RED_TESTS.md).
+
+### AR-019 — Centralized data decoder and registered default target
+
+**State:** Implemented and verified
+
+**Problem:** A full architectural data address was sent directly to a RAM that
+indexes only low bits, allowing unmapped aliases and leaving no scalable owner
+for delayed responses from multiple targets.
+
+**Root cause:** The SoC boundary lacked full-address classification,
+target-local address translation, and transaction-owned response routing.
+
+**Options:** Add range checks to RAM, reuse verification error injection,
+return errors combinationally, or add a centralized fabric plus a separate
+registered default target. The fabric/default option was selected because it
+keeps map policy outside storage, obeys the accepted timing contract, and
+creates the target boundary needed by future peripherals.
+
+**Decision:** `soc_data_fabric` decodes only while idle, forwards a
+base-subtracted request to data RAM or the complete request to
+`core_bus_default_target`, and records the accepting target until response.
+The default returns zero data plus `error=1` one cycle after acceptance and has
+no write side effect. RAM decode size derives from the configured depth; SoC
+defaults consume the accepted generated 64 KiB constants.
+
+**Evidence and consequences:** Focused range/back-pressure/owner/cross-target
+tests pass at 116 ns. Both SoC data-fault firmware tests pass; invalid fetch
+remains intentionally RED. All 22 smoke tests, the classifier, and generated
+map check pass. Vivado 2019.2 OOC synthesis reports 0 errors, retains 32
+RAMB36E1 blocks, and retains the fabric/default hierarchy. Detailed invariants,
+timing, commands, and limitations are in
+[`AR019_CENTRALIZED_DATA_FABRIC.md`](AR019_CENTRALIZED_DATA_FABRIC.md).
+
 ## 9. Future stage architecture gates
 
 | Stage | Architecture decisions required before implementation | Exit evidence |
 |---|---|---|
 | Phase 1: contract freeze | Complete: AR-009/AR-016 accept topology, byte map, faults, timer atomicity, and bus lifecycle | Accepted contract answers every address/access/error case |
-| Phase 2: external data bus | Address decode, default error target, EX/WB response packet, access-fault traps; LSU FSM/backpressure are verified | Unmapped/error tests plus the already-green wait-state and old LSU suites |
+| Phase 2: external data bus | Data decode/default, EX/WB response packet, access-fault traps, LSU FSM/backpressure are verified; instruction error remains | Turn the remaining AR-018 fetch case GREEN, add real peripheral targets, retain all data-fabric/LSU suites |
 | Phase 3: timer interrupt | MTIP ownership, eligibility, retirement boundary, MRET, WFI | Long repeated-interrupt test and precise commit assertions |
 | Phase 4: UART/GPIO | Register semantics, partial writes, reset, decode exclusivity | Peripheral and SoC-level scoreboards |
 | Phase 5: firmware | Startup ABI, linker map, image split, drivers | Same bare-metal programs in simulation and FPGA |
@@ -994,5 +1062,7 @@ An architecture-changing task is incomplete until this document is updated.
 - [AR-015 RAM-capacity utilization and timing comparison](AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md)
 - [AR-016 core-to-SoC environment contract](AR016_CORE_TO_SOC_ENVIRONMENT_CONTRACT.md)
 - [AR-017 Radix-2 iterative divider](AR017_RADIX2_ITERATIVE_DIVIDER.md)
+- [AR-018 SoC fabric RED tests](AR018_SOC_FABRIC_RED_TESTS.md)
+- [AR-019 centralized data fabric](AR019_CENTRALIZED_DATA_FABRIC.md)
 - [ACT4 integration handoff](ACT4_RV32I_INTEGRATION_HANDOFF_2026-07-27.md)
 - [ACT4 integration guide](../verif/act4/README.md)

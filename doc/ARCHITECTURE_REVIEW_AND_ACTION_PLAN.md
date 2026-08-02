@@ -38,7 +38,7 @@ Current ownership and status:
 | Finding | Owning stage | Status |
 |---|---|---|
 | AR-001, AR-002, AR-005, AR-006, AR-007 | Phase 0A | Implemented and verified |
-| AR-003, AR-004 | Phase 2 sub-gates completed early | Implemented and verified; the remaining Phase 2 decoder work is open |
+| AR-003, AR-004 | Phase 2 transaction/result sub-gates | Implemented and verified |
 | AR-008 | Phase 3 | Proposed; interrupt boundary work has not started |
 | AR-009 | Phase 1 | Accepted; Phase 1 contract complete, Phase 2 implementation pending |
 | AR-010 | Continuous verification track | Ongoing |
@@ -49,6 +49,8 @@ Current ownership and status:
 | AR-015 | AR-011 evidence supporting Phase 1 | 16 KiB/64 KiB utilization and post-synthesis timing comparison verified |
 | AR-016 | Phase 1 architecture boundary | Core-to-SoC ownership and environment contract accepted |
 | AR-017 | AR-011 timing optimization | Radix-2 iterative divider implemented and verified; exact-board closure open |
+| AR-018 | Phase 2 SoC contract | Data cases GREEN through AR-019; invalid fetch remains RED |
+| AR-019 | Phase 2 data fabric | Centralized decoder/default target implemented and verified |
 
 ## Verified baseline
 
@@ -95,9 +97,10 @@ Exit criteria:
       green.
 
 AR-003 and AR-004 are Phase 2 data-bus sub-gates that were deliberately pulled
-forward to satisfy the wait-state and registered-result criteria above. Their
-early completion does not close Phase 2: centralized address decode, a default
-error target, and their system-level tests remain open.
+forward to satisfy the wait-state and registered-result criteria above. AR-019
+now implements centralized data decode/default termination. Phase 2 remains
+open for instruction-access errors, real peripheral targets, and broader
+system integration.
 
 ## Findings and handling plan
 
@@ -401,8 +404,9 @@ mstatus.MIE && mie.MTIE && mip.MTIP
 
 ### AR-009 — The accepted memory map requires migration from the current ACT4 flow
 
-**Status:** accepted on 2026-08-01; not yet implemented. **Target:** Phase 1
-complete, with behavioral adoption owned by Phase 2.
+**Status:** accepted on 2026-08-01; data-RAM/default RTL partially adopted by
+AR-019. **Target:** Phase 1 complete, with remaining behavioral/software
+adoption owned by Phase 2.
 
 **Evidence**
 
@@ -440,7 +444,8 @@ regions:
 - [x] Establish a validated machine-readable accepted map and deterministically
       generate SystemVerilog, C, linker, simulation, Vivado Tcl, and ACT4-facing
       artifacts. AR-014 records their provenance and validation; generation does
-      not implement the RTL decoder.
+      not itself implement behavior, while AR-019 now consumes the generated
+      SystemVerilog constants in the data fabric.
 - [x] Select 64 KiB per instruction/data RAM bank using the paired AR-015
       resource and timing evidence.
 - [x] Record the selected option in `TODO.md` and the architecture documentation.
@@ -448,10 +453,52 @@ regions:
       to words only inside RAM modules.
 - [ ] Update hardware parameters, linker scripts, firmware image generation,
       ACT4 configuration, and testbench ranges in the same change.
-- [ ] Use an explicit default error target for unmapped data-bus addresses.
+- [x] Use an explicit registered default error target for unmapped data-bus
+      addresses. See
+      [`AR019_CENTRALIZED_DATA_FABRIC.md`](AR019_CENTRALIZED_DATA_FABRIC.md).
+- [x] Add isolated executable RED cases for unmapped load/store and invalid
+      fetch without adding expected failures to the default smoke suite. See
+      [`AR018_SOC_FABRIC_RED_TESTS.md`](AR018_SOC_FABRIC_RED_TESTS.md).
 - [x] Reserve a large enough timer decode window for standard offsets:
       `mtimecmp=0x4000` and `mtime=0xBFF8` require a window extending beyond
       4 KiB.
+
+### AR-018 — The accepted SoC error contract lacked executable system-level RED evidence
+
+**Status:** Data cases GREEN through AR-019; instruction-fetch case remains RED.
+**Target:** Phase 2.
+
+**Evidence**
+
+- The common source list compiles `tb_riscv_soc` with zero errors.
+- An isolated manifest runs accepted 64 KiB depths and
+  `tohost=0x8000_FFFC` through the real `riscv_soc` wrapper.
+- The original RED run showed unmapped load and store reaching failure code 6
+  because the wrapper routed them to data RAM instead of an error target.
+- AR-019 now makes both data cases pass with causes 5/7 and proves that the
+  invalid store cannot alter the aliased RAM sentinel.
+- An invalid fetch reaches failure code 2 after `prog_ram` substitutes EBREAK,
+  proving that instruction access fault cause 1 is missing.
+- The unchanged smoke suite remains 22/22 green and the regression classifier
+  still passes.
+
+**Handling**
+
+- [x] Add the three RED firmware cases, SoC testbench, separate manifest, and
+      backward-compatible runner top selection.
+- [x] Add full-address decode and local-address subtraction.
+- [x] Register response-source ownership and add the one-cycle, side-effect-free
+      default target.
+- [ ] Add explicit fetch error signaling and precise cause-1 completion.
+- [x] Add initial data-RAM boundary, inserted-request-wait, owner-stability, and
+      back-to-back cross-target coverage.
+- [ ] Turn the remaining AR-018 instruction case GREEN and extend coverage as
+      real peripheral targets are added.
+
+Detailed rationale, failure codes, commands, and the remaining predicate are in
+[`AR018_SOC_FABRIC_RED_TESTS.md`](AR018_SOC_FABRIC_RED_TESTS.md). The data
+implementation record is
+[`AR019_CENTRALIZED_DATA_FABRIC.md`](AR019_CENTRALIZED_DATA_FABRIC.md).
 
 ### AR-010 — Current tests are green but too shallow for the claimed features
 
@@ -604,9 +651,10 @@ For the initial single-hart FreeRTOS target:
 
 ## Revised execution order and current position
 
-Steps 1–3 are complete. AR-003 and AR-004 completed the transaction and
-registered-result parts of step 4 early, but the address decoder, default
-target, accepted-map migration, and system-level negative tests remain open.
+Steps 1–3 are complete. AR-003/AR-004 complete transaction/result ownership,
+and AR-019 now completes the centralized data decoder/default-target portion of
+step 4. AR-018 has two GREEN data cases; explicit fetch-error signaling remains
+RED. Remaining accepted-map consumers and peripheral targets are open.
 AR-017's MULDIV redesign and repeated OOC timing checkpoint are complete.
 
 1. **Checkpoint the current working tree and archived 9/9 + 4/4 evidence.**

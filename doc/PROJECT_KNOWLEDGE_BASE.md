@@ -4,12 +4,13 @@
 
 **Audience:** New contributors and learners
 
-**Last updated:** 2026-08-01
+**Last updated:** 2026-08-02
 
 **Current reference:** `codex/architecture-review-roadmap`, with Phase 1 and the
-AR-009/AR-016 split 64 KiB core-to-SoC contract accepted; Phase 2 implementation,
-timer/peripheral work, and physical timing closure remain open. AR-017 has
-implemented and verified the multi-cycle divider optimization.
+AR-009/AR-016 split 64 KiB core-to-SoC contract accepted. AR-019 implements the
+centralized data decoder/default target and AR-017 implements the multi-cycle
+divider. Phase 2 instruction errors, timer/peripheral work, and physical timing
+closure remain open; AR-018 isolates the remaining invalid-fetch RED case.
 
 > Update this document whenever a change alters a module boundary, pipeline
 > timing, packet field, architectural behavior, memory map, verification
@@ -53,6 +54,8 @@ the minimal architecture needed for the first working system.
 - Single-outstanding, wait-state-capable CPU data bus.
 - Clocked LSU request/response transaction state machine.
 - Synchronous data RAM outside the CPU behind a core-bus adapter.
+- Centralized full-address data decode, base-subtracted RAM requests,
+  registered response ownership, and a one-cycle default error target.
 - EX/WB-owned raw/aligned memory response data and error status.
 - Precise load/store access-fault completion.
 - M-mode CSR instructions, WARL behavior, trap entry, and `mret`.
@@ -63,8 +66,8 @@ the minimal architecture needed for the first working system.
   PASS-marker, fatal-marker, and error-count result gates.
 - ELF/image conversion and ACT4 integration adapters.
 - Dependency-free machine-readable SoC map validation and deterministic
-  cross-language generation for the accepted configuration. This is tooling,
-  not implemented address decoding.
+  cross-language generation for the accepted configuration; the data-fabric
+  RTL now consumes its SystemVerilog constants.
 - Accepted Phase 1 core-to-SoC ownership, memory-map, bus, error, software, and
   verification-environment contract.
 - Generated 16 KiB/64 KiB RAM experiment profiles and paired Vivado 2019.2
@@ -72,10 +75,12 @@ the minimal architecture needed for the first working system.
   provisional `xc7z010clg400-1`.
 - Current directed smoke baseline: 22/22 passing after AR-013, with 4/4 Python
   utilities and the focused regression-result negative test passing.
+- Separate AR-018 `tb_riscv_soc` contract manifest: unmapped load/store are
+  GREEN through AR-019; invalid fetch remains isolated as one expected RED.
 
 ### Not implemented yet
 
-- SoC address decoder and default error target.
+- Explicit instruction-fetch error signaling and cause-1 access faults.
 - Machine timer and interrupt input.
 - Implemented UART, GPIO, or other peripherals.
 - Firmware startup/linker/driver stack.
@@ -91,8 +96,8 @@ The current mapping is:
 | Work | Planning meaning |
 |---|---|
 | AR-001, AR-002, AR-005, AR-006, AR-007 | Phase 0A work, implemented and verified |
-| AR-003, AR-004 | Phase 2 sub-gates completed early; the decoder/default-target work is still open |
-| AR-009 | Phase 1 split 64 KiB map accepted; Phase 2 implementation pending |
+| AR-003, AR-004 | Phase 2 transaction/result sub-gates, implemented and verified |
+| AR-009 | Phase 1 split 64 KiB map accepted; data RTL partially adopted in Phase 2 |
 | AR-008 | Future Phase 3 interrupt-boundary work |
 | AR-010 | Ongoing verification-depth work across phases |
 | AR-011 | Early FPGA feasibility plus later timing closure |
@@ -102,6 +107,8 @@ The current mapping is:
 | AR-015 | Paired 16 KiB/64 KiB utilization/timing evidence, implemented and verified |
 | AR-016 | Core-to-SoC environment contract accepted; Phase 1 complete |
 | AR-017 | Radix-2 iterative divider, implemented and verified; physical closure remains Phase 7 |
+| AR-018 | SoC contract tests: two data cases GREEN, invalid fetch still RED |
+| AR-019 | Centralized data decoder/default target implemented and verified |
 
 The authoritative phase checklist is [`TODO.md`](../TODO.md); the detailed
 finding status is in
@@ -180,14 +187,19 @@ flowchart LR
     CSR["M-mode CSR state"]
   end
 
+  FABRIC["Full-address data fabric"]
+  DEFAULT["Registered default error target"]
   ADAPTER["Core-bus to RAM adapter"]
   DRAM["Synchronous data RAM"]
 
   PRAM -->|"instruction response"| IF
   IF --> ID --> EX --> WB
   EX --> LSU
-  LSU -->|"request valid/ready"| ADAPTER --> DRAM
-  DRAM --> ADAPTER -->|"response valid/data/error"| LSU
+  LSU -->|"architectural request"| FABRIC
+  FABRIC -->|"base-subtracted RAM request"| ADAPTER --> DRAM
+  FABRIC -->|"all other data addresses"| DEFAULT
+  DRAM --> ADAPTER --> FABRIC
+  DEFAULT --> FABRIC -->|"owned response/data/error"| LSU
   LSU -->|"one completion"| WB
   WB -->|"GPR result"| ID
   WB -->|"CSR write / trap entry"| CSR
@@ -200,10 +212,10 @@ flowchart LR
   CTRL -.->|"suppress younger effects"| EX
 ```
 
-The current SoC is still mostly a core plus memories. `riscv.sv` now exposes a
-small request/response data bus; `riscv_soc.sv` connects it to data RAM through
-`core_bus_data_ram.sv`. Phase 2 still needs address decode, a default error
-target, and peripherals.
+The current SoC is still mostly a core plus memories. `riscv.sv` exposes a
+small request/response data bus; `riscv_soc.sv` now routes it through
+`soc_data_fabric.sv` to the RAM adapter or registered default error target.
+Phase 2 still needs instruction-fetch errors and real peripheral targets.
 
 ## 5. Repository map
 
@@ -225,14 +237,16 @@ target, and peripherals.
 | `src/mem/prog_ram.sv` | One-cycle synchronous instruction/program BRAM |
 | `src/mem/data_ram.sv` | Synchronous byte-writeable data RAM |
 | `src/bus/core_bus_data_ram.sv` | CPU-local bus to synchronous RAM adapter |
-| `src/riscv_soc.sv` | Program loader, memories, RAM adapter, and CPU wrapper |
+| `src/bus/soc_data_fabric.sv` | Full-address decode, RAM base subtraction, response-owner mux |
+| `src/bus/core_bus_default_target.sv` | Registered zero-data error response with no write side effect |
+| `src/riscv_soc.sv` | Program loader, memories, data fabric/targets, and CPU wrapper |
 | `sim/tb/tb_riscv_core.sv` | Main testbench and architectural checks |
 | `sim/regress/` | Manifest-driven ModelSim runner and image conversion |
 | `verif/act4/` | Official architectural-test integration metadata |
 | `testdata/` | Directed assembly tests and generated memory images |
 | `doc/` | Architecture reviews, decisions, evidence, and learning notes |
 
-`src/bus` now contains the RAM adapter. `src/periph`, `src/common`, and some SoC
+`src/bus` now contains the fabric, default target, and RAM adapter. `src/periph`, `src/common`, and some SoC
 testbench files remain placeholders; their existence does not mean those
 features are implemented.
 
@@ -465,13 +479,32 @@ only abstract busy state and does not duplicate bus protocol logic.
 request acceptance and response delivery, and then translates an accepted
 request to the synchronous RAM controls.
 
-Vivado 2019.2 out-of-context synthesis retains four program-memory and four
-data-memory `RAMB36E1` cells. This confirms the new module boundary is
-synthesizable; it does not replace later board timing closure.
-
-Detailed rationale, RED/GREEN evidence, performance consequences, and reusable
-principles are in
+The original Vivado 2019.2 OOC check retained four program-memory and four
+data-memory `RAMB36E1` cells. Detailed AR-003 rationale and evidence are in
 [`AR003_WAIT_STATE_SAFE_LSU.md`](AR003_WAIT_STATE_SAFE_LSU.md).
+
+### 10.5 Implemented centralized data fabric
+
+AR-019 inserts `soc_data_fabric` between the LSU bus and targets. It compares
+the complete architectural address with the configured data-RAM interval,
+subtracts `0x8000_0000` only in the RAM-facing copy, and records the accepting
+target until the response arrives. It never re-decodes a changed live address
+while a transaction is outstanding.
+
+Every non-RAM data address selects `core_bus_default_target`. That target
+returns zero data with `error=1` during the cycle after acceptance and owns no
+writable state. Future timer/UART/GPIO windows therefore fault safely until
+their real targets replace the default selection. The original architectural
+address remains in the LSU/commit packet for correct `mtval` and debug output.
+
+Focused boundary, back-pressure, owner-stability, cross-target, invalid-load,
+and invalid-store tests pass. Instruction fetch uses a separate interface and
+still lacks explicit access-error status.
+
+The accepted 64 KiB Vivado OOC check retains 32 `RAMB36E1` cells and the
+fabric/default-target hierarchy. Detailed decisions and evidence are in
+[`AR019_CENTRALIZED_DATA_FABRIC.md`](AR019_CENTRALIZED_DATA_FABRIC.md). This
+still does not replace exact-board routed timing closure.
 
 ## 11. CSR and trap model
 
@@ -636,8 +669,8 @@ Recommended waveform groups:
 | Topic | Current risk or question | Planned stage |
 |---|---|---|
 | Blocking LSU performance | Correct but the front end waits for every memory response | Measure before adding a MEM stage/cache |
-| Memory-map implementation | Split 64 KiB topology and policies are accepted; current RTL still needs decoder, fetch errors, defaults, and consumer migration | Phase 2 / AR-009/AR-016 |
-| Unmapped access faults | Precise access-fault traps exist, but the SoC has no centralized decoder/default error target | Phase 2 |
+| Memory-map implementation | Data RAM/default decode and 64 KiB RTL defaults are implemented; fetch errors, peripherals, and remaining consumer migration are open | Phase 2 / AR-009/AR-016/AR-018/AR-019 |
+| Unmapped access faults | Data load/store faults are precise; invalid instruction fetch still substitutes EBREAK instead of cause 1 | Phase 2 / AR-018 |
 | Interrupt boundary | Correct resume PC and outstanding transaction deferral | Phase 3 / AR-008 |
 | Timer | No `mtime`, `mtimecmp`, or hardware MTIP | Phase 3 |
 | RV32M timing | Iterative divider passes 25/50 MHz OOC post-synthesis checks; exact-board routed closure and multiply-high margin remain | Phase 7 / AR-011/AR-017 |
@@ -699,6 +732,8 @@ compare RAM data, `load_offset`, extracted value, and committed result.
 - [AR-015 RAM-capacity utilization and timing comparison](AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md)
 - [AR-016 core-to-SoC environment contract](AR016_CORE_TO_SOC_ENVIRONMENT_CONTRACT.md)
 - [AR-017 Radix-2 iterative divider](AR017_RADIX2_ITERATIVE_DIVIDER.md)
+- [AR-018 SoC fabric RED tests](AR018_SOC_FABRIC_RED_TESTS.md)
+- [AR-019 centralized data fabric](AR019_CENTRALIZED_DATA_FABRIC.md)
 - [ACT4 integration](../verif/act4/README.md)
 - [Project roadmap](../TODO.md)
 

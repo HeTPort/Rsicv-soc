@@ -4,11 +4,15 @@
 
 **Architecture contract accepted and Phase 1 completed on 2026-08-01.**
 
+The AR-019 centralized data decoder/default target and accepted 64 KiB RTL
+defaults were implemented and verified on 2026-08-02. Explicit instruction
+access faults and remaining software/peripheral consumers are still open.
+
 This document explains how the RV32IM CPU core connects to the accepted first
 FreeRTOS SoC environment. It freezes ownership, address, transaction, error,
-software, and verification boundaries. It does **not** claim that the Phase 2
-decoder, default target, instruction-error path, or accepted addresses are
-already implemented in RTL.
+software, and verification boundaries. Its data-fabric portion is now
+implemented by AR-019; this contract does **not** claim that the instruction
+error path or every accepted peripheral/software consumer is implemented.
 
 The authoritative machine-readable ABI is
 [`config/soc_map.json`](../config/soc_map.json), configuration
@@ -153,8 +157,9 @@ retire ahead of the held memory operation.
 
 ## 7. Decode and local addressing
 
-The Phase 2 decoder must compare the full 32-bit architectural address. After a
-target is selected, it supplies a target-local byte address:
+The AR-019 data decoder compares the full 32-bit architectural address. After a
+target is selected, it supplies a target-local byte address; the data-RAM rule
+is implemented now and the peripheral rules apply when those targets are added:
 
 ```text
 data_ram_local = architectural_address - 0x8000_0000
@@ -235,7 +240,10 @@ commit behavior with controlled memory models. It does not prove SoC decode.
 
 ### SoC-level verification
 
-`tb_riscv_soc` must become the integration environment for:
+`tb_riscv_soc` provides the AR-018 environment for unmapped load/store and
+invalid-fetch behavior. The data cases are GREEN through AR-019; invalid fetch
+remains RED. This environment must grow into the complete
+integration environment for:
 
 - every region boundary and the addresses immediately outside it;
 - base subtraction and no high-address aliasing;
@@ -255,9 +263,9 @@ regression boundary for infrastructure success.
 
 | State | Meaning now |
 |---|---|
-| Current RTL | Direct instruction RAM and direct data-RAM target; 4,096-word defaults; no centralized decoder |
+| Current RTL | Direct instruction RAM; centralized data fabric to 64 KiB-default RAM or registered error target; no instruction-error signal |
 | Accepted Phase 1 ABI | Split 64 KiB map, addresses, visibility, errors, default-target latency, generated definitions |
-| Phase 2 implementation | Decoder, local-address translation, registered target ownership, default target, instruction error, migrated tests/tooling |
+| Remaining Phase 2 implementation | Instruction error, real peripheral targets, and remaining linker/image/regression/ACT4 migration |
 | Later SoC phases | Timer interrupt, UART/GPIO, firmware, FreeRTOS, exact-board closure |
 
 ## 13. Phase 2 implementation order
@@ -271,8 +279,15 @@ regression boundary for infrastructure success.
 6. Promote the accepted 16,384-word RAM depths in the SoC configuration.
 7. Migrate linker, images, `tohost`, regression manifests, converter, and ACT4
    descriptions together.
-8. Add SoC-level boundary, negative, wait-state, and cross-target tests.
+8. Turn the AR-018 negative RED cases GREEN, then add SoC-level boundary,
+   wait-state, and cross-target tests.
 9. Rerun functional regression and exact-part synthesis/timing evidence.
+
+AR-019 completes steps 1-4 and 6 for the data path, makes the two AR-018 data
+cases GREEN, adds initial boundary/back-pressure/cross-target coverage, and
+reruns functional plus provisional-part OOC synthesis. Steps 5 and 7, the
+remaining fetch case in step 8, real peripheral targets, and exact-board
+closure remain open.
 
 ## 14. Consequences and risks
 
@@ -287,6 +302,8 @@ regression boundary for infrastructure success.
   both profiles now pass 25/50 MHz OOC STA, while physical closure remains open.
 - The accepted ABI should change only through a new reviewed decision and
   regenerated artifacts, never through isolated constants.
+- AR-019 records the implemented decoder/default-target choices and evidence in
+  [`AR019_CENTRALIZED_DATA_FABRIC.md`](AR019_CENTRALIZED_DATA_FABRIC.md).
 
 ## 15. Reusable principles
 

@@ -8,6 +8,8 @@ logs, and returns a nonzero process status if any test fails.
 ## Files
 
 - `tests.json` - test names, firmware images, timeouts, and selection tags.
+- `soc_red_tests.json` - isolated Phase 2 SoC contract cases: implemented data
+  faults use `phase2-data`; the remaining fetch fault uses `phase2-red`.
 - `run_regression.ps1` - Windows PowerShell orchestration and result checking.
 - `regression_result.ps1` - shared simulator result-classification policy.
 - `test_regression_result.ps1` - dependency-free positive/negative classifier
@@ -72,6 +74,33 @@ Useful selections:
 ./run_regression.ps1 -Test ebreak -Trace -DumpWaves
 ```
 
+The Phase 2 SoC contract suite selects `tb_riscv_soc` through a separate
+manifest. Run the implemented centralized data-decoder/default-target cases:
+
+```powershell
+./run_regression.ps1 `
+  -Manifest .\soc_red_tests.json `
+  -Tag phase2-data
+```
+
+All three selected runs (load, store, and store with inserted RAM waits) must
+pass. The instruction-error interface is still open,
+so its isolated case remains an expected RED result:
+
+```powershell
+./run_regression.ps1 `
+  -Manifest .\soc_red_tests.json `
+  -Tag phase2-red
+```
+
+Do not add the remaining `phase2-red` case to the default `smoke` tag before its
+GREEN implementation exists. The focused fabric protocol test is:
+
+```powershell
+Set-Location D:\Rsicv-soc\sim
+vsim -c -do run_soc_data_fabric.do
+```
+
 Success produces process exit code `0`. Manifest, tool, compile, assertion,
 timeout, simulator, or architectural failures produce a nonzero exit code. The
 focused classifier test proves that a PASS-looking transcript cannot override
@@ -110,6 +139,8 @@ Important JSON rules:
   comma after the final item.
 - `image` is relative to the repository root, not the launch directory.
 - Optional `data_image` initializes data RAM independently from instruction RAM.
+- Optional `top` selects the elaborated simulation top. It may be supplied by
+  a test or by `defaults`; when omitted it remains `work.tb_riscv_core`.
 - Optional `tohost_addr` overrides the completion address for that test.
 - `timeout_cycles` bounds the test independently of host execution time.
 - Optional `data_req_wait_cycles` delays data-request acceptance.

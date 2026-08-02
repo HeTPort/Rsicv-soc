@@ -2,22 +2,25 @@
 
 ## Status
 
-**Accepted on 2026-08-01. Not yet implemented.**
+**Accepted on 2026-08-01. Data-RAM/default-target RTL partially implemented by
+AR-019 on 2026-08-02.**
 
 This document records the accepted first-milestone memory topology and map for
 the FreeRTOS target. Acceptance freezes the hardware/software ABI; it is not a
-statement that current RTL, linker, tests, or firmware already use the map.
+statement that every RTL, linker, test, or firmware consumer already uses the
+map.
 
-Acceptance closes the Phase 1 gate. The remaining Phase 2 address decoder,
-default error target, instruction-error path, and consumer migration implement
-the contract.
+Acceptance closes the Phase 1 gate. AR-019 implements the centralized data
+decoder, local RAM address, registered default target, and 64 KiB SoC RTL
+defaults. The instruction-error path, peripherals, and remaining consumer
+migration still implement the rest of the contract.
 
 ## Problem
 
-The current SoC has separate physical program and data RAM, but it does not yet
-have a complete software-visible memory-map contract:
+The original SoC had separate physical program and data RAM but no complete
+software-visible memory-map implementation:
 
-- every CPU data request is routed directly to the RAM adapter;
+- every CPU data request was routed directly to the RAM adapter;
 - `data_ram` uses only the low RAM-index bits, so unrelated high addresses can
   alias RAM rather than fault;
 - the instruction interface has no response-error signal, and an invalid

@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "defaults": {
+    "top": "work.tb_riscv_soc",
+    "timeout_cycles": 2000,
+    "tohost_addr": 2147549180,
+    "prog_ram_depth": 16384,
+    "data_ram_depth": 16384
+  },
+  "tests": [
+    {
+      "name": "soc_unmapped_load_fault",
+      "image": "testdata/soc_unmapped_load_fault_test.hex",
+      "tags": ["phase2-data", "soc", "decode", "load", "fault"]
+    },
+    {
+      "name": "soc_unmapped_store_fault",
+      "image": "testdata/soc_unmapped_store_fault_test.hex",
+      "tags": ["phase2-data", "soc", "decode", "store", "fault"]
+    },
+    {
+      "name": "soc_unmapped_store_fault_waitstate",
+      "image": "testdata/soc_unmapped_store_fault_test.hex",
+      "data_req_wait_cycles": 2,
+      "data_rsp_wait_cycles": 3,
+      "tags": ["phase2-data", "soc", "decode", "store", "fault", "waitstate"]
+    },
+    {
+      "name": "soc_instruction_access_fault_red",
+      "image": "testdata/soc_instruction_access_fault_test.hex",
+      "tags": ["phase2-red", "soc", "fetch", "fault"]
+    }
+  ]
+}

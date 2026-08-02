@@ -1,0 +1,39 @@
+AR-019 centralized data fabric verification - 2026-08-02
+
+Focused protocol/decode test
+  command: cd sim; vsim -c -do run_soc_data_fabric.do
+  result:  [SOC-DATA-FABRIC-TB] RESULT: PASS
+  time:    116 ns
+  compile: 0 errors
+
+SoC data-fault firmware
+  command: sim/regress/run_regression.ps1 -Manifest soc_red_tests.json -Tag phase2-data
+  result:  soc_unmapped_load_fault  PASS
+           soc_unmapped_store_fault PASS
+           soc_unmapped_store_fault_waitstate PASS (request wait 2, response wait 3)
+           3/3 selected tests passed; process exit 0
+  logs:    0 simulator errors in all passing logs
+
+Remaining fetch RED (out of AR-019 data scope)
+  command: sim/regress/run_regression.ps1 -Manifest soc_red_tests.json -Tag phase2-red
+  result:  soc_instruction_access_fault_red FAIL; runner exit 1 as expected
+  cause:   prog_ram out-of-range fetch substitutes EBREAK/cause 3
+  native simulator exit: 0
+
+Compatibility regression
+  command: sim/regress/run_regression.ps1 -Tag smoke
+  result:  22/22 PASS; all native simulator exits 0
+
+Infrastructure/static checks
+  regression result classifier: PASS
+  python tools/gen_soc_map.py --check: PASS (freertos_split_64k_v1 accepted)
+  soc_red_tests.json parse: PASS
+  git diff --check: PASS (line-ending notices only)
+
+Vivado 2019.2 accepted-map out-of-context synthesis
+  command: vivado.bat -mode batch -source check_riscv_soc_configured_ram.tcl
+  part:    xc7z010clg400-1 (provisional)
+  result:  PASS; 0 errors, 0 critical warnings reported by synth_design
+  RAM:     32 RAMB36E1
+  fabric:  u_data_fabric retained (40 cells)
+  default: u_default_target retained (6 cells)

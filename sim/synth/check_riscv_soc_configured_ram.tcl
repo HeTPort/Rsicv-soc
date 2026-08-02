@@ -1,6 +1,7 @@
 # Out-of-context utilization experiment driven by the generated SoC map.
-# This proves physical RAM inference/cost only. It does not implement or verify
-# the proposed architectural decoder, base subtraction, or access-fault paths.
+# This proves physical RAM inference/cost and synthesis compatibility of the
+# implemented data fabric. Functional decode/fault behavior is verified in
+# ModelSim; this OOC run is not exact-board timing closure.
 
 set script_dir [file dirname [file normalize [info script]]]
 set repo_root  [file normalize [file join $script_dir ../..]]
@@ -38,6 +39,8 @@ set rtl_files [list \
   [file join $repo_root src mem prog_ram.sv] \
   [file join $repo_root src mem data_ram.sv] \
   [file join $repo_root src bus core_bus_data_ram.sv] \
+  [file join $repo_root src bus core_bus_default_target.sv] \
+  [file join $repo_root src bus soc_data_fabric.sv] \
   [file join $repo_root src core riscv.sv] \
   [file join $repo_root src riscv_soc.sv] \
 ]
@@ -52,6 +55,8 @@ synth_design \
     DW=$SOC_DATA_WIDTH \
     PROG_RAM_DEPTH=$SOC_PROG_RAM_DEPTH_WORDS \
     DATA_RAM_DEPTH=$SOC_DATA_RAM_DEPTH_WORDS \
+    DATA_REQ_WAIT_CYCLES=0 \
+    DATA_RSP_WAIT_CYCLES=0 \
   ]
 
 set bram_cells [get_cells -hier -filter {

@@ -1,4 +1,5 @@
 ./../src/core/riscv_pkg.sv
+./../src/generated/soc_mem_map_pkg.sv
 ./../src/core/pc_counter.sv
 ./../src/core/if2id.sv
 ./../src/core/id2ex.sv
@@ -14,8 +15,12 @@
 ./../src/mem/prog_ram.sv
 ./../src/mem/data_ram.sv
 ./../src/bus/core_bus_data_ram.sv
+./../src/bus/core_bus_default_target.sv
+./../src/bus/soc_data_fabric.sv
 ./../src/core/riscv.sv
 ./../src/riscv_soc.sv
 ./tb/tb_riscv_core.sv
+./tb/tb_riscv_soc.sv
 ./tb/tb_lsu_protocol.sv
 ./tb/tb_radix2_divider.sv
+./tb/tb_soc_data_fabric.sv

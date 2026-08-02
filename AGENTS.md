@@ -29,7 +29,9 @@ The active core also includes `src/core/radix2_divider.sv`, a kill-safe
 - `src/core/core_ctrl.sv` — centralized pipeline control: hazard detection, stall/flush generation, delayed fetch kill, and `pipe_kill`.
 - `src/core/lsu.sv` — Load/Store Unit: address/alignment, store lanes, load extension, and the single-outstanding data-bus transaction FSM.
 - `src/bus/core_bus_data_ram.sv` — adapter from the CPU-local request/response bus to synchronous data RAM, with verification wait-state parameters.
-- `src/riscv_soc.sv` — SoC wrapper that connects the CPU to program RAM and the external data-RAM adapter.
+- `src/bus/soc_data_fabric.sv` — centralized full-address data decoder, local-address translator, and registered response-owner mux.
+- `src/bus/core_bus_default_target.sv` — one-cycle registered, side-effect-free error target for every non-RAM data address.
+- `src/riscv_soc.sv` — SoC wrapper that connects the CPU to program RAM and routes its data bus through the fabric to RAM/default targets.
 - `src/mem/prog_ram.sv` — synchronous instruction/program RAM.
 - `src/mem/data_ram.sv` — synchronous data RAM, now written as a pure BRAM template.
 - `sim/tb/tb_riscv_core.sv` — main testbench that loads `testdata/prog.hex` and checks the CPU.
@@ -80,6 +82,13 @@ cd sim
 vsim -c -do run_divider_protocol.do
 ```
 
+### Run the focused SoC data-fabric test
+
+```bash
+cd sim
+vsim -c -do run_soc_data_fabric.do
+```
+
 `run.do` does the following:
 
 1. Deletes/recreates the `work` library.
@@ -102,7 +111,11 @@ configured `tohost` address:
 
 - `sim/filelist.f` includes `regfile.sv`, `lsu.sv`, and `core_ctrl.sv`.
 - `tb_riscv_core.sv` uses parameterized relative test-image paths.
-- `tb_riscv_soc.sv` is currently empty/unused.
+- `tb_riscv_soc.sv` is the Phase 2 SoC integration environment. The
+  separate `sim/regress/soc_red_tests.json` manifest selects it for unmapped
+  load/store and invalid-fetch cases. The data cases now pass through the
+  centralized fabric; invalid fetch remains intentionally RED until explicit
+  instruction-error signaling is added.
 
 ### Assembling tests
 
@@ -122,7 +135,7 @@ Then convert the Intel HEX to the plain `$readmemh` format used by `prog_ram`.
 The CPU is organized as a simple in-order pipeline:
 
 ```text
-IF -> IF/ID -> ID -> ID/EX -> EX -> LSU -> data RAM -> EX/WB -> WB
+IF -> IF/ID -> ID -> ID/EX -> EX -> LSU -> SoC fabric -> RAM/default -> EX/WB -> WB
 ```
 
 | Stage | Modules / logic |

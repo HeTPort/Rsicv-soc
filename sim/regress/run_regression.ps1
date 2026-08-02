@@ -48,10 +48,34 @@ if ($manifestData.schema_version -ne 1) {
     throw "Unsupported manifest schema_version: $($manifestData.schema_version)"
 }
 
+function Get-RegressionSimulationTop {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$TestCase,
+
+        [Parameter(Mandatory = $true)]
+        [object]$Defaults
+    )
+
+    if ($null -ne $TestCase.PSObject.Properties["top"] -and
+        -not [string]::IsNullOrWhiteSpace([string]$TestCase.top)) {
+        return [string]$TestCase.top
+    }
+    if ($null -ne $Defaults.PSObject.Properties["top"] -and
+        -not [string]::IsNullOrWhiteSpace([string]$Defaults.top)) {
+        return [string]$Defaults.top
+    }
+    return "work.tb_riscv_core"
+}
+
 $allTests = @($manifestData.tests)
 if ($List) {
     $allTests |
-        Select-Object name, image, data_image, timeout_cycles, data_error_addr,
+        Select-Object name,
+            @{Name="top"; Expression={
+                Get-RegressionSimulationTop -TestCase $_ -Defaults $manifestData.defaults
+            }},
+            image, data_image, timeout_cycles, data_error_addr,
             @{Name="tags"; Expression={ $_.tags -join "," }} |
         Format-Table -AutoSize
     exit 0
@@ -127,6 +151,9 @@ try {
     $results = @()
     foreach ($testCase in $selectedTests) {
         $testName = [string]$testCase.name
+        $simulationTop = Get-RegressionSimulationTop `
+            -TestCase $testCase `
+            -Defaults $manifestData.defaults
         $imagePath = [System.IO.Path]::GetFullPath((Join-Path $repoRoot ([string]$testCase.image)))
         if (-not (Test-Path -LiteralPath $imagePath -PathType Leaf)) {
             throw "Test image not found for '$testName': $imagePath"
@@ -196,6 +223,12 @@ try {
             $dataForceError = 1
         }
 
+        # ModelSim 2019.2 treats a large decimal generic override as an
+        # unsized signed literal. Use explicitly sized hexadecimal literals so
+        # architectural addresses at or above 0x8000_0000 elaborate cleanly.
+        $tohostGeneric = "32'h{0:X8}" -f $tohostAddr
+        $dataErrorAddrGeneric = "32'h{0:X8}" -f $dataErrorAddr
+
         $modelSimImagePath = $imagePath.Replace("\", "/")
         $logPath = Join-Path $logDir "$testName.log"
         $vsimArgs = @(
@@ -203,14 +236,14 @@ try {
             "-voptargs=+acc",
             "-gPROGRAM_FILE=$modelSimImagePath",
             "-gTIMEOUT_CYCLES=$timeoutCycles",
-            "-gTOHOST_ADDR=$tohostAddr",
+            "-gTOHOST_ADDR=$tohostGeneric",
             "-gPROG_RAM_DEPTH=$progRamDepth",
             "-gDATA_RAM_DEPTH=$dataRamDepth",
             "-gDATA_REQ_WAIT_CYCLES=$dataReqWaitCycles",
             "-gDATA_RSP_WAIT_CYCLES=$dataRspWaitCycles",
             "-gDATA_FORCE_ERROR=$dataForceError",
             "-gDATA_ERROR_ADDR_ENABLE=$dataErrorAddrEnable",
-            "-gDATA_ERROR_ADDR=$dataErrorAddr",
+            "-gDATA_ERROR_ADDR=$dataErrorAddrGeneric",
             "-gTRACE_ENABLE=$([int][bool]$Trace)",
             "-gDUMP_WAVES=$([int][bool]$DumpWaves)"
         )
@@ -219,7 +252,7 @@ try {
             $vsimArgs += "-gDATA_FILE=$modelSimDataImagePath"
         }
         $vsimArgs += @(
-            "work.tb_riscv_core",
+            $simulationTop,
             "-do", "run -all; quit -f"
         )
 
