@@ -47,7 +47,7 @@ every corner of the ISA has been proven.
 | Instruction path | One-cycle synchronous program RAM with PC and response pairing |
 | Data path | One outstanding request, inserted wait-state support, registered results, and precise access faults |
 | Verification | Architectural commit checking, `tohost`, ModelSim regression, ELF conversion, and ACT4 adapters |
-| Memory map | AR-009 split 64 KiB map accepted; centralized address decoding is not implemented yet |
+| Memory map | AR-009 split 64 KiB map accepted; centralized data decode/default target implemented by AR-019 |
 | Peripherals | Timer, UART, and GPIO are planned; their source files are placeholders |
 | Software | Startup code, final linker layout, drivers, and FreeRTOS are still to come |
 | FPGA | Block RAM inference has been checked; board timing and hardware testing have not been completed |

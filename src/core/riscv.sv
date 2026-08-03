@@ -11,6 +11,7 @@ module riscv #(
   output logic          instr_ren_o,
   output logic [AW-1:0] instr_addr_o,
   input  logic [DW-1:0] instr_rdata_i,
+  input  logic          instr_fetch_error_i,
   output logic          data_req_valid_o,
   input  logic          data_req_ready_i,
   output core_bus_req_t data_req_o,
@@ -110,7 +111,8 @@ module riscv #(
   logic ifid_flush, idex_flush, pipe_kill;
 
   assign wb_trap_event = ex2wb_pkt_out.valid &&
-      (ex2wb_pkt_out.exc.illegal_instr || ex2wb_pkt_out.exc.ecall ||
+      (ex2wb_pkt_out.exc.illegal_instr || ex2wb_pkt_out.exc.instr_access_fault ||
+       ex2wb_pkt_out.exc.ecall ||
        ex2wb_pkt_out.exc.ebreak || ex2wb_pkt_out.instr_misaligned ||
        ex2wb_pkt_out.mem_misaligned || ex2wb_pkt_out.mem_error);
   assign wb_mret_event = ex2wb_pkt_out.valid && ex2wb_pkt_out.is_mret;
@@ -264,6 +266,7 @@ module riscv #(
   end
 
   assign if2id_pkt.valid = if_resp_valid_q;
+  assign if2id_pkt.error = if_resp_valid_q && instr_fetch_error_i;
   assign if2id_pkt.pc    = if_resp_pc_q;
   assign if2id_pkt.instr = instr_rdata_i;
 
@@ -300,6 +303,7 @@ module riscv #(
   // EX kill for outstanding LSU or divider work: pipe_kill or any EX exception.
   assign ex_kill = pipe_kill |
                    id2ex_pkt_out.exc.illegal_instr |
+                   id2ex_pkt_out.exc.instr_access_fault |
                    id2ex_pkt_out.exc.ecall |
                    id2ex_pkt_out.exc.ebreak;
 

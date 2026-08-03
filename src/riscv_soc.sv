@@ -25,6 +25,7 @@ module riscv_soc #(
   logic          instr_ren;
   logic [AW-1:0] instr_addr;
   logic [DW-1:0] instr_rdata;
+  logic          instr_fetch_error;
   localparam logic [AW-1:0] DATA_RAM_END =
       SOC_DATA_RAM_BASE + (DATA_RAM_DEPTH * (DW / 8)) - 1;
 
@@ -46,6 +47,7 @@ module riscv_soc #(
     .ren_i        (instr_ren),
     .instr_addr_i (instr_addr),
     .instr_data_o (instr_rdata),
+    .fetch_error_o(instr_fetch_error),
     .wen_i        (prog_wr_en),
     .waddr_i      (prog_wr_addr),
     .wdata_i      (prog_wr_data)
@@ -58,6 +60,7 @@ module riscv_soc #(
     .instr_ren_o     (instr_ren),
     .instr_addr_o    (instr_addr),
     .instr_rdata_i   (instr_rdata),
+    .instr_fetch_error_i(instr_fetch_error),
     .data_req_valid_o(cpu_data_req_valid),
     .data_req_ready_i(cpu_data_req_ready),
     .data_req_o      (cpu_data_req),

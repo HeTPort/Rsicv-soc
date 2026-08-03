@@ -482,9 +482,12 @@ module decode #(
   assign pktd_o.ex_ctrl.muldiv_op    = muldiv_op_o;
 
   // exc_pkt_t
-  assign pktd_o.exc.illegal_instr    = illegal_instr_o;
-  assign pktd_o.exc.ecall            = ecall_o;
-  assign pktd_o.exc.ebreak           = ebreak_o;
+  // A fetch-time error takes precedence over any decode-time exception:
+  // the returned instruction bits are architecturally meaningless.
+  assign pktd_o.exc.illegal_instr     = ~pktd_i.error & illegal_instr_o;
+  assign pktd_o.exc.instr_access_fault = pktd_i.error;
+  assign pktd_o.exc.ecall             = ~pktd_i.error & ecall_o;
+  assign pktd_o.exc.ebreak            = ~pktd_i.error & ebreak_o;
 
   // csr_pkt_t
   assign pktd_o.csr                  = csr_o;

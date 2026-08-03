@@ -47,6 +47,7 @@ module tb_riscv_core #(
   logic          instr_ren;
   logic [AW-1:0] instr_addr;
   logic [DW-1:0] instr_rdata;
+  logic          instr_fetch_error;
   logic          data_req_valid;
   logic          data_req_ready;
   core_bus_req_t data_req;
@@ -76,6 +77,7 @@ module tb_riscv_core #(
     .instr_ren_o     (instr_ren),
     .instr_addr_o    (instr_addr),
     .instr_rdata_i   (instr_rdata),
+    .instr_fetch_error_i(instr_fetch_error),
     .data_req_valid_o(data_req_valid),
     .data_req_ready_i(data_req_ready),
     .data_req_o      (data_req),
@@ -104,6 +106,7 @@ module tb_riscv_core #(
     .ren_i        (instr_ren),
     .instr_addr_i (instr_addr),
     .instr_data_o (instr_rdata),
+    .fetch_error_o(instr_fetch_error),
     .wen_i        (1'b0),
     .waddr_i      ('0),
     .wdata_i      ('0)
@@ -450,7 +453,7 @@ module tb_riscv_core #(
   // BRAM response after that edge. This assertion is intentionally independent
   // of the CPU's response tag so it detects an asynchronous/live-address RAM.
   always @(negedge clk) begin
-    if (rst_n && fetch_req_valid_q) begin
+    if (rst_n && fetch_req_valid_q && !instr_fetch_error) begin
       assert (instr_rdata === u_prog_ram.mem[fetch_req_addr_q[31:2]])
         else $error("Fetch response mismatch: request_pc=%08h response=%08h expected=%08h",
                     fetch_req_addr_q,
@@ -464,7 +467,7 @@ module tb_riscv_core #(
   // ------------------------------------------------------------
   always @(posedge clk) begin
     #1ps;
-    if (rst_n && u_riscv.if2id_pkt_out.valid) begin
+    if (rst_n && u_riscv.if2id_pkt_out.valid && !u_riscv.if2id_pkt_out.error) begin
       assert (u_riscv.if2id_pkt_out.instr[31:0] === u_prog_ram.mem[u_riscv.if2id_pkt_out.pc[31:2]])
         else $error("ID PC/INSTR mismatch: pc=%08h instr=%08h expected=%08h",
                      u_riscv.if2id_pkt_out.pc,

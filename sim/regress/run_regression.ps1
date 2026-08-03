@@ -36,7 +36,14 @@ $repoRoot = [System.IO.Path]::GetFullPath((Join-Path $simDir ".."))
 if ([string]::IsNullOrWhiteSpace($Manifest)) {
     $manifestPath = Join-Path $scriptDir "tests.json"
 } else {
-    $manifestPath = [System.IO.Path]::GetFullPath($Manifest)
+    # Resolve relative paths against PowerShell's current location, not .NET's
+    # process-wide current directory, which may lag behind Set-Location.
+    if ([System.IO.Path]::IsPathRooted($Manifest)) {
+        $manifestPath = $Manifest
+    } else {
+        $manifestPath = Join-Path $PWD.Path $Manifest
+    }
+    $manifestPath = [System.IO.Path]::GetFullPath($manifestPath)
 }
 
 if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {

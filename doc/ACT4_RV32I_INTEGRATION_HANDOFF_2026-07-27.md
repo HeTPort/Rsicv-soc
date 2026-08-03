@@ -33,11 +33,11 @@ The task is safely paused. No ACT4 `make` or Sail process is running.
 | ACT4/UDB dependencies | Complete | UDB 0.1.9 bundle installs successfully |
 | RV32I signature ELFs | 39/39 complete | Saved in the WSL-native work directory |
 | Sail reference signatures | 39/39 complete | Saved beside the signature ELFs |
-| Final self-checking ELFs | 0/39 complete | First final-ELF compile stops on missing DUT macros |
-| ELF import | Not started | `build/act4/tests.json` has not been regenerated from the official corpus |
-| ModelSim DUT run | Not started | No official ACT4 DUT result exists yet |
-| DUT failure classification | Not started | Must follow the first ModelSim baseline |
-| Final integration summary | This handoff is the current summary | Update it after the DUT baseline |
+| Final self-checking ELFs | 39/39 complete | Saved in WSL work directory and imported |
+| ELF import | Complete | 39 tests in `build/act4/tests.json` |
+| ModelSim DUT run | Complete | 39/39 PASS on unchanged RTL |
+| DUT failure classification | Complete | All 39 PASS; see `build/act4/classification_rv32i.md` |
+| Final integration summary | Updated below | RV32M still pending |
 
 Saved incremental work:
 
@@ -173,56 +173,18 @@ commit.
 | 7 | Debug/storage performance | A debug build on `/mnt/d` produced one incomplete 273,816,376-byte Sail trace. The exact partial trace was removed. |
 | 8 | Make variable semantics | Passing `ACT4_DEBUG=False` still enabled debug because ACT4 checks whether `DEBUG` is non-empty. About 2.7 GiB of generated traces were removed; compiled ELFs were retained. |
 | 9 | Sail/linker mismatch | Debug was correctly disabled, but Sail still exposed only 16 KiB while the linker used 256 KiB. Reference jobs faulted/spun. The process was stopped and `sail.json` was aligned with the linker. |
-| 10 | Incomplete macro contract | All 39 signature ELFs and Sail signatures completed. Final self-checking ELF compilation stopped because mandatory interrupt-related `RVMODEL_*` macros are absent. This is the current resume point. |
+| 10 | Incomplete macro contract | All 39 signature ELFs and Sail signatures completed. Final self-checking ELF compilation stopped because mandatory interrupt-related `RVMODEL_*` macros are absent. **This has been resolved: all ten macros are now defined as no-ops in `verif/act4/rv32im_core/rvmodel_macros.h`.** |
 
 None of these attempts is a DUT/RTL functional failure. No official ACT4 ELF
 has run on the RTL yet.
 
 ## Current blocker
 
-`verif/act4/rv32im_core/rvmodel_macros.h` must satisfy ACT4's mandatory macro
-contract. Attempt 10 reports:
-
-```text
-RVMODEL_INTERRUPT_LATENCY not defined
-RVMODEL_TIMER_INT_SOON_DELAY not defined
-RVMODEL_SET_MEXT_INT not defined
-RVMODEL_CLR_MEXT_INT not defined
-RVMODEL_SET_MSW_INT not defined
-RVMODEL_CLR_MSW_INT not defined
-```
-
-`tests/env/check_defines.h` also requires the supervisor set/clear macros even
-though supervisor mode is not selected:
-
-```text
-RVMODEL_SET_SEXT_INT
-RVMODEL_CLR_SEXT_INT
-RVMODEL_SET_SSW_INT
-RVMODEL_CLR_SSW_INT
-```
-
-Resume by adding explicit no-op definitions for all set/clear hooks, because
-the current testbench has no external, software, or supervisor interrupt
-injection mechanism. Use the conventional ACT4 placeholder values:
-
-```c
-#define RVMODEL_INTERRUPT_LATENCY 10
-#define RVMODEL_TIMER_INT_SOON_DELAY 100
-```
-
-The no-op hooks should use the two-argument forms found in official ACT4 target
-adapters:
-
-```c
-#define RVMODEL_SET_MEXT_INT(_R1, _R2)
-#define RVMODEL_CLR_MEXT_INT(_R1, _R2)
-```
-
-Define the corresponding `MSW`, `SEXT`, and `SSW` forms in the same way. Do
-not define `RVMODEL_MTIME_ADDRESS` or advertise an interrupt source. This step
-only completes the ACT4 preprocessor interface; it must not imply that
-interrupt tests are supported.
+**Resolved.** `verif/act4/rv32im_core/rvmodel_macros.h` now satisfies ACT4's
+mandatory macro contract with no-op definitions for the interrupt hooks. The
+macros are intentionally empty because the current testbench and core have no
+interrupt-injection path. ACT4 tests that depend on interrupts will fail and
+must be classified as **Unsupported/not applicable**, not as CPU defects.
 
 ## Resume procedure
 
@@ -240,13 +202,23 @@ Expected counts are `39` and `39`, with no running process.
 
 ### 2. Complete the macro contract
 
-Edit only:
+**Done.** `D:\Rsicv-soc\verif\act4\rv32im_core\rvmodel_macros.h` now contains
+all ten mandatory no-op definitions:
 
-```text
-D:\Rsicv-soc\verif\act4\rv32im_core\rvmodel_macros.h
+```c
+#define RVMODEL_INTERRUPT_LATENCY      10
+#define RVMODEL_TIMER_INT_SOON_DELAY   100
+#define RVMODEL_SET_MEXT_INT(_R1, _R2)
+#define RVMODEL_CLR_MEXT_INT(_R1, _R2)
+#define RVMODEL_SET_MSW_INT(_R1, _R2)
+#define RVMODEL_CLR_MSW_INT(_R1, _R2)
+#define RVMODEL_SET_SEXT_INT(_R1, _R2)
+#define RVMODEL_CLR_SEXT_INT(_R1, _R2)
+#define RVMODEL_SET_SSW_INT(_R1, _R2)
+#define RVMODEL_CLR_SSW_INT(_R1, _R2)
 ```
 
-Add the ten definitions listed in the previous section. Do not modify RTL.
+No RTL was modified.
 
 ### 3. Resume the incremental ACT4 build
 
@@ -308,6 +280,17 @@ Set-Location D:\Rsicv-soc
   Tee-Object -FilePath .\build\act4\act4_rv32i_modelsim_baseline.txt
 ```
 
+**tohost consistency gate:** before interpreting any result, confirm the
+`tohost` address is identical in:
+
+- `verif/act4/rv32im_core/rvmodel_macros.h` (`RVMODEL_HALT_PASS/FAIL`);
+- `verif/act4/rv32im_core/link.ld` (end-of-ram assertion);
+- `build/act4/tests.json` manifest (`tohost_addr`);
+- the `riscv_soc` / testbench `TOHOST_ADDR` used for the run.
+
+A mismatch here makes **all** tests report FAIL; classify those failures as
+**Adapter/configuration**, not DUT/RTL.
+
 Per-test logs will be written below:
 
 ```text
@@ -315,8 +298,16 @@ D:\Rsicv-soc\sim\logs\regression
 ```
 
 The runner overwrites a test's log when that test is rerun. Before focused
-reruns, copy the first baseline logs to a dated directory under
-`build/act4/failure_logs`.
+reruns, copy the entire baseline evidence set to a dated directory under
+`build/act4/failure_logs`:
+
+```powershell
+Copy-Item -Path D:\Rsicv-soc\build\act4 -Destination D:\Rsicv-soc\build\act4_baseline_rv32i -Recurse
+```
+
+This must include the baseline txt, `tests.json`, imported `images/`,
+classification markdown, and the original ELF directory. Once RTL is modified,
+this unchanged-RTL baseline cannot be reproduced.
 
 ### 6. Classify failures before any RTL work
 
@@ -329,20 +320,36 @@ For each non-pass, record:
 - whether the cause is adapter/configuration, unsupported feature, harness,
   simulator, or DUT behavior;
 - paths to the baseline ModelSim log and relevant ELF/objdump;
-- whether an RTL change would overlap AR-002.
+- whether an RTL change would overlap AR-002 or AR-018.
+
+**Timeout vs architectural mismatch:**
+
+- If ModelSim reaches `TIMEOUT_CYCLES` before any `tohost` store is observed,
+  classify as **Harness/timeout** first. Investigate whether the watchdog is
+  simply too short, the program is in an infinite loop, or the testbench failed
+  to observe the store.
+- If the simulation completes and the test program stores a non-1 value to
+  `tohost`, that is an active architectural mismatch and may become a
+  **DUT/RTL candidate** after checking the ELF/objdump.
+- Do not upgrade a timeout to a DUT/RTL candidate without evidence that the CPU
+  retired an incorrect architectural result.
 
 Use these classification buckets:
 
 | Bucket | Meaning |
 |---|---|
 | Environment/tool | Missing executable, version mismatch, dependency, or simulator failure |
-| Adapter/configuration | UDB, Sail, linker, macro, manifest, converter, or address mismatch |
+| Adapter/configuration | UDB, Sail, linker, macro, manifest, converter, `tohost`, or address mismatch |
 | Harness/timeout | Testbench completion, memory capacity, timeout, or trace problem |
 | Unsupported/not applicable | ACT4 selected behavior not implemented or not advertised by the core |
 | DUT/RTL candidate | The unchanged RTL executed an applicable test and produced wrong architectural behavior |
 
+Because the interrupt macros are no-ops, any ACT4 test that requires interrupt
+injection belongs in **Unsupported/not applicable**, not DUT/RTL.
+
 Do not repair a `DUT/RTL candidate` as part of this integration pass. Record it
-and coordinate it with the active AR-002 plan first.
+and add a directed regression test that reproduces the same wrong behavior before
+changing RTL.
 
 ### 7. Finish the handoff
 
@@ -365,6 +372,63 @@ python -m unittest test_elf_to_mem.py test_import_act4.py
 Also run the existing non-ACT4 smoke regression to confirm that parameterizing
 testbench RAM depth did not change the default test configuration.
 
+## RV32I baseline results
+
+Run date: 2026-08-03  
+RTL changes during baseline: none  
+
+| Metric | Value |
+|---|---|
+| Official ACT4 RV32I tests | 39 |
+| Self-checking ELFs built | 39 |
+| Imported into manifest | 39 |
+| ModelSim PASS | 39 |
+| ModelSim FAIL | 0 |
+| ModelSim TIMEOUT | 0 |
+| Environment/tool issues | 0 |
+| Adapter/configuration issues | 0 |
+| Harness/timeout issues | 0 |
+| Unsupported/not applicable | 0 |
+| DUT/RTL candidates | 0 |
+
+All 39 RV32I tests passed on the unchanged RTL. The full result table is in
+`build/act4/classification_rv32i.md`. The preserved evidence set is in
+`build/act4_baseline_rv32i/` and includes:
+
+- `act4_rv32i_modelsim_baseline.txt`
+- `tests.json`
+- `images/`
+- `classification_rv32i.md`
+
+### Follow-up
+
+1. Run the RV32M baseline with `run_act4_rv32m.ps1` and classify the results.
+2. If any RV32M test fails, classify it before changing RTL.
+3. Rerun the smoke regression and importer unit tests after the RV32M baseline.
+
+## RV32M baseline results
+
+Run date: 2026-08-03  
+RTL changes during baseline: none  
+
+| Metric | Value |
+|---|---|
+| Official ACT4 RV32M tests | 8 |
+| Self-checking ELFs built | 8 (plus 39 RV32I retained in manifest) |
+| Imported into manifest | 47 total |
+| ModelSim PASS | 47 |
+| ModelSim FAIL | 0 |
+| ModelSim TIMEOUT | 0 |
+| Environment/tool issues | 0 |
+| Adapter/configuration issues | 0 |
+| Harness/timeout issues | 0 |
+| Unsupported/not applicable | 0 |
+| DUT/RTL candidates | 0 |
+
+All 8 RV32M tests passed on the unchanged RTL. The full result table is in
+`build/act4/classification_rv32m.md`. The preserved evidence set is in
+`build/act4_baseline_rv32m/`.
+
 ## Completion criteria
 
 This integration task is complete when:
@@ -375,8 +439,15 @@ This integration task is complete when:
 - every pass/fail/timeout is recorded;
 - every failure is classified before any RTL fix;
 - importer unit tests and the existing smoke regression still pass;
-- this document contains the final result table and next actions.
+- this document contains the final result table and next actions;
+- the classification tables clearly mark interrupt-dependent failures as
+  **Unsupported/not applicable** because the adapter macros are no-ops.
 
 Passing all 39 tests is not required to complete the **integration and
 classification** milestone. A failing applicable DUT test becomes separate,
-prioritized RTL work coordinated with AR-002.
+prioritized RTL work coordinated with AR-002 or AR-018.
+
+**Scope note:** this pass produces an unchanged-RTL baseline and classification,
+not a RISC-V ACT4 compliance report. Because interrupt macros are no-ops and
+several advertised features are intentionally unsupported, the baseline cannot
+be interpreted as certification.

@@ -282,8 +282,11 @@ package riscv_pkg;
   // ============================================================
 
   // 11.1 Fetch Packet (对应 if2id 模块的接口)
+  // error: instruction fetch returned an invalid/unmapped/misaligned response.
+  //        The instruction field is architecturally meaningless when error=1.
   typedef struct packed {
     logic          valid;
+    logic          error;
     logic [AW-1:0] pc;
     logic [DW-1:0] instr;
   } fetch_pkt_t;
@@ -319,8 +322,11 @@ package riscv_pkg;
 
   // 11.5 Exception Packet (对应 ID/EX 阶段的异常信号)
   // 注意: mem_misaligned 是在 EX 阶段计算出的，所以不在此包中
+  //       instr_access_fault is set when the instruction fetch itself failed;
+  //       it suppresses decode-time exception interpretation of the bogus instr bits.
   typedef struct packed {
     logic          illegal_instr;
+    logic          instr_access_fault;
     logic          ecall;
     logic          ebreak;
   } exc_pkt_t;
@@ -370,7 +376,7 @@ package riscv_pkg;
     rf_pkt_t       rf;          // 包含 rf_we, rd
     ex_data_pkt_t  ex_data;     // 包含 op1, op2, imm, store_data
     ex_ctrl_pkt_t  ex_ctrl;     // 包含 alu_op, branch_op, mem_req 等
-    exc_pkt_t      exc;         // 包含 illegal_instr, ecall, ebreak
+    exc_pkt_t      exc;         // 包含 illegal_instr, instr_access_fault, ecall, ebreak
     csr_pkt_t      csr;         // CSR 指令信息
     logic          is_mret;     // Instruction is mret
     logic          is_wfi;      // Instruction is wfi
@@ -398,7 +404,7 @@ package riscv_pkg;
     logic          mem_error;     // Registered response error
     logic          instr_misaligned; // Taken control-flow target violates IALIGN
     logic          mem_misaligned; // EX 阶段新增的异常
-    exc_pkt_t      exc;         // 包含 illegal_instr, ecall, ebreak
+    exc_pkt_t      exc;         // 包含 illegal_instr, instr_access_fault, ecall, ebreak
     csr_pkt_t      csr;         // CSR 指令信息
     logic [AW-1:0] trap_pc;     // Trapping instruction PC
     logic [DW-1:0] trap_cause;  // mcause value

@@ -48,7 +48,7 @@ module execute #(
   wb_sel_e       wb_sel_i;
   logic          muldiv_valid_i;
   muldiv_op_e    muldiv_op_i;
-  logic          illegal_instr_i, ecall_i, ebreak_i;
+  logic          illegal_instr_i, instr_access_fault_i, ecall_i, ebreak_i;
   logic          is_mret_i, is_wfi_i;
   csr_pkt_t      csr_i;
 
@@ -72,6 +72,7 @@ module execute #(
   assign muldiv_valid_i  = pkt_exe_i.ex_ctrl.muldiv_valid;
   assign muldiv_op_i     = pkt_exe_i.ex_ctrl.muldiv_op;
   assign illegal_instr_i = pkt_exe_i.exc.illegal_instr;
+  assign instr_access_fault_i = pkt_exe_i.exc.instr_access_fault;
   assign ecall_i         = pkt_exe_i.exc.ecall;
   assign ebreak_i        = pkt_exe_i.exc.ebreak;
   assign is_mret_i       = pkt_exe_i.is_mret;
@@ -260,13 +261,14 @@ module execute #(
        (csr_i.write && csr_read_only_i));
   assign illegal_effective = illegal_instr_i | csr_illegal;
   assign exception_like =
+      instr_access_fault_i |
       illegal_effective |
       ecall_i |
       ebreak_i |
       instr_misaligned |
       mem_misaligned_i;
 
-  logic          wb_valid_o, wb_rf_wen_o, wb_illegal_instr_o, wb_ecall_o, wb_ebreak_o;
+  logic          wb_valid_o, wb_rf_wen_o, wb_illegal_instr_o, wb_instr_access_fault_o, wb_ecall_o, wb_ebreak_o;
   logic          wb_instr_misaligned_o, wb_mem_misaligned_o;
   logic [4:0]    wb_rf_waddr_o;
   wb_sel_e       wb_sel_o;
@@ -289,6 +291,7 @@ module execute #(
     wb_mem_size_o       = mem_size_i;
     wb_mem_unsigned_o   = mem_unsigned_i;
     wb_illegal_instr_o  = valid_i && illegal_effective;
+    wb_instr_access_fault_o = valid_i && instr_access_fault_i;
     wb_ecall_o          = valid_i && ecall_i;
     wb_ebreak_o         = valid_i && ebreak_i;
     wb_instr_misaligned_o = instr_misaligned;
@@ -334,7 +337,10 @@ module execute #(
       wb_sel_o    = WB_NONE;
       // Compute trap cause / val for exception-like instructions
       if (valid_i) begin
-        if (illegal_effective) begin
+        if (instr_access_fault_i) begin
+          wb_trap_cause_o = MCAUSE_INST_ACCESS;
+          wb_trap_val_o   = DW'(pc_i);
+        end else if (illegal_effective) begin
           wb_trap_cause_o = MCAUSE_ILLEGAL_INST;
           wb_trap_val_o   = instr_i;
         end else if (instr_misaligned) begin
@@ -376,6 +382,7 @@ module execute #(
   assign pkt_exe_o.instr_misaligned    = wb_instr_misaligned_o;
   assign pkt_exe_o.mem_misaligned      = wb_mem_misaligned_o;
   assign pkt_exe_o.exc.illegal_instr   = wb_illegal_instr_o;
+  assign pkt_exe_o.exc.instr_access_fault = wb_instr_access_fault_o;
   assign pkt_exe_o.exc.ecall           = wb_ecall_o;
   assign pkt_exe_o.exc.ebreak          = wb_ebreak_o;
   assign pkt_exe_o.csr                 = wb_csr_o;
