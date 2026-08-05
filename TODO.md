@@ -85,23 +85,25 @@ Implemented:
   completion checking.
 - [x] ELF-to-memory converter and ACT4 import/runner adapters.
 - [x] Synthetic ACT4 harness smoke test.
+- [x] Official ACT4 RV32IM baseline: 39/39 RV32I and 8/8 RV32M tests passed
+  on unchanged RTL on 2026-08-03, with no failures or DUT candidates.
 - [x] Synchronous instruction BRAM with PC/response alignment across stalls and
       redirects, verified as four `RAMB36E1` primitives in Vivado 2019.2.
 - [x] Single-outstanding wait-state-capable CPU data bus and LSU transaction
       state machine, with data RAM outside the CPU.
 - [x] Registered EX/WB memory results with precise load/store access-fault
       completion and packet-owned WB/commit data.
+- [x] Centralized full-address SoC data decoder and one-cycle registered default
+  error target, plus registered instruction-access-fault reporting.
 - [x] Existing directed regression last verified at 22/22 passing, with
   converter tests at 4/4 and the regression-result negative test passing.
 
 Still missing:
 
-- [ ] Imported and passing official ACT4 RV32I/RV32M test corpus.
-- [ ] SoC address decoder and default error target.
 - [ ] Hardware interrupt input and precise interrupt entry.
 - [ ] `mtime`/`mtimecmp` machine timer.
-- [ ] Implemented UART and GPIO peripherals; current files are empty
-  placeholders.
+- [ ] Implemented UART and GPIO peripherals; empty placeholder RTL was removed
+  and real modules will be added in Phase 4.
 - [ ] Firmware startup code, linker script, drivers, and FreeRTOS application.
 - [ ] FPGA top, XDC constraints, Vivado build script, and physical-board result.
 
@@ -111,15 +113,14 @@ Current planning position:
   architecture review or FreeRTOS roadmap.
 - Phase 1 is complete: AR-009 and the generated
   `freertos_split_64k_v1` hardware/software ABI are accepted.
-- Phase 2 is current and partially complete: AR-003 and AR-004 were finished
-  early. AR-018 now supplies isolated executable RED tests for unmapped
-  load/store and invalid fetch, while centralized decode, a default error
-  target, the instruction-error path, and GREEN system-level coverage remain.
+- Phase 2 is complete: AR-003/AR-004 close transaction/result ownership,
+  AR-019 supplies centralized data decode and the registered default target,
+  and AR-018 verifies precise data and instruction access faults.
 - AR-008 belongs to Phase 3; AR-010 is continuous verification; AR-011 is an
   early FPGA feasibility gate; and AR-012 is cross-stage cleanup.
-- AR-014 accepted-map generation infrastructure is complete. AR-019 now uses
-  its SystemVerilog constants in the implemented data decoder/default target;
-  instruction-error and remaining software/tool consumers are still open.
+- AR-014 accepted-map generation infrastructure is complete. AR-019 uses its
+  SystemVerilog constants in the implemented data decoder/default target;
+  remaining software/tool consumers continue in their owning later phases.
 - AR-015 records the paired 16 KiB/64 KiB baseline and its failing
   combinational MULDIV path. AR-017 replaces that divider with a verified
   Radix-2 iterative implementation; both profiles now pass the 25/50 MHz OOC
@@ -201,8 +202,9 @@ difficult to isolate.
 
 AR-003 and AR-004 are Phase 2 sub-gates completed early to satisfy the
 cross-cutting wait-state and registered-result criteria. AR-019 now implements
-the centralized data decoder and default error target. Phase 2 remains open for
-instruction-access faults, real peripheral targets, and broader integration.
+the centralized data decoder and default error target. AR-018's cause-1 path
+and SoC regression complete the Phase 2 exit gate; real peripherals belong to
+Phases 3 and 4.
 
 Current verification after the AR-013 regression-gate fix:
 directed smoke **22/22 passed**
@@ -211,34 +213,41 @@ classifier test also passes.
 
 ---
 
-## Continuous Track A — Finish official ACT4 RV32IM coverage
+## Continuous Track A — Maintain official ACT4 RV32IM coverage
+
+**Status:** baseline complete. On 2026-08-03, all 39 applicable RV32I tests and
+all 8 applicable RV32M tests passed on unchanged RTL. This is a verified
+project baseline, not a formal RISC-V compliance certification.
 
 **Purpose:** prove instruction semantics independently of FreeRTOS behavior.
 
 - [x] Provide an address-aware ELF converter for separate instruction/data RAM.
 - [x] Provide an ACT4 ELF importer and generated JSON manifest.
 - [x] Provide a PowerShell wrapper that imports and runs ACT4 ELFs.
-- [ ] Build or obtain the official ACT4 RV32I machine-mode ELFs in WSL.
-- [ ] Import and run the official RV32I tests through ModelSim.
-- [ ] Extend the ACT configuration/import tags for applicable RV32M tests.
-- [ ] Run the official RV32M tests.
-- [ ] Classify every failure as RTL, harness, linker/signature, unsupported
-  feature, or toolchain issue.
-- [ ] Add a small permanent directed regression for every RTL bug found by
-  ACT4 before fixing it.
-- [ ] Re-run the full applicable ACT4 set after changes to decode, ALU, LSU,
-  CSR, trap, or pipeline control.
-- [ ] Add Spike comparison later for bugs that cannot be isolated from ACT4
-  signatures and the commit trace.
+- [x] Build and import 39 official RV32I machine-mode self-checking ELFs.
+- [x] Run all 39 RV32I tests through ModelSim: 39 PASS, 0 FAIL/TIMEOUT.
+- [x] Extend the ACT4 configuration and import flow for the applicable RV32M
+  corpus.
+- [x] Build, import, and run all 8 RV32M tests: combined manifest 47/47 PASS.
+- [x] Classify the complete baseline: no environment, adapter, harness,
+  unsupported, or DUT/RTL failures remained.
+- [x] Re-run the directed smoke regression and importer/converter unit tests.
+- [x] Record counts, commands, scope, and classification evidence in
+  `doc/ACT4_RV32I_INTEGRATION_HANDOFF_2026-07-27.md`.
 
-Example Windows invocation after ACT4 ELFs exist:
+Rebuild either extension with the consolidated Windows launcher:
 
 ```powershell
 Set-Location D:\Rsicv-soc\sim\regress
-./run_act4.ps1 -ElfDir D:\Rsicv-soc\build\act4\work\rsicv-soc-rv32im\elfs
+.\run_act4_build.ps1 -Extension I
+.\run_act4_build.ps1 -Extension M
 ```
 
-ACT4 remains active throughout all later phases; it is not a one-time task.
+Maintenance policy: keep the 47/47 baseline green after changes to decode,
+ALU, LSU, CSR, trap, or pipeline control. If a future ACT4 test exposes an RTL
+bug, first add a small directed regression that reproduces it. Use Spike only
+when the ACT4 signature and commit trace cannot isolate the mismatch. These are
+ongoing regression rules, not open Track A completion items.
 
 ---
 
@@ -320,7 +329,7 @@ outside the CPU core.
 
 ## Phase 2 — Externalize the data bus
 
-**Status:** in progress; this is the current implementation phase.
+**Status:** complete (2026-08-03).
 
 **Purpose:** allow load/store instructions to reach RAM or peripherals.
 
@@ -345,9 +354,11 @@ outside the CPU core.
   [`doc/AR018_SOC_FABRIC_RED_TESTS.md`](doc/AR018_SOC_FABRIC_RED_TESTS.md).
 - [x] Add initial RAM-boundary, unmapped-address, request-wait, owner-stability,
   and back-to-back cross-target GREEN tests through the implemented decoder.
-- [ ] Add explicit instruction-fetch error signaling and turn the remaining
-  AR-018 cause-1 case GREEN.
-- [ ] Extend the SoC-level suite as timer/UART/GPIO targets are implemented.
+- [x] Add explicit instruction-fetch error signaling and turn the AR-018
+  cause-1 case GREEN.
+
+SoC-level target coverage expands in Phases 3 and 4 as timer/UART/GPIO targets
+are implemented; that future expansion is not part of the Phase 2 exit gate.
 
 **Exit gate:** all old LSU tests pass through the new bus, plus the new bus
 tests pass with zero-delay and inserted-wait-state targets.
@@ -359,8 +370,26 @@ AR-004 registered-result ownership and access-fault evidence are recorded in
 The AR-003/AR-004 sub-gates are satisfied. AR-019 closes centralized data
 decode/default-target ownership with focused protocol coverage, 3/3 SoC data
 fault runs (including inserted RAM waits), 22/22 smoke, and accepted-map OOC
-synthesis. AR-018 is
-partially GREEN; only its instruction-access-fault case remains RED.
+synthesis. AR-018 is GREEN for all four selected SoC runs: three data cases
+and one instruction-access-fault case.
+
+### Non-blocking Phase 2 / ACT4 hardening
+
+These maintenance items do not reopen Phase 2 and are not prerequisites for
+Phase 3. Schedule them when the related fetch or verification interface is
+next changed, or earlier only if a regression exposes a real failure.
+
+- [ ] Make a fetch-error decode packet canonical by clearing normal RF, CSR,
+  memory, redirect, operand-use, and mul/div controls; verify with deliberately
+  side-effectful replacement instruction data.
+- [ ] Turn the AR-018 consecutive-invalid, redirect/stale-response, and
+  fault-during-stall scenarios into executable directed tests.
+- [ ] If instruction wait states or multiple fetch targets are introduced,
+  separate response-valid from response-error and move range ownership into a
+  SoC-level instruction decoder.
+- [ ] Before extension-specific ACT4 automation is needed, tag RV32I and RV32M
+  entries distinctly and preserve a compact baseline report under
+  `doc/evidence/act4/`.
 
 ---
 
@@ -567,13 +596,12 @@ for the first FreeRTOS FPGA demonstration:
 
 ## Immediate next action
 
-1. Keep official ACT4 RV32I tests active as continuous Track A.
-2. Add explicit instruction-fetch error status and turn the remaining AR-018
-   cause-1 test GREEN.
+1. Keep all 47 official ACT4 RV32I/RV32M baseline tests active as continuous
+   Track A.
+2. Begin Phase 3 with the CLINT-style timer and precise machine-timer-interrupt
+   regression.
 3. Complete the accepted-map migration for linker, images, regression/ACT4
    consumers, and peripheral target integration; the SoC RTL defaults and data
    decoder already consume the accepted 64 KiB map.
 4. Keep the verified AR-017 iterative-divider regression and timing checkpoint
    active while exact-board closure remains pending.
-5. Make the next functional milestone the CLINT-style timer and precise
-   machine-timer-interrupt regression—not UART or FreeRTOS itself.

@@ -4,13 +4,13 @@
 
 **Audience:** New contributors and learners
 
-**Last updated:** 2026-08-02
+**Last updated:** 2026-08-05
 
 **Current reference:** `codex/architecture-review-roadmap`, with Phase 1 and the
 AR-009/AR-016 split 64 KiB core-to-SoC contract accepted. AR-019 implements the
-centralized data decoder/default target and AR-017 implements the multi-cycle
-divider. Phase 2 instruction errors, timer/peripheral work, and physical timing
-closure remain open; AR-018 isolates the remaining invalid-fetch RED case.
+centralized data decoder/default target, AR-017 implements the multi-cycle
+divider, and AR-018 verifies precise instruction/data access faults. Phase 2 is
+complete; timer/peripheral work and physical timing closure remain open.
 
 > Update this document whenever a change alters a module boundary, pipeline
 > timing, packet field, architectural behavior, memory map, verification
@@ -58,6 +58,7 @@ the minimal architecture needed for the first working system.
   registered response ownership, and a one-cycle default error target.
 - EX/WB-owned raw/aligned memory response data and error status.
 - Precise load/store access-fault completion.
+- Precise instruction-access-fault completion for out-of-range program fetches.
 - M-mode CSR instructions, WARL behavior, trap entry, and `mret`.
 - Precise illegal-instruction, ECALL, EBREAK, instruction-misalignment, and
   load/store-misalignment traps.
@@ -75,12 +76,12 @@ the minimal architecture needed for the first working system.
   provisional `xc7z010clg400-1`.
 - Current directed smoke baseline: 22/22 passing after AR-013, with 4/4 Python
   utilities and the focused regression-result negative test passing.
-- Separate AR-018 `tb_riscv_soc` contract manifest: unmapped load/store are
-  GREEN through AR-019; invalid fetch remains isolated as one expected RED.
+- Separate AR-018 `tb_riscv_soc` contract manifest: all three data-path runs and
+  the instruction-access-fault run are GREEN.
+- Official ACT4 baseline: 39/39 RV32I and 8/8 RV32M tests passing.
 
 ### Not implemented yet
 
-- Explicit instruction-fetch error signaling and cause-1 access faults.
 - Machine timer and interrupt input.
 - Implemented UART, GPIO, or other peripherals.
 - Firmware startup/linker/driver stack.
@@ -107,7 +108,7 @@ The current mapping is:
 | AR-015 | Paired 16 KiB/64 KiB utilization/timing evidence, implemented and verified |
 | AR-016 | Core-to-SoC environment contract accepted; Phase 1 complete |
 | AR-017 | Radix-2 iterative divider, implemented and verified; physical closure remains Phase 7 |
-| AR-018 | SoC contract tests: two data cases GREEN, invalid fetch still RED |
+| AR-018 | SoC contract tests: data and instruction access-fault cases GREEN; closed |
 | AR-019 | Centralized data decoder/default target implemented and verified |
 
 The authoritative phase checklist is [`TODO.md`](../TODO.md); the detailed
@@ -215,7 +216,8 @@ flowchart LR
 The current SoC is still mostly a core plus memories. `riscv.sv` exposes a
 small request/response data bus; `riscv_soc.sv` now routes it through
 `soc_data_fabric.sv` to the RAM adapter or registered default error target.
-Phase 2 still needs instruction-fetch errors and real peripheral targets.
+Phase 2 is complete. Timer and UART/GPIO targets are introduced in Phases 3
+and 4, respectively.
 
 ## 5. Repository map
 
@@ -246,9 +248,9 @@ Phase 2 still needs instruction-fetch errors and real peripheral targets.
 | `testdata/` | Directed assembly tests and generated memory images |
 | `doc/` | Architecture reviews, decisions, evidence, and learning notes |
 
-`src/bus` now contains the fabric, default target, and RAM adapter. `src/periph`, `src/common`, and some SoC
-testbench files remain placeholders; their existence does not mean those
-features are implemented.
+`src/bus` contains the fabric, default target, and RAM adapter. Empty future
+module placeholders were removed: a planned timer, UART, or GPIO appears in
+the source tree only when its phase defines and implements a real interface.
 
 ## 6. The real pipeline
 
@@ -291,11 +293,15 @@ A fetch is accepted at a rising edge when `instr_ren_o` is high.
 |---|---|
 | Before edge N | `instr_addr_o=A` and `instr_ren_o=1` |
 | Rising edge N | `prog_ram` captures address A; the core captures PC tag A |
-| After edge N | RAM output is `mem[A]`; PC tag is A |
-| Rising edge N+1 | IF/ID may capture `{valid, A, mem[A]}` |
+| After edge N | RAM returns data plus `fetch_error_o`; PC tag is A |
+| Rising edge N+1 | IF/ID may capture `{valid, error, A, instr}` |
 
-The PC tag and RAM response must advance or hold together. If fetch stalls,
-`instr_ren_o` is low, so both the RAM response and its metadata hold.
+The PC tag, instruction word, and error status must advance or hold together.
+If fetch stalls, `instr_ren_o` is low, so the response and its metadata hold.
+For an out-of-range address, the word is only replacement data; `error=1` is
+the authoritative fact. It travels with the PC and becomes cause 1 with
+`mepc=mtval=PC`. The normal register, CSR, redirect, LSU, and divider effects
+of that packet are suppressed.
 
 ### 6.2 Pipeline packets
 
@@ -304,7 +310,7 @@ one typed value.
 
 | Packet | Main contents | Registered by |
 |---|---|---|
-| `fetch_pkt_t` | `valid`, `pc`, `instr` | `if2id` |
+| `fetch_pkt_t` | `valid`, `error`, `pc`, `instr` | `if2id` |
 | `id_ex_pkt_t` | operands, immediate, destination, ALU/branch/memory/CSR intent | `id2ex` |
 | `ex_wb_pkt_t` | execution result, memory metadata, trap record, CSR result | `ex2wb` |
 | `commit_pkt_t` | final architectural register, memory, and trap effects | top-level observation only |
@@ -498,8 +504,8 @@ their real targets replace the default selection. The original architectural
 address remains in the LSU/commit packet for correct `mtval` and debug output.
 
 Focused boundary, back-pressure, owner-stability, cross-target, invalid-load,
-and invalid-store tests pass. Instruction fetch uses a separate interface and
-still lacks explicit access-error status.
+and invalid-store tests pass. Instruction fetch uses a separate fixed-latency
+interface whose paired `fetch_error_o` now produces precise cause-1 traps.
 
 The accepted 64 KiB Vivado OOC check retains 32 `RAMB36E1` cells and the
 fabric/default-target hierarchy. Detailed decisions and evidence are in
@@ -669,13 +675,13 @@ Recommended waveform groups:
 | Topic | Current risk or question | Planned stage |
 |---|---|---|
 | Blocking LSU performance | Correct but the front end waits for every memory response | Measure before adding a MEM stage/cache |
-| Memory-map implementation | Data RAM/default decode and 64 KiB RTL defaults are implemented; fetch errors, peripherals, and remaining consumer migration are open | Phase 2 / AR-009/AR-016/AR-018/AR-019 |
-| Unmapped access faults | Data load/store faults are precise; invalid instruction fetch still substitutes EBREAK instead of cause 1 | Phase 2 / AR-018 |
+| Memory-map implementation | Data RAM/default decode, 64 KiB RTL defaults, and fetch errors are implemented; peripherals and remaining consumer migration are open | Phases 3-5 / AR-009/AR-016/AR-019 |
+| Unmapped access faults | Data load/store and out-of-range instruction fetches trap precisely; redirect/stall edge cases need broader directed coverage | Continuous verification / AR-018 |
 | Interrupt boundary | Correct resume PC and outstanding transaction deferral | Phase 3 / AR-008 |
 | Timer | No `mtime`, `mtimecmp`, or hardware MTIP | Phase 3 |
 | RV32M timing | Iterative divider passes 25/50 MHz OOC post-synthesis checks; exact-board routed closure and multiply-high margin remain | Phase 7 / AR-011/AR-017 |
 | Retirement ownership | CSR/trap/commit logic remains distributed | Cleanup / AR-012 |
-| Peripherals | UART/GPIO/timer files are placeholders | Phases 3–4 |
+| Peripherals | UART/GPIO/timer RTL is not implemented yet | Phases 3–4 |
 
 ## 16. Practical study exercises
 

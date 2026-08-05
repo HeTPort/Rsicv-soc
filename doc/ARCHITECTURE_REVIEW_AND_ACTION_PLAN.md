@@ -40,7 +40,7 @@ Current ownership and status:
 | AR-001, AR-002, AR-005, AR-006, AR-007 | Phase 0A | Implemented and verified |
 | AR-003, AR-004 | Phase 2 transaction/result sub-gates | Implemented and verified |
 | AR-008 | Phase 3 | Proposed; interrupt boundary work has not started |
-| AR-009 | Phase 1 | Accepted; Phase 1 contract complete, Phase 2 implementation pending |
+| AR-009 | Phase 1 | Accepted; Phase 1 contract and Phase 2 RTL adoption complete, later software consumers pending |
 | AR-010 | Continuous verification track | Ongoing |
 | AR-011 | Early FPGA feasibility, then Phase 7 closure | AR-017 closes the MULDIV OOC blocker; exact-board closure remains open |
 | AR-012 | Cross-stage cleanup | Proposed; perform items when their owning interfaces stabilize |
@@ -49,7 +49,7 @@ Current ownership and status:
 | AR-015 | AR-011 evidence supporting Phase 1 | 16 KiB/64 KiB utilization and post-synthesis timing comparison verified |
 | AR-016 | Phase 1 architecture boundary | Core-to-SoC ownership and environment contract accepted |
 | AR-017 | AR-011 timing optimization | Radix-2 iterative divider implemented and verified; exact-board closure open |
-| AR-018 | Phase 2 SoC contract | Data cases GREEN through AR-019; invalid fetch remains RED |
+| AR-018 | Phase 2 SoC contract | All data and instruction fault cases GREEN; closed |
 | AR-019 | Phase 2 data fabric | Centralized decoder/default target implemented and verified |
 
 ## Verified baseline
@@ -465,7 +465,7 @@ regions:
 
 ### AR-018 — The accepted SoC error contract lacked executable system-level RED evidence
 
-**Status:** Data cases GREEN through AR-019; instruction-fetch case remains RED.
+**Status:** Implemented and verified; closed 2026-08-03.
 **Target:** Phase 2.
 
 **Evidence**
@@ -477,8 +477,9 @@ regions:
   because the wrapper routed them to data RAM instead of an error target.
 - AR-019 now makes both data cases pass with causes 5/7 and proves that the
   invalid store cannot alter the aliased RAM sentinel.
-- An invalid fetch reaches failure code 2 after `prog_ram` substitutes EBREAK,
-  proving that instruction access fault cause 1 is missing.
+- The original invalid-fetch RED reached failure code 2 after replacement
+  EBREAK. The paired fetch-error implementation now reports precise cause 1
+  with `mepc=mtval=PC`.
 - The unchanged smoke suite remains 22/22 green and the regression classifier
   still passes.
 
@@ -489,13 +490,14 @@ regions:
 - [x] Add full-address decode and local-address subtraction.
 - [x] Register response-source ownership and add the one-cycle, side-effect-free
       default target.
-- [ ] Add explicit fetch error signaling and precise cause-1 completion.
+- [x] Add explicit fetch error signaling and precise cause-1 completion.
 - [x] Add initial data-RAM boundary, inserted-request-wait, owner-stability, and
       back-to-back cross-target coverage.
-- [ ] Turn the remaining AR-018 instruction case GREEN and extend coverage as
-      real peripheral targets are added.
+- [x] Turn the AR-018 instruction case GREEN.
+- [ ] Extend coverage as real peripheral targets are added in their owning
+      phases.
 
-Detailed rationale, failure codes, commands, and the remaining predicate are in
+Detailed rationale, failure codes, commands, and the acceptance evidence are in
 [`AR018_SOC_FABRIC_RED_TESTS.md`](AR018_SOC_FABRIC_RED_TESTS.md). The data
 implementation record is
 [`AR019_CENTRALIZED_DATA_FABRIC.md`](AR019_CENTRALIZED_DATA_FABRIC.md).
@@ -585,9 +587,8 @@ outputs.
       construction.
 - [ ] Remove unused control ports after the bus/interrupt control contract is
       stable.
-- [ ] Replace empty placeholder RTL files with implemented modules when their
-      phase starts, or retain only clearly named placeholders that are excluded
-      from the build.
+- [x] Remove empty placeholder RTL files; add implemented modules when their
+      owning phase starts and defines a real interface.
 
 ### AR-013 — Regression PASS ignored the simulator process status
 

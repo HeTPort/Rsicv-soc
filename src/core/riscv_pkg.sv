@@ -282,7 +282,7 @@ package riscv_pkg;
   // ============================================================
 
   // 11.1 Fetch Packet (对应 if2id 模块的接口)
-  // error: instruction fetch returned an invalid/unmapped/misaligned response.
+  // error: instruction fetch returned an invalid/unmapped response.
   //        The instruction field is architecturally meaningless when error=1.
   typedef struct packed {
     logic          valid;

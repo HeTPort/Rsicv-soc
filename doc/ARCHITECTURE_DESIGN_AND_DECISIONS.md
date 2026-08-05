@@ -9,9 +9,9 @@
 **Current milestone:** Phase 1 and the AR-009/AR-016
 `freertos_split_64k_v1` core-to-SoC contract are accepted. AR-019 implements
 and verifies its centralized data decoder/default target, while AR-017
-implements the multi-cycle divider. Phase 2 instruction errors,
-timer/peripheral work, and exact-board timing closure remain open. AR-018 now
-has two GREEN data cases and one isolated fetch RED.
+implements the multi-cycle divider. AR-018 completes the Phase 2 instruction
+error path and all four SoC fault runs are GREEN. Timer/peripheral work and
+exact-board timing closure remain open.
 
 > This is the consolidated record of what the architecture is, why it evolved
 > this way, what was learned while fixing problems, and which decisions remain
@@ -296,9 +296,9 @@ Consequences:
 
 ### Stage F — Reproducible verification and ACT4 readiness
 
-**Period:** July 2026
+**Period:** July to August 2026
 
-**State:** Implemented; official corpus execution continues
+**State:** Implemented; official RV32IM baseline complete
 
 The project gained a manifest-driven ModelSim runner, separate instruction/data
 image conversion, `tohost`, commit assertions, and ACT4 adapters.
@@ -311,12 +311,23 @@ Decisions:
   gates.
 - Classify failures before changing RTL.
 
+Verification:
+
+- On 2026-08-03, 39/39 applicable RV32I tests and 8/8 applicable RV32M tests
+  passed on unchanged RTL.
+- The complete 47-test result contained no failures, timeouts, unsupported
+  cases, tool failures, or DUT/RTL candidates.
+- The detailed counts, commands, scope limits, and evidence locations are in
+  `doc/ACT4_RV32I_INTEGRATION_HANDOFF_2026-07-27.md`.
+
 Consequences:
 
 - Test execution became repeatable.
 - Harness/configuration failures can be distinguished from RTL failures.
 - Memory-map changes must update RTL, linker, converter, and ACT descriptions
   together.
+- Track A is now a continuous regression gate, not an unfinished integration
+  task; its result is a project baseline rather than compliance certification.
 
 ### Stage G — Phase 0 baseline and Phase 0A precision remediation
 
@@ -328,9 +339,9 @@ The architecture review froze a green baseline, then intentionally repaired
 precision and timing invariants before introducing wait states or interrupts.
 AR-003 and AR-004 are Phase 2 sub-gates that were completed early because the
 Phase 0A exit criteria also required wait-state correctness and packet-owned
-memory results. This closes Phase 0A, not Phase 2; AR-018 now provides initial
-system-level negative RED tests, while address decode, the default error target,
-and complete GREEN system coverage remain open.
+memory results. This closed Phase 0A, not Phase 2. At that checkpoint AR-018
+provided initial system-level RED tests; AR-019 and the later fetch-error path
+subsequently turned the Phase 2 suite GREEN.
 
 Reason for ordering:
 
@@ -795,8 +806,9 @@ preserve current regression values, and derive named 16 KiB/64 KiB synthesis
 profiles for isolated capacity experiments.
 
 **Consequences:** Map edits have one owner and a deterministic stale-file gate.
-Generated constants now carry the accepted ABI. Phase 2 remains open until the
-decoder/error paths and current consumers adopt it.
+Generated constants now carry the accepted ABI. Phase 2 later closed after the
+decoder and data/instruction error paths adopted it; remaining software/tool
+consumers are tracked in their owning later phases.
 
 **Evidence:** generation and `--check` passed, nine generator tests passed,
 and Python syntax compilation passed. Full rationale, validation rules,
@@ -890,7 +902,7 @@ signals, module relationships, commands, and limitations are in
 
 ### AR-018 — SoC fabric contract tests
 
-**State:** Data cases GREEN through AR-019; instruction-fetch case RED
+**State:** Implemented and verified; closed 2026-08-03
 
 **Problem:** The accepted split map and access-fault rules had no executable
 SoC-level negative tests. Core-level error injection proved precise trap entry
@@ -898,8 +910,8 @@ but bypassed the missing address decoder and instruction-error boundary.
 
 **Root cause:** The original `riscv_soc` routed every data request directly to
 data RAM, whose low-bit index permitted high-address aliasing. Invalid
-instruction fetches still have no error signal and are represented by a
-substituted EBREAK instruction.
+instruction fetches had no paired error signal and were therefore interpreted
+as the replacement EBREAK word.
 
 **Options:** Reuse injected core tests, add a compile-only future-interface
 test, force internal bus signals, or execute directed firmware through the real
@@ -907,16 +919,22 @@ SoC wrapper. Firmware plus `commit_o` was selected because it remains stable
 across the upcoming fabric implementation and verifies architectural effects.
 
 **Decision:** Add `tb_riscv_soc`, an isolated `soc_red_tests.json` manifest,
-optional backward-compatible runner top selection, and three cases for load
-cause 5, store cause 7/no side effect, and fetch cause 1. Do not place expected
-RED failures in the default smoke suite.
+optional backward-compatible runner top selection, and cases for load cause 5,
+store cause 7/no side effect, inserted waits, and fetch cause 1. Carry a paired
+fetch error through `fetch_pkt_t` and give it priority over replacement data.
 
 **Evidence and consequences:** The original 3/3 RED baseline is preserved.
-After AR-019, the unmapped load/store cases pass through the real SoC wrapper
-with precise causes 5/7 and no invalid-store RAM side effect. Invalid fetch
-still reaches failure code 2 after EBREAK/cause 3. The smoke suite remains
-22/22 and the result-classifier test passes. The remaining predicate is in
+All four current SoC runs pass: the data cases report precise causes 5/7 with
+no invalid-store RAM side effect, and the out-of-range fetch reports cause 1
+with `mepc=mtval=PC`. The smoke suite remains 22/22. Detailed evidence is in
 [`AR018_SOC_FABRIC_RED_TESTS.md`](AR018_SOC_FABRIC_RED_TESTS.md).
+
+**Deferred hardening decision:** Canonical fetch-error decode controls,
+redirect/stall/consecutive-fault tests, and a richer instruction response
+contract are retained as low-priority maintenance. Existing downstream kill
+and exception gating is sufficient for the verified fixed-latency RAM design,
+so these items do not reopen AR-018 or Phase 2. Reconsider the response
+contract before adding instruction wait states or multiple fetch targets.
 
 ### AR-019 — Centralized data decoder and registered default target
 
@@ -943,9 +961,10 @@ no write side effect. RAM decode size derives from the configured depth; SoC
 defaults consume the accepted generated 64 KiB constants.
 
 **Evidence and consequences:** Focused range/back-pressure/owner/cross-target
-tests pass at 116 ns. Both SoC data-fault firmware tests pass; invalid fetch
-remains intentionally RED. All 22 smoke tests, the classifier, and generated
-map check pass. Vivado 2019.2 OOC synthesis reports 0 errors, retains 32
+tests pass at 116 ns. Both SoC data-fault firmware tests pass. The later AR-018
+fetch-error change also passes while retaining all 22 smoke tests. The
+classifier and generated-map checks pass. Vivado 2019.2 OOC synthesis reports
+0 errors and retains 32
 RAMB36E1 blocks, and retains the fabric/default hierarchy. Detailed invariants,
 timing, commands, and limitations are in
 [`AR019_CENTRALIZED_DATA_FABRIC.md`](AR019_CENTRALIZED_DATA_FABRIC.md).
@@ -955,7 +974,7 @@ timing, commands, and limitations are in
 | Stage | Architecture decisions required before implementation | Exit evidence |
 |---|---|---|
 | Phase 1: contract freeze | Complete: AR-009/AR-016 accept topology, byte map, faults, timer atomicity, and bus lifecycle | Accepted contract answers every address/access/error case |
-| Phase 2: external data bus | Data decode/default, EX/WB response packet, access-fault traps, LSU FSM/backpressure are verified; instruction error remains | Turn the remaining AR-018 fetch case GREEN, add real peripheral targets, retain all data-fabric/LSU suites |
+| Phase 2: external data bus | Complete: data decode/default, EX/WB response packet, precise data/instruction access faults, LSU FSM/backpressure | 4/4 SoC fault runs, data-fabric protocol suite, 22/22 smoke |
 | Phase 3: timer interrupt | MTIP ownership, eligibility, retirement boundary, MRET, WFI | Long repeated-interrupt test and precise commit assertions |
 | Phase 4: UART/GPIO | Register semantics, partial writes, reset, decode exclusivity | Peripheral and SoC-level scoreboards |
 | Phase 5: firmware | Startup ABI, linker map, image split, drivers | Same bare-metal programs in simulation and FPGA |

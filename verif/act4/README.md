@@ -6,9 +6,9 @@ files with expected results calculated by the Sail reference model. The local
 flow converts those ELFs into the two `$readmemh` images required by this
 Harvard-memory core and then runs them through the normal ModelSim regression.
 
-The first enabled scope is unprivileged RV32I. RV32M can be enabled after I is
-green. Privileged tests intentionally remain disabled until the incomplete CSR
-legality and interrupt behavior are implemented.
+The enabled baseline scope is unprivileged RV32I plus RV32M. On 2026-08-03 all
+39 RV32I and all 8 RV32M tests passed. Privileged tests remain disabled until
+the target configuration and interrupt behavior are ready for that wider scope.
 
 ## Data flow
 
@@ -53,7 +53,7 @@ executable hardware specification rather than build-system decoration.
 
 - XLEN is 32.
 - M is enabled; A/F/D/C and other unsupported extensions are disabled.
-- RAM occupies `0x0000_0000` through `0x0000_3fff`.
+- ACT4-only simulation RAM occupies `0x0000_0000` through `0x0003_ffff`.
 - Misaligned data accesses fault.
 - User and supervisor modes are disabled.
 
@@ -68,23 +68,25 @@ deliberate coverage boundary, not a claim that machine-mode support is absent.
 
 ### Linker and memory map
 
-`rv32im_core/link.ld` places ACT sections into the core's real 16 KiB address
-window. It preserves ACT's required ordering:
+`rv32im_core/link.ld` places ACT sections into a 256 KiB testbench-only memory
+window. This larger capacity lets generated coverage programs run; it does not
+change the synthesizable SoC's accepted 64 KiB program region. The script
+preserves ACT's required ordering:
 
 ```text
 .text.init -> .text.rvtest -> .data -> .text.rvmodel -> .bss
 ```
 
 The linker `ASSERT` rejects an ELF that does not fit instead of allowing the
-RTL RAM index to wrap. Address `0x0000_3ffc`, the final valid word, is reserved
+RTL RAM index to wrap. Address `0x0003_fffc`, the final valid word, is reserved
 for `tohost`, so ordinary ACT data must finish below that address.
 
 ### DUT-specific assembly macros
 
 `rv32im_core/rvmodel_macros.h` implements ACT termination:
 
-- `RVMODEL_HALT_PASS` stores `1` to `0x3ffc`.
-- `RVMODEL_HALT_FAIL` stores `2` to `0x3ffc`.
+- `RVMODEL_HALT_PASS` stores `1` to `0x0003_fffc`.
+- `RVMODEL_HALT_FAIL` stores `2` to `0x0003_fffc`.
 - Console and interrupt hooks are empty because those devices do not exist.
 
 The trailing backslash in a C preprocessor macro continues the definition on
@@ -116,7 +118,21 @@ riscv64-unknown-elf-objdump --version
 sail_riscv_sim --version
 ```
 
-## Generate and import RV32I tests in WSL
+## Generate and import RV32I or RV32M tests
+
+From Windows PowerShell, the consolidated launcher selects one extension and
+handles the Windows-to-WSL repository path:
+
+```powershell
+.\sim\regress\run_act4_build.ps1 -Extension I
+.\sim\regress\run_act4_build.ps1 -Extension M
+```
+
+Use `-Act4Root`, `-Act4WorkDir`, or `-WslRepoPath` only when your WSL layout is
+not the default. Run `Get-Help .\sim\regress\run_act4_build.ps1 -Detailed` for
+examples.
+
+The equivalent direct WSL flow is:
 
 From the repository mounted in WSL:
 
@@ -184,7 +200,7 @@ For every loadable segment:
 - The remainder through `p_memsz` is zero-filled, implementing `.bss`.
 - The bytes are copied into both initial Harvard memories.
 - Conflicting overlapping segments are rejected.
-- Any byte outside `[0x0000, 0x4000)` is rejected.
+- Any byte outside `[0x0000, 0x40000)` is rejected.
 
 Both memories initially receive all ELF bytes because software sees one
 architectural address space even though this implementation stores instructions
@@ -241,13 +257,11 @@ LSU, and writeback.
 
 ## Coverage expansion order
 
-1. Make all RV32I ACT tests green.
-2. Run `ACT4_EXTENSIONS=M` and repair RV32M findings.
-3. Implement illegal accesses to unknown/read-only CSRs.
-4. Correct full WARL behavior for `mstatus`, `mepc`, and `mtvec`.
-5. Enable selected Zicsr and machine-mode tests.
-6. Add interrupt sources before enabling interrupt tests.
-7. Add Spike differential checking for randomized instruction streams.
+1. Keep the 39/39 RV32I and 8/8 RV32M baseline continuously green.
+2. Enable selected Zicsr and machine-mode tests only after auditing the ACT4
+   configuration against the implemented CSR behavior.
+3. Add interrupt sources before enabling interrupt-dependent tests.
+4. Add Spike differential checking for randomized instruction streams.
 
 ACT4 is architectural checking. It does not replace the existing directed
 regression, structural assertions, future bus protocol assertions, or eventual

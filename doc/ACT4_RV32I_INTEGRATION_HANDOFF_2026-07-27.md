@@ -374,8 +374,8 @@ testbench RAM depth did not change the default test configuration.
 
 ## RV32I baseline results
 
-Run date: 2026-08-03  
-RTL changes during baseline: none  
+Run date: 2026-08-03<br>
+RTL changes during baseline: none<br>
 
 | Metric | Value |
 |---|---|
@@ -400,16 +400,22 @@ All 39 RV32I tests passed on the unchanged RTL. The full result table is in
 - `images/`
 - `classification_rv32i.md`
 
-### Follow-up
+### RV32M continuation (completed)
 
-1. Run the RV32M baseline with `run_act4_rv32m.ps1` and classify the results.
-2. If any RV32M test fails, classify it before changing RTL.
-3. Rerun the smoke regression and importer unit tests after the RV32M baseline.
+The RV32M build used the consolidated command below. The separate,
+machine-specific RV32I/RV32M launchers were later removed as redundant.
+
+```powershell
+.\sim\regress\run_act4_build.ps1 -Extension M
+```
+
+Any future failing test must still be classified before RTL changes. Rerun the
+smoke regression and importer unit tests after regenerating an ACT4 baseline.
 
 ## RV32M baseline results
 
-Run date: 2026-08-03  
-RTL changes during baseline: none  
+Run date: 2026-08-03<br>
+RTL changes during baseline: none<br>
 
 | Metric | Value |
 |---|---|
@@ -451,3 +457,14 @@ prioritized RTL work coordinated with AR-002 or AR-018.
 not a RISC-V ACT4 compliance report. Because interrupt macros are no-ops and
 several advertised features are intentionally unsupported, the baseline cannot
 be interpreted as certification.
+
+## Low-priority maintenance backlog
+
+The 47/47 RV32I/RV32M result remains valid. The following repository-quality
+improvements can wait until ACT4 automation is extended:
+
+- derive `rv32i` and `rv32m` manifest tags from each imported test instead of
+  assigning `rv32i` globally;
+- copy a compact, tool-versioned classification summary into
+  `doc/evidence/act4/` so GitHub retains evidence even though generated
+  `build/` logs and images remain ignored.

@@ -258,8 +258,9 @@ module prog_ram #(
                                                 mem_rdata_q;
 
   // fetch_error_o is a registered level signal aligned with instr_data_o:
-  // high iff the response currently being driven is invalid (out-of-range
-  // or misaligned). The core pairs it with the delayed request PC tag.
+  // high iff the response currently being driven is invalid. Out-of-range
+  // requests become access faults; ordinary control-flow misalignment is
+  // detected earlier by the core and reported separately as cause 0.
   assign fetch_error_o = !response_valid_q;
 
   // ------------------------------------------------------------
@@ -270,10 +271,10 @@ module prog_ram #(
   // 下面这些 $error 主要用于仿真排查问题。
   // 综合时一般会被综合工具忽略。
   //
-  // Fetch misaligned/out-of-range reads are no longer treated as simulation
-  // errors: they are the expected source of instr_access_fault (mcause=1) and
-  // are reported through fetch_error_o.  Keep write-time diagnostics so image
-  // loading mistakes still surface during testbench bring-up.
+  // Invalid reads are no longer treated as simulation errors: out-of-range
+  // reads are reported through fetch_error_o and become instr_access_fault
+  // (mcause=1). Keep write-time diagnostics so image-loading mistakes still
+  // surface during testbench bring-up.
   //
 `ifndef SYNTHESIS
   always_ff @(posedge clk_i) begin
