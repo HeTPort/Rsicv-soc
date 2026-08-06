@@ -26,9 +26,9 @@
       "tags": ["phase2-data", "soc", "decode", "store", "fault", "waitstate"]
     },
     {
-      "name": "soc_instruction_access_fault_red",
+      "name": "soc_instruction_access_fault",
       "image": "testdata/soc_instruction_access_fault_test.hex",
-      "tags": ["phase2-red", "soc", "fetch", "fault"]
+      "tags": ["phase2-fetch", "soc", "fetch", "fault"]
     }
   ]
 }

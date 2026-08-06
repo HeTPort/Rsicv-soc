@@ -374,8 +374,13 @@ testbench RAM depth did not change the default test configuration.
 
 ## RV32I baseline results
 
+<<<<<<< Updated upstream
 Run date: 2026-08-03  
 RTL changes during baseline: none  
+=======
+Run date: 2026-08-03<br>
+RTL changes during baseline: none<br>
+>>>>>>> Stashed changes
 
 | Metric | Value |
 |---|---|
@@ -400,6 +405,7 @@ All 39 RV32I tests passed on the unchanged RTL. The full result table is in
 - `images/`
 - `classification_rv32i.md`
 
+<<<<<<< Updated upstream
 ### Follow-up
 
 1. Run the RV32M baseline with `run_act4_rv32m.ps1` and classify the results.
@@ -410,6 +416,24 @@ All 39 RV32I tests passed on the unchanged RTL. The full result table is in
 
 Run date: 2026-08-03  
 RTL changes during baseline: none  
+=======
+### RV32M continuation (completed)
+
+The RV32M build used the consolidated command below. The separate,
+machine-specific RV32I/RV32M launchers were later removed as redundant.
+
+```powershell
+.\sim\regress\run_act4_build.ps1 -Extension M
+```
+
+Any future failing test must still be classified before RTL changes. Rerun the
+smoke regression and importer unit tests after regenerating an ACT4 baseline.
+
+## RV32M baseline results
+
+Run date: 2026-08-03<br>
+RTL changes during baseline: none<br>
+>>>>>>> Stashed changes
 
 | Metric | Value |
 |---|---|

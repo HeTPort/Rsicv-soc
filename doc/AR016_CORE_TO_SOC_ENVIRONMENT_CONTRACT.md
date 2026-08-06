@@ -263,9 +263,9 @@ regression boundary for infrastructure success.
 
 | State | Meaning now |
 |---|---|
-| Current RTL | Direct instruction RAM; centralized data fabric to 64 KiB-default RAM or registered error target; no instruction-error signal |
+| Current RTL | Direct instruction RAM with paired fetch-error status; centralized data fabric to 64 KiB-default RAM or registered error target |
 | Accepted Phase 1 ABI | Split 64 KiB map, addresses, visibility, errors, default-target latency, generated definitions |
-| Remaining Phase 2 implementation | Instruction error, real peripheral targets, and remaining linker/image/regression/ACT4 migration |
+| Phase 2 result | Complete: data fabric/default target plus precise data and instruction access faults |
 | Later SoC phases | Timer interrupt, UART/GPIO, firmware, FreeRTOS, exact-board closure |
 
 ## 13. Phase 2 implementation order
@@ -283,11 +283,12 @@ regression boundary for infrastructure success.
    wait-state, and cross-target tests.
 9. Rerun functional regression and exact-part synthesis/timing evidence.
 
-AR-019 completes steps 1-4 and 6 for the data path, makes the two AR-018 data
-cases GREEN, adds initial boundary/back-pressure/cross-target coverage, and
-reruns functional plus provisional-part OOC synthesis. Steps 5 and 7, the
-remaining fetch case in step 8, real peripheral targets, and exact-board
-closure remain open.
+AR-019 completes steps 1-4 and 6 for the data path, makes the AR-018 data cases
+GREEN, adds initial boundary/back-pressure/cross-target coverage, and reruns
+functional plus provisional-part OOC synthesis. AR-018 later completes step 5
+and the fetch case in step 8. Step 7 continues with firmware/tool consumers in
+their owning later phases; real peripheral targets and exact-board closure also
+remain later-phase work rather than Phase 2 exit conditions.
 
 ## 14. Consequences and risks
 

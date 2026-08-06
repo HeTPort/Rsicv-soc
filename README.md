@@ -44,11 +44,17 @@ every corner of the ISA has been proven.
 | CPU | RV32IM in-order core using packed pipeline packets |
 | Pipeline control | RAW stalls, redirect flushing, delayed fetch kill, and complete bubbles |
 | Traps and CSRs | M-mode CSR operations, legality checks, WARL behavior, precise synchronous traps, and `mret` |
-| Instruction path | One-cycle synchronous program RAM with PC and response pairing |
+| Instruction path | One-cycle synchronous program RAM with paired fetch-error status and precise cause-1 traps |
 | Data path | One outstanding request, inserted wait-state support, registered results, and precise access faults |
+<<<<<<< Updated upstream
 | Verification | Architectural commit checking, `tohost`, ModelSim regression, ELF conversion, and ACT4 adapters |
 | Memory map | AR-009 split 64 KiB map accepted; centralized data decode/default target implemented by AR-019 |
 | Peripherals | Timer, UART, and GPIO are planned; their source files are placeholders |
+=======
+| Verification | Architectural commit checking, `tohost`, ModelSim regression, ELF conversion, and a 47/47 ACT4 RV32I/RV32M baseline |
+| Memory map | AR-009 split 64 KiB map accepted; centralized data decode/default target implemented by AR-019 |
+| Peripherals | Timer, UART, and GPIO are planned; RTL modules will be added with their owning phases |
+>>>>>>> Stashed changes
 | Software | Startup code, final linker layout, drivers, and FreeRTOS are still to come |
 | FPGA | Block RAM inference has been checked; board timing and hardware testing have not been completed |
 
@@ -121,9 +127,10 @@ The testbench also checks ordered commits, x0 protection, trap and write
 exclusion, memory byte masks, single-outstanding data transactions, response
 pairing, and instruction-fetch timing.
 
-The repository has ACT4 adapters and a synthetic harness test. Importing and
-passing the full official RV32I/RV32M Architecture Test corpus remains open, so
-this project does not claim complete ISA compliance.
+The repository's current applicable ACT4 baseline passes all 39 RV32I and all
+8 RV32M tests. That is strong regression evidence for the implemented I/M
+subset, but it is not a claim of complete ISA or privileged-architecture
+compliance.
 
 ## Try it
 
@@ -245,18 +252,19 @@ verif/act4/   RISC-V Architecture Test integration configuration
 doc/          Design decisions, focused problem reports, and study notes
 ```
 
-The build scripts include files explicitly. Experimental alternatives and empty
-placeholder files do not participate in the active simulation or synthesis
-flow unless someone adds them to a build list.
+The build scripts include files explicitly. Obsolete alternatives and empty
+placeholder files are not kept in the source tree; planned modules are added
+when their interface and owning phase are ready.
 
 ## Where it is going
 
-Phase 0A, which repaired retirement and pipeline side-effect precision, and
-Phase 1, which froze the core-to-SoC contract, are complete. The next steps are:
+Phase 0A repaired retirement and pipeline side-effect precision, Phase 1 froze
+the core-to-SoC contract, and Phase 2 implemented and verified the external
+data fabric plus instruction-access-fault path. The next steps are:
 
-1. implement Phase 2 centralized address decoding and the default error target;
-2. migrate the RTL, linker, images, `tohost`, regression, and ACT4 flow to the
-   accepted split 64 KiB map as one verified change;
+1. keep the Phase 2 SoC-fault and ACT4 RV32I/RV32M baselines continuously green;
+2. finish migrating linker, images, `tohost`, regression, and ACT4 consumers
+   to the accepted split 64 KiB map as one verified change;
 3. implement precise machine-timer interrupts;
 4. add a polling UART and simple GPIO;
 5. build startup code, drivers, and bare-metal tests;

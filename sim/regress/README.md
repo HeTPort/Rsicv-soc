@@ -8,8 +8,8 @@ logs, and returns a nonzero process status if any test fails.
 ## Files
 
 - `tests.json` - test names, firmware images, timeouts, and selection tags.
-- `soc_red_tests.json` - isolated Phase 2 SoC contract cases: implemented data
-  faults use `phase2-data`; the remaining fetch fault uses `phase2-red`.
+- `soc_red_tests.json` - isolated Phase 2 SoC contract cases for data and
+  instruction access faults.
 - `run_regression.ps1` - Windows PowerShell orchestration and result checking.
 - `regression_result.ps1` - shared simulator result-classification policy.
 - `test_regression_result.ps1` - dependency-free positive/negative classifier
@@ -20,6 +20,8 @@ logs, and returns a nonzero process status if any test fails.
 - `elf_to_mem.py` - address-aware RV32 ELF to instruction/data RAM converter.
 - `import_act4.py` - converts ACT4 ELF directories and generates a manifest.
 - `build_act4_wsl.sh` - generates/imports ACT4 tests in WSL.
+- `run_act4_build.ps1` - parameterized Windows/WSL ACT4 build entry point for
+  either the I or M extension.
 - `run_act4.ps1` - convenience wrapper for imported ACT4 ELF directories.
 
 Generated files are kept outside the source directories:
@@ -84,17 +86,15 @@ manifest. Run the implemented centralized data-decoder/default-target cases:
 ```
 
 All three selected runs (load, store, and store with inserted RAM waits) must
-pass. The instruction-error interface is still open,
-so its isolated case remains an expected RED result:
+pass. Run the instruction-access-fault case separately with:
 
 ```powershell
 ./run_regression.ps1 `
   -Manifest .\soc_red_tests.json `
-  -Tag phase2-red
+  -Tag phase2-fetch
 ```
 
-Do not add the remaining `phase2-red` case to the default `smoke` tag before its
-GREEN implementation exists. The focused fabric protocol test is:
+The selected fetch case must also pass. The focused fabric protocol test is:
 
 ```powershell
 Set-Location D:\Rsicv-soc\sim

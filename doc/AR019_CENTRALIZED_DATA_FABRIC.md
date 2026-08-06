@@ -4,9 +4,9 @@
 
 **Implemented and verified on 2026-08-02.** The data-address portion of Phase 2
 now has a centralized decoder, local RAM addressing, transaction-owned response
-routing, and a side-effect-free registered error target. Phase 2 remains open
-for explicit instruction-access errors, real peripheral targets, and broader
-system integration.
+routing, and a side-effect-free registered error target. At this checkpoint
+the fetch-error gate was still open; AR-018 closed it on 2026-08-03. Real
+peripherals and their expanded coverage belong to later phases.
 
 ## Problem
 
@@ -126,8 +126,8 @@ The concise command/result record is
   return the default error.
 - The fabric is deliberately single-outstanding; throughput optimization is
   deferred until measured need justifies added tags/queues.
-- Instruction fetch still lacks an error channel, so AR-018 is not fully
-  closed and Phase 2 is not complete.
+- AR-018 subsequently added the instruction-fetch error channel and closed the
+  remaining Phase 2 fault gate.
 - The OOC synthesis result proves elaboration and BRAM retention, not
   exact-board routed timing closure.
 

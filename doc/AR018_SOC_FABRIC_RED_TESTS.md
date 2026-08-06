@@ -62,7 +62,11 @@ generics as explicit `32'hXXXXXXXX` values.
 |---|---|---|---|
 | `soc_unmapped_load_fault` | `0x4000_0000` returns cause 5 with correct `mepc`/`mtval` and no destination/younger write | Failure code 6: RAM serviced the load | **PASS** through the default target |
 | `soc_unmapped_store_fault` | cause 7 with correct PC/value and no aliased RAM write | Failure code 6: RAM serviced the store | **PASS**; sentinel at `0x8000_0000` is unchanged |
+<<<<<<< Updated upstream
 | `soc_instruction_access_fault_red` | fetch `0x0001_0000` returns cause 1 with `mepc=mtval=0x0001_0000` | Failure code 2 after EBREAK/cause 3 | **PASS** (2026-08-03) via `fetch_error_o` and cause-1 priority |
+=======
+| `soc_instruction_access_fault` | fetch `0x0001_0000` returns cause 1 with `mepc=mtval=0x0001_0000` | Failure code 2 after EBREAK/cause 3 | **PASS** (2026-08-03) via `fetch_error_o` and cause-1 priority |
+>>>>>>> Stashed changes
 
 The store firmware writes a sentinel to data RAM before attempting the invalid
 store, then checks it after the trap. Passing therefore proves both error
@@ -81,28 +85,33 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 Expected result: 3/3 PASS (including the inserted-wait store variant) and
 process exit 0.
 
-Run the isolated remaining fetch RED:
+Run the isolated fetch-fault case:
 
 ```powershell
-./run_regression.ps1 -Manifest .\soc_red_tests.json -Tag phase2-red
+./run_regression.ps1 -Manifest .\soc_red_tests.json -Tag phase2-fetch
 ```
 
-Expected result: one FAIL, simulator native exit 0, runner process exit 1. The
-failure log must still identify out-of-range instruction fetch followed by
-EBREAK, not a data-fabric error.
+Expected result: 1/1 PASS and process exit 0. The committed trap must report
+cause 1 with `mepc` and `mtval` equal to the rejected fetch address.
 
-## Remaining acceptance predicate
+## Acceptance predicate
 
 The data-fabric portion is satisfied by AR-019: full-address classification,
 base subtraction, registered response ownership, a one-cycle zero-data error
 target, boundary/back-pressure/cross-target tests, and unchanged smoke results.
-AR-018 closes only after:
+AR-018 closed after all of the following became true:
 
 1. instruction fetch carries explicit valid/error response status; ✅ implemented
    via `prog_ram.fetch_error_o` and `riscv.instr_fetch_error_i`
+<<<<<<< Updated upstream
 2. invalid fetch produces precise cause 1 without substituting an instruction;
    ✅ implemented via `exc.instr_access_fault` and the execute trap-cause mux
 3. `soc_instruction_access_fault_red` becomes GREEN; ✅ PASS on 2026-08-03
+=======
+2. invalid fetch produces precise cause 1 regardless of replacement data;
+   ✅ implemented via `exc.instr_access_fault` and the execute trap-cause mux
+3. `soc_instruction_access_fault` becomes GREEN; ✅ PASS on 2026-08-03
+>>>>>>> Stashed changes
 4. broader SoC tests retain the complete regression baseline; ✅ smoke 22/22 PASS,
    phase2-data 3/3 PASS on 2026-08-03
 
@@ -126,7 +135,11 @@ AR-018 closes only after:
 
 | Scenario | Purpose |
 |---|---|
+<<<<<<< Updated upstream
 | Misaligned instruction fetch | Confirm low-order address bits trigger cause 1. |
+=======
+| Misaligned control-flow target | Confirm low-order address bits trigger instruction-address-misaligned cause 0, not access-fault cause 1. |
+>>>>>>> Stashed changes
 | Fetch above `prog_ram` depth | Confirm out-of-range address triggers cause 1. |
 | Consecutive invalid fetches | Confirm the first fault is precise and the redirect to `mtvec` does not fault again before the handler. |
 | Invalid fetch followed by a taken branch/redirect | Confirm the stale fetch after redirect is killed. |
@@ -136,7 +149,7 @@ AR-018 closes only after:
 ## Consequences
 
 - Data addresses can no longer silently alias RAM outside its configured range.
-- The remaining instruction-fault gap is isolated rather than hidden inside a
-  mixed three-failure result.
+- Out-of-range instruction fetches now trap precisely instead of being
+  misreported as EBREAK.
 - Detailed AR-019 design and verification evidence is in
   [`AR019_CENTRALIZED_DATA_FABRIC.md`](AR019_CENTRALIZED_DATA_FABRIC.md).

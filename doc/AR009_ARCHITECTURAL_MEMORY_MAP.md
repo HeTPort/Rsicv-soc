@@ -2,8 +2,8 @@
 
 ## Status
 
-**Accepted on 2026-08-01. Data-RAM/default-target RTL partially implemented by
-AR-019 on 2026-08-02.**
+**Accepted on 2026-08-01. Phase 2 data-fabric and instruction-error RTL
+implemented by AR-019/AR-018 on 2026-08-02/03.**
 
 This document records the accepted first-milestone memory topology and map for
 the FreeRTOS target. Acceptance freezes the hardware/software ABI; it is not a
@@ -12,8 +12,9 @@ map.
 
 Acceptance closes the Phase 1 gate. AR-019 implements the centralized data
 decoder, local RAM address, registered default target, and 64 KiB SoC RTL
-defaults. The instruction-error path, peripherals, and remaining consumer
-migration still implement the rest of the contract.
+defaults, and AR-018 implements out-of-range instruction-fetch errors. Timer,
+UART/GPIO, and remaining software/tool consumers continue in their owning
+later phases.
 
 ## Problem
 

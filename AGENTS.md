@@ -44,7 +44,7 @@ The project is meant to be simulated with ModelSim/QuestaSim and synthesized wit
 
 ### Recent refactor
 
-The pipeline data flow was refactored from flat signals into packed SystemVerilog structs (`fetch_pkt_t`, `id_ex_pkt_t`, `ex_wb_pkt_t` defined in `src/core/riscv_pkg.sv`). Most pipeline modules now accept/return a single struct instead of dozens of individual signals. A few placeholder directories/files were added (`src/common/`, `src/bus/`, `src/periph/`, `webServerApiSettings.json`) but they are currently empty or unrelated to the core CPU.
+The pipeline data flow was refactored from flat signals into packed SystemVerilog structs (`fetch_pkt_t`, `id_ex_pkt_t`, `ex_wb_pkt_t` defined in `src/core/riscv_pkg.sv`). Most pipeline modules now accept/return a single struct instead of dozens of individual signals. Empty future-module placeholders and unrelated tool settings were removed; planned peripherals should be added only when their phase defines a real interface.
 
 ### LSU / control split
 

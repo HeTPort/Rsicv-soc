@@ -100,8 +100,8 @@ Still missing:
 - [ ] SoC address decoder and default error target.
 - [ ] Hardware interrupt input and precise interrupt entry.
 - [ ] `mtime`/`mtimecmp` machine timer.
-- [ ] Implemented UART and GPIO peripherals; current files are empty
-  placeholders.
+- [ ] Implemented UART and GPIO peripherals; empty placeholder RTL was removed
+  and real modules will be added in Phase 4.
 - [ ] Firmware startup code, linker script, drivers, and FreeRTOS application.
 - [ ] FPGA top, XDC constraints, Vivado build script, and physical-board result.
 
@@ -111,15 +111,14 @@ Current planning position:
   architecture review or FreeRTOS roadmap.
 - Phase 1 is complete: AR-009 and the generated
   `freertos_split_64k_v1` hardware/software ABI are accepted.
-- Phase 2 is current and partially complete: AR-003 and AR-004 were finished
-  early. AR-018 now supplies isolated executable RED tests for unmapped
-  load/store and invalid fetch, while centralized decode, a default error
-  target, the instruction-error path, and GREEN system-level coverage remain.
+- Phase 2 is complete: AR-003/AR-004 close transaction/result ownership,
+  AR-019 supplies centralized data decode and the registered default target,
+  and AR-018 verifies precise data and instruction access faults.
 - AR-008 belongs to Phase 3; AR-010 is continuous verification; AR-011 is an
   early FPGA feasibility gate; and AR-012 is cross-stage cleanup.
-- AR-014 accepted-map generation infrastructure is complete. AR-019 now uses
-  its SystemVerilog constants in the implemented data decoder/default target;
-  instruction-error and remaining software/tool consumers are still open.
+- AR-014 accepted-map generation infrastructure is complete. AR-019 uses its
+  SystemVerilog constants in the implemented data decoder/default target;
+  remaining software/tool consumers continue in their owning later phases.
 - AR-015 records the paired 16 KiB/64 KiB baseline and its failing
   combinational MULDIV path. AR-017 replaces that divider with a verified
   Radix-2 iterative implementation; both profiles now pass the 25/50 MHz OOC
@@ -201,8 +200,9 @@ difficult to isolate.
 
 AR-003 and AR-004 are Phase 2 sub-gates completed early to satisfy the
 cross-cutting wait-state and registered-result criteria. AR-019 now implements
-the centralized data decoder and default error target. Phase 2 remains open for
-instruction-access faults, real peripheral targets, and broader integration.
+the centralized data decoder and default error target. AR-018's cause-1 path
+and SoC regression complete the Phase 2 exit gate; real peripherals belong to
+Phases 3 and 4.
 
 Current verification after the AR-013 regression-gate fix:
 directed smoke **22/22 passed**
@@ -320,7 +320,7 @@ outside the CPU core.
 
 ## Phase 2 — Externalize the data bus
 
-**Status:** in progress; this is the current implementation phase.
+**Status:** complete (2026-08-03).
 
 **Purpose:** allow load/store instructions to reach RAM or peripherals.
 
@@ -345,9 +345,11 @@ outside the CPU core.
   [`doc/AR018_SOC_FABRIC_RED_TESTS.md`](doc/AR018_SOC_FABRIC_RED_TESTS.md).
 - [x] Add initial RAM-boundary, unmapped-address, request-wait, owner-stability,
   and back-to-back cross-target GREEN tests through the implemented decoder.
-- [ ] Add explicit instruction-fetch error signaling and turn the remaining
-  AR-018 cause-1 case GREEN.
-- [ ] Extend the SoC-level suite as timer/UART/GPIO targets are implemented.
+- [x] Add explicit instruction-fetch error signaling and turn the AR-018
+  cause-1 case GREEN.
+
+SoC-level target coverage expands in Phases 3 and 4 as timer/UART/GPIO targets
+are implemented; that future expansion is not part of the Phase 2 exit gate.
 
 **Exit gate:** all old LSU tests pass through the new bus, plus the new bus
 tests pass with zero-delay and inserted-wait-state targets.
@@ -359,8 +361,8 @@ AR-004 registered-result ownership and access-fault evidence are recorded in
 The AR-003/AR-004 sub-gates are satisfied. AR-019 closes centralized data
 decode/default-target ownership with focused protocol coverage, 3/3 SoC data
 fault runs (including inserted RAM waits), 22/22 smoke, and accepted-map OOC
-synthesis. AR-018 is
-partially GREEN; only its instruction-access-fault case remains RED.
+synthesis. AR-018 is GREEN for all four selected SoC runs: three data cases
+and one instruction-access-fault case.
 
 ---
 
@@ -567,13 +569,12 @@ for the first FreeRTOS FPGA demonstration:
 
 ## Immediate next action
 
-1. Keep official ACT4 RV32I tests active as continuous Track A.
-2. Add explicit instruction-fetch error status and turn the remaining AR-018
-   cause-1 test GREEN.
+1. Keep all 47 official ACT4 RV32I/RV32M baseline tests active as continuous
+   Track A.
+2. Begin Phase 3 with the CLINT-style timer and precise machine-timer-interrupt
+   regression.
 3. Complete the accepted-map migration for linker, images, regression/ACT4
    consumers, and peripheral target integration; the SoC RTL defaults and data
    decoder already consume the accepted 64 KiB map.
 4. Keep the verified AR-017 iterative-divider regression and timing checkpoint
    active while exact-board closure remains pending.
-5. Make the next functional milestone the CLINT-style timer and precise
-   machine-timer-interrupt regression—not UART or FreeRTOS itself.
