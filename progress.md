@@ -80,3 +80,67 @@
   `mtime_timer.sv`. Vivado 2019.2 synthesis passes with 0 errors, 0 critical
   warnings, 32 `RAMB36E1` cells, and retained LSU/retirement/timer hierarchy.
 - Phase 6 verification and living-document closure is complete.
+
+## 2026-08-09 — Phase 4 UART
+
+- Started the minimal UART TX vertical slice after the user accepted the
+  holding-register -> shifter architecture.
+- Confirmed the FPGA board is not required for RTL, ModelSim, firmware, or OOC
+  synthesis verification. Exact board data remains mandatory for final top,
+  XDC, bitstream programming, and real serial-terminal validation.
+- Recorded the accepted TX-only 8N1, core-bus, register-map, backpressure, and
+  error semantics in the active plan. Phase 1 baseline audit/tests are in
+  progress.
+- Audited the canonical map generator, registered fabric, SoC integration, and
+  regression runner. The existing contracts support UART as a fourth owner and
+  dedicated focused test tops without adding APB or changing the runner.
+- Added canonical `uart_txdata`/`uart_status` register definitions, regenerated
+  all map consumers, and passed 9/9 generator tests.
+- Added focused shifter and core-bus/holding-register contract tests before the
+  RTL. Both are intentionally RED because `uart_tx.sv` and
+  `core_bus_uart.sv` do not exist yet.
+- The initial RED `.do` files allowed a compile failure to escape with process
+  exit zero; added explicit `onerror` failure propagation. Phase 1 is complete
+  and Phase 2 implementation is in progress.
+- Implemented the project-native 8N1 valid/ready shifter and registered
+  core-bus UART target with one-byte holding storage. Exact shifter timing is
+  GREEN for `0x00`, `0xA5`, and `0xFF` with zero compiler warnings.
+- The first bus-target run exposed a testbench delta-cycle race when observing
+  `req_ready` immediately after changing `req_valid`; the test now allows the
+  combinational path to settle before measuring backpressure.
+- The second bus run proved backpressure occurred but sampled its release on
+  the accepting positive edge, then waited past the one-cycle response. Changed
+  the driver to observe settled readiness on negative edges before acceptance.
+- Phase 2 is complete: both the standalone 8N1 shifter and native-bus UART
+  target pass focused protocol tests. Phase 3 fabric/SoC integration is now in
+  progress.
+- Extended the fabric with UART decode, local-offset translation, registered
+  response ownership, range/overlap checks, and mutual-exclusion assertions.
+  The focused fabric test passes with UART as the fourth owner.
+- A direct `vlib` full-compile attempt was blocked by the workspace sandbox
+  when creating a new ModelSim library. Use an approved `vsim -do` flow for
+  compile verification instead; this is an execution-environment issue, not an
+  RTL failure.
+- The approved ModelSim `.do` compile flow then compiled the complete SoC
+  source list with zero errors. Phase 3 is complete; Phase 4 end-to-end
+  firmware/serial scoreboard work is in progress.
+- While auditing the regression runner, an attempted read used the nonexistent
+  `run_regression.py`; the repository uses `run_regression.ps1`. Located and
+  inspected the PowerShell runner before extending its optional generics.
+- The first Phase 4 manifest invocation selected the runner's default `smoke`
+  tag, which is absent from the UART-only manifest, so no test ran. Reinvoke
+  with the explicit `soc_uart_hello` test name.
+- Built and installed `soc_uart_hello_test.hex`, then passed the Phase 4
+  end-to-end regression. The CPU polling program transmitted all 14 bytes of
+  `Hello, UART!\r\n`; the testbench decoded and checked the actual 8N1 output
+  waveform, and PASS retired after the final stop bit in 625 CPU cycles.
+- Regression preservation is GREEN: 2/2 Phase 3 timer/WFI tests (including the
+  10,000-interrupt run) and 22/22 general smoke tests pass.
+- Vivado AR-003 OOC synthesis passes with 0 errors, 0 critical warnings,
+  32 BRAM cells, 2 LSU-state cells, and 72 UART-hierarchy cells. The corrected
+  generated-map synthesis flow also passes with the accepted 64 KiB map and
+  32 BRAM cells.
+- Added AR-020, the Phase 4 UART guide, UART semantic-signal contracts, updated
+  architecture diagrams/risks/roadmap, and refreshed README/AGENTS/regression
+  instructions. Phases 1–5 of the active UART plan are complete; exact-board
+  validation remains deferred pending board facts.

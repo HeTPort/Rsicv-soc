@@ -5,6 +5,8 @@ import riscv_pkg::*;
 module tb_soc_data_fabric;
   localparam logic [31:0] TIMER_BASE = 32'h0200_0000;
   localparam logic [31:0] TIMER_END  = 32'h0200_ffff;
+  localparam logic [31:0] UART_BASE = 32'h1000_0000;
+  localparam logic [31:0] UART_END  = 32'h1000_0fff;
   localparam logic [31:0] DATA_BASE = 32'h8000_0000;
   localparam logic [31:0] DATA_END  = 32'h8000_ffff;
 
@@ -23,6 +25,12 @@ module tb_soc_data_fabric;
   logic timer_rsp_valid;
   core_bus_rsp_t timer_rsp;
 
+  logic uart_req_valid;
+  logic uart_req_ready;
+  core_bus_req_t uart_req;
+  logic uart_rsp_valid;
+  core_bus_rsp_t uart_rsp;
+
   logic data_req_valid;
   logic data_req_ready;
   core_bus_req_t data_req;
@@ -31,6 +39,7 @@ module tb_soc_data_fabric;
 
   int cpu_accept_count;
   int timer_accept_count;
+  int uart_accept_count;
   int data_accept_count;
   int cpu_response_count;
 
@@ -39,6 +48,8 @@ module tb_soc_data_fabric;
     .DW(32),
     .TIMER_BASE(TIMER_BASE),
     .TIMER_END(TIMER_END),
+    .UART_BASE(UART_BASE),
+    .UART_END(UART_END),
     .DATA_RAM_BASE(DATA_BASE),
     .DATA_RAM_END(DATA_END),
     .DEFAULT_RDATA(32'h0000_0000),
@@ -56,6 +67,11 @@ module tb_soc_data_fabric;
     .timer_req_o      (timer_req),
     .timer_rsp_valid_i(timer_rsp_valid),
     .timer_rsp_i      (timer_rsp),
+    .uart_req_valid_o (uart_req_valid),
+    .uart_req_ready_i (uart_req_ready),
+    .uart_req_o       (uart_req),
+    .uart_rsp_valid_i (uart_rsp_valid),
+    .uart_rsp_i       (uart_rsp),
     .data_req_valid_o (data_req_valid),
     .data_req_ready_i (data_req_ready),
     .data_req_o       (data_req),
@@ -69,6 +85,7 @@ module tb_soc_data_fabric;
     if (!rst_n) begin
       cpu_accept_count   <= 0;
       timer_accept_count <= 0;
+      uart_accept_count  <= 0;
       data_accept_count  <= 0;
       cpu_response_count <= 0;
     end else begin
@@ -76,6 +93,8 @@ module tb_soc_data_fabric;
         cpu_accept_count <= cpu_accept_count + 1;
       if (timer_req_valid && timer_req_ready)
         timer_accept_count <= timer_accept_count + 1;
+      if (uart_req_valid && uart_req_ready)
+        uart_accept_count <= uart_accept_count + 1;
       if (data_req_valid && data_req_ready)
         data_accept_count <= data_accept_count + 1;
       if (cpu_rsp_valid)
@@ -111,6 +130,9 @@ module tb_soc_data_fabric;
     timer_req_ready = 1'b1;
     timer_rsp_valid = 1'b0;
     timer_rsp       = '0;
+    uart_req_ready  = 1'b1;
+    uart_rsp_valid  = 1'b0;
+    uart_rsp        = '0;
 
     repeat (3) @(posedge clk);
     @(negedge clk);
@@ -139,6 +161,29 @@ module tb_soc_data_fabric;
     @(posedge clk);
     @(negedge clk);
     timer_rsp_valid = 1'b0;
+
+    // UART decode also presents a local offset. Its registered response owner
+    // must not be affected by the live CPU address after acceptance.
+    set_request(UART_BASE + 32'h4, 1'b0, MEM_SIZE_WORD, '0, '0);
+    cpu_req_valid = 1'b1;
+    #1;
+    assert (cpu_req_ready && uart_req_valid && !timer_req_valid &&
+            !data_req_valid && uart_req.addr == 32'h0000_0004)
+      else $fatal(1, "UART decode/local address translation is wrong");
+    @(posedge clk);
+    @(negedge clk);
+    cpu_req_valid = 1'b0;
+    set_request(TIMER_BASE, 1'b0, MEM_SIZE_WORD, '0, '0);
+    uart_rsp.rdata = 32'h0000_0001;
+    uart_rsp.error = 1'b0;
+    uart_rsp_valid = 1'b1;
+    #1;
+    assert (!cpu_req_ready && !timer_req_valid && cpu_rsp_valid &&
+            cpu_rsp.rdata == 32'h0000_0001 && !cpu_rsp.error)
+      else $fatal(1, "registered UART owner did not route its response");
+    @(posedge clk);
+    @(negedge clk);
+    uart_rsp_valid = 1'b0;
 
     // An unmapped store must select only the registered default target.
     set_request(32'h4000_0000, 1'b1, MEM_SIZE_WORD,
@@ -237,13 +282,15 @@ module tb_soc_data_fabric;
     #1;
     data_rsp_valid = 1'b0;
 
-    assert (cpu_accept_count == 5)
+    assert (cpu_accept_count == 6)
       else $fatal(1, "CPU acceptance count mismatch: %0d", cpu_accept_count);
     assert (timer_accept_count == 1)
       else $fatal(1, "timer acceptance count mismatch: %0d", timer_accept_count);
+    assert (uart_accept_count == 1)
+      else $fatal(1, "UART acceptance count mismatch: %0d", uart_accept_count);
     assert (data_accept_count == 2)
       else $fatal(1, "RAM acceptance count mismatch: %0d", data_accept_count);
-    assert (cpu_response_count == 5)
+    assert (cpu_response_count == 6)
       else $fatal(1, "response count mismatch: %0d", cpu_response_count);
 
     $display("[SOC-DATA-FABRIC-TB] RESULT: PASS");

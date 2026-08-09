@@ -6,11 +6,11 @@
 
 **Last updated:** 2026-08-09
 
-**Current reference:** `codex/phase2-act4-cleanup`. Phase 3 is implemented:
-AR-008 adds precise retirement-boundary timer interrupts, ordered CSR preview
-and commit, one-time WFI wait/wake, the CLINT-compatible timer target, and a
-three-owner data fabric. UART/GPIO, firmware/FreeRTOS integration, physical
-clock gating, and exact-board timing closure remain open.
+**Current reference:** `codex/phase2-act4-cleanup`. Phase 3 is complete and the
+Phase 4 polling-UART TX vertical slice is implemented and verified. AR-020 adds
+a queued native-bus UART target, 8N1 shifter, fourth registered fabric owner,
+polling firmware, and serial-pin scoreboard. GPIO, the general firmware stack,
+FreeRTOS, physical clock gating, and exact-board validation remain open.
 
 > Update this document whenever a change alters a module boundary, pipeline
 > timing, packet field, architectural behavior, memory map, verification
@@ -64,7 +64,9 @@ the minimal architecture needed for the first working system.
   eligibility and separate asynchronous `trap_entry_t` observation.
 - A CLINT-compatible 64-bit `mtime`/`mtimecmp` target and hardware MTIP.
 - One-time WFI retirement followed by logical wait and precise interrupt wake.
-- Timer/RAM/default full-address decode with registered response ownership.
+- Timer/UART/RAM/default full-address decode with registered response ownership.
+- Parameterized polling UART TX with one queued byte plus one active byte,
+  `TX_READY`/`TX_BUSY`, registered invalid-access errors, and 8N1 output.
 - Precise illegal-instruction, ECALL, EBREAK, instruction-misalignment, and
   load/store-misalignment traps.
 - Ordered architectural commit records.
@@ -87,7 +89,7 @@ the minimal architecture needed for the first working system.
 
 ### Not implemented yet
 
-- Implemented UART, GPIO, or other peripherals.
+- Implemented GPIO or other additional peripherals; UART TX is implemented.
 - Firmware startup/linker/driver stack.
 - FreeRTOS port integration.
 - Board top, constraints, timing closure, and physical FPGA result.
@@ -114,6 +116,7 @@ The current mapping is:
 | AR-017 | Radix-2 iterative divider, implemented and verified; physical closure remains Phase 7 |
 | AR-018 | SoC contract tests: data and instruction access-fault cases GREEN; closed |
 | AR-019 | Centralized data decoder/default target implemented and verified |
+| AR-020 | Minimal polling UART TX implemented and verified through OOC synthesis |
 
 The authoritative phase checklist is [`TODO.md`](../TODO.md); the detailed
 finding status is in
@@ -194,6 +197,8 @@ flowchart LR
 
   FABRIC["Full-address data fabric"]
   TIMER["Registered mtime/mtimecmp target"]
+  UART["Registered UART target + holding byte"]
+  SHIFTER["8N1 TX shifter"]
   DEFAULT["Registered default error target"]
   ADAPTER["Core-bus to RAM adapter"]
   DRAM["Synchronous data RAM"]
@@ -203,9 +208,11 @@ flowchart LR
   EX --> LSU
   LSU -->|"architectural request"| FABRIC
   FABRIC -->|"timer-local request"| TIMER
+  FABRIC -->|"UART-local request"| UART --> SHIFTER -->|"uart_tx_o"| PIN["FPGA/serial pin"]
   FABRIC -->|"base-subtracted RAM request"| ADAPTER --> DRAM
   FABRIC -->|"all unmapped data addresses"| DEFAULT
   TIMER -->|"response + MTIP"| FABRIC
+  UART -->|"registered response"| FABRIC
   DRAM --> ADAPTER --> FABRIC
   DEFAULT --> FABRIC -->|"owned response/data/error"| LSU
   LSU -->|"one completion"| WB
@@ -222,8 +229,8 @@ flowchart LR
 ```
 
 `riscv.sv` exposes a small request/response data bus; `riscv_soc.sv` routes it
-through `soc_data_fabric.sv` to the timer, RAM adapter, or registered default
-target. Phase 3 is complete. UART/GPIO targets are introduced in Phase 4.
+through `soc_data_fabric.sv` to the timer, UART, RAM adapter, or registered
+default target. The UART TX target is implemented; GPIO remains Phase 4 work.
 
 ## 5. Repository map
 
@@ -245,9 +252,11 @@ target. Phase 3 is complete. UART/GPIO targets are introduced in Phase 4.
 | `src/mem/prog_ram.sv` | One-cycle synchronous instruction/program BRAM |
 | `src/mem/data_ram.sv` | Synchronous byte-writeable data RAM |
 | `src/bus/core_bus_data_ram.sv` | CPU-local bus to synchronous RAM adapter |
-| `src/bus/soc_data_fabric.sv` | Full-address timer/RAM/default decode, local translation, registered response owner |
+| `src/bus/soc_data_fabric.sv` | Full-address timer/UART/RAM/default decode, local translation, registered response owner |
 | `src/bus/core_bus_default_target.sv` | Registered zero-data error response with no write side effect |
 | `src/periph/mtime_timer.sv` | Registered RV32 `mtime`/`mtimecmp` bus target and level-sensitive MTIP |
+| `src/periph/core_bus_uart.sv` | Registered UART MMIO target and one-byte holding stage |
+| `src/periph/uart_tx.sv` | Parameterized byte-handshake 8N1 serial shifter |
 | `src/riscv_soc.sv` | Program loader, memories, data fabric/targets, and CPU wrapper |
 | `sim/tb/tb_riscv_core.sv` | Main testbench and architectural checks |
 | `sim/regress/` | Manifest-driven ModelSim runner and image conversion |
@@ -504,16 +513,17 @@ data-memory `RAMB36E1` cells. Detailed AR-003 rationale and evidence are in
 ### 10.5 Implemented centralized data fabric
 
 AR-019 inserted `soc_data_fabric` between the LSU bus and targets. AR-008
-extends it with the timer window. It compares the complete architectural
+extended it with the timer window, and AR-020 adds UART. It compares the complete architectural
 address, subtracts the selected target base only in that target-facing copy,
-and records timer, RAM, or default ownership until the response arrives. It
+and records timer, UART, RAM, or default ownership until the response arrives. It
 never re-decodes a changed live address while a transaction is outstanding.
 
-The implemented timer window selects `mtime_timer`; the data-RAM window selects
-the RAM adapter; every other address selects `core_bus_default_target`. The
+The implemented timer window selects `mtime_timer`; the UART window selects
+`core_bus_uart`; the data-RAM window selects the RAM adapter; every other
+address selects `core_bus_default_target`. The
 default target returns zero data with `error=1` during the cycle after
-acceptance and owns no writable state. UART/GPIO windows continue to fault
-safely until Phase 4 supplies real targets. The original architectural address
+acceptance and owns no writable state. The GPIO window continues to fault
+safely until a real target exists. The original architectural address
 remains in the LSU/commit packet for correct `mtval` and debug output.
 
 Focused boundary, back-pressure, owner-stability, cross-target, invalid-load,
@@ -524,6 +534,31 @@ The accepted 64 KiB Vivado OOC check retains 32 `RAMB36E1` cells and the
 fabric/default-target hierarchy. Detailed decisions and evidence are in
 [`AR019_CENTRALIZED_DATA_FABRIC.md`](AR019_CENTRALIZED_DATA_FABRIC.md). This
 still does not replace exact-board routed timing closure.
+
+### 10.6 Minimal polling UART TX
+
+AR-020 implements the first observable character-output path:
+
+```text
+CPU MMIO -> fabric -> core_bus_uart holding byte -> uart_tx shifter -> uart_tx_o
+```
+
+`TXDATA` is at `0x1000_0000`; `STATUS` is at `0x1000_0004` with
+`TX_READY` in bit 0 and `TX_BUSY` in bit 1. Only aligned full-strobe word
+writes to TXDATA and aligned word reads from STATUS are legal. Invalid accesses
+receive a registered error without enqueuing a byte.
+
+The holding register decouples CPU transaction timing from the ten-bit serial
+frame. When the shifter is idle, `valid && ready` transfers the queued byte.
+The slot can accept a replacement in that same cycle, so ready means “can
+transfer now,” not simply “the full register is clear.” A full legal TXDATA
+write is backpressured rather than failed or dropped.
+
+The shifter emits idle high, one low start bit, eight LSB-first data bits, and
+one high stop bit. The default 25 MHz / 115200 configuration uses a rounded
+integer divider. Final baud accuracy must use the actual board clock. See
+[`AR020_MINIMAL_POLLING_UART_TX.md`](AR020_MINIMAL_POLLING_UART_TX.md) and the
+[`Phase 4 UART guide`](../docs/phase4-uart-guide.md).
 
 ## 11. CSR and trap model
 
@@ -646,6 +681,7 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 ./run_regression.ps1 -Tag smoke
 ./run_regression.ps1 -Manifest ./phase3_tests.json -Test soc_timer_wfi
 ./run_regression.ps1 -Manifest ./phase3_tests.json -Test soc_timer_10k
+./run_regression.ps1 -Manifest ./phase4_tests.json -Test soc_uart_hello
 ./test_regression_result.ps1
 python -m unittest test_elf_to_mem.py test_import_act4.py
 ```
@@ -666,10 +702,12 @@ vsim -c -do run_retire_stage.do
 vsim -c -do run_csr_retire_order.do
 vsim -c -do run_mtime_timer.do
 vsim -c -do run_soc_data_fabric.do
+vsim -c -do run_uart_tx.do
+vsim -c -do run_core_bus_uart.do
 ```
 
-The final Phase 3 out-of-context synthesis check also consumes the updated
-retirement/timer source list:
+The current out-of-context synthesis check consumes the retirement, timer, and
+UART source list:
 
 ```powershell
 Set-Location D:\Rsicv-soc-worktrees\phase2-act4-cleanup\sim\synth
@@ -678,8 +716,8 @@ Set-Location D:\Rsicv-soc-worktrees\phase2-act4-cleanup\sim\synth
 ```
 
 The verified result is 0 errors, 0 critical warnings, 32 retained
-`RAMB36E1` cells, and nonempty synthesized LSU, retirement, and timer
-hierarchies. This is an OOC structural result, not exact-board timing closure.
+BRAM cells, 2 synthesized LSU-state cells, and 72 cells under the UART target
+hierarchy. This is an OOC structural result, not exact-board timing closure.
 
 ### 13.2 Result reporting
 
@@ -749,13 +787,13 @@ Recommended waveform groups:
 | Topic | Current risk or question | Planned stage |
 |---|---|---|
 | Blocking LSU performance | Correct but the front end waits for every memory response | Measure before adding a MEM stage/cache |
-| Memory-map implementation | Timer/RAM/default decode, 64 KiB RTL defaults, and fetch errors are implemented; UART/GPIO and remaining consumer migration are open | Phases 4-5 / AR-009/AR-016/AR-019 |
+| Memory-map implementation | Timer/UART/RAM/default decode, 64 KiB RTL defaults, and fetch errors are implemented; GPIO and remaining consumer migration are open | Phases 4-5 / AR-009/AR-016/AR-019/AR-020 |
 | Unmapped access faults | Data load/store and out-of-range instruction fetches trap precisely; redirect/stall edge cases need broader directed coverage | Continuous verification / AR-018 |
 | Interrupt boundary | Implemented and verified; broader randomized boundary coverage remains useful | Continuous verification / AR-008/AR-010 |
 | Timer | Implemented word-access timer; frequency calibration and firmware driver ABI remain | Phases 5-7 |
 | RV32M timing | Iterative divider passes 25/50 MHz OOC post-synthesis checks; exact-board routed closure and multiply-high margin remain | Phase 7 / AR-011/AR-017 |
 | Retirement ownership | `retire_stage` is the owner; obsolete `halt_o` and broader README cleanup remain | Cleanup / AR-012 |
-| Peripherals | Timer is implemented; UART/GPIO remain open | Phase 4 |
+| Peripherals | Timer and polling UART TX are implemented; GPIO, UART RX/IRQ, and hardware validation remain open | Phases 4 and 7 |
 | Clock gating | Logical WFI is verified, but no safe FPGA clock gating is implemented | Phase 7 after board clock design |
 
 ## 16. Practical study exercises
@@ -817,6 +855,8 @@ compare RAM data, `load_offset`, extracted value, and committed result.
 - [AR-017 Radix-2 iterative divider](AR017_RADIX2_ITERATIVE_DIVIDER.md)
 - [AR-018 SoC fabric RED tests](AR018_SOC_FABRIC_RED_TESTS.md)
 - [AR-019 centralized data fabric](AR019_CENTRALIZED_DATA_FABRIC.md)
+- [AR-020 minimal polling UART TX](AR020_MINIMAL_POLLING_UART_TX.md)
+- [Phase 4 UART implementation guide](../docs/phase4-uart-guide.md)
 - [ACT4 integration](../verif/act4/README.md)
 - [Project roadmap](../TODO.md)
 

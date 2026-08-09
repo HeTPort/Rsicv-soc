@@ -34,6 +34,24 @@
 
 - The generated address constants live in `src/generated/soc_mem_map_pkg.sv`.
 - `sim/filelist.f` is the central compile-order list; new packages/types must precede their users, and new modules must precede `riscv.sv`/`riscv_soc.sv`.
+- UART fits the existing two-bit fabric owner enum exactly as the fourth target.
+  Registering `TARGET_UART` on request acceptance is essential: decode may use
+  the current CPU address only while idle, but response routing must use the
+  accepted target identity until completion.
+- `riscv_soc.sv` can expose the serial line without changing the CPU boundary:
+  the CPU still sees only `core_bus_req_t/core_bus_rsp_t`; UART timing and
+  buffering remain entirely outside the core.
+- The end-to-end polling firmware and independent pin decoder prove the full
+  chain rather than merely observing internal enqueue events. The expected
+  14-byte message completes before `tohost` because firmware polls `TX_BUSY`
+  after its final write.
+- Vivado retains 67 cells in `core_bus_uart` and 53 in its nested `uart_tx`
+  instance (72 cells matched by the broad hierarchy query after optimization),
+  with 32 BRAM cells unchanged. UART is therefore not optimized away at the
+  SoC output boundary.
+- FPGA presence is unnecessary for logical/synthesis closure. Exact board
+  clock, reset, UART package pin, bank voltage/IOSTANDARD, and USB-UART path are
+  mandatory inputs for the physical gate.
 - The required living documents are `doc/PROJECT_KNOWLEDGE_BASE.md`, `doc/ARCHITECTURE_DESIGN_AND_DECISIONS.md`, a focused `doc/AR*.md` report, diagrams/risk tables, and `TODO.md` when phase status or gates change.
 
 ## Retirement/control audit
@@ -98,3 +116,35 @@
   `RAMB36E1`, and retained LSU/retirement/timer hierarchy.
 - The OOC result does not authorize physical clock gating or claim exact-board
   timing closure; both require the later board clock/reset/XDC boundary.
+
+## Phase 4 UART start
+
+- The two reviewed external UART examples are packet-oriented teaching designs
+  with fixed-length framing, optional CRC/parity, no safe byte ready/valid
+  contract, and an incorrect `CLK_FRE/BAUDRATE - 8` divisor. They are not being
+  copied into the SoC; their copyright headers also do not state a reuse
+  license.
+- The APB variant does not match the CPU-local bus, uses misaligned register
+  offsets `0/1/2/3`, ignores strobes and invalid-access errors, lacks polling
+  ready/busy state, and accepts busy writes unconditionally.
+- Accepted architecture: core bus target -> one-byte holding register -> 8N1
+  valid/ready shifter -> TX pin.
+- A one-byte holding register plus the shifter's active byte provides effective
+  two-byte capacity without the control complexity of a general FIFO.
+- Board connection is not needed until physical validation. Simulation can
+  decode the TX waveform exactly, and OOC synthesis can prove structural
+  compatibility before board identity is known.
+- `config/soc_map.json` already owns the UART 4 KiB region but defines only the
+  timer registers. Adding `uart_txdata` at `+0x00` and `uart_status` at `+0x04`
+  will propagate absolute addresses into the generated SystemVerilog/C/sim
+  artifacts without hand-maintained constants.
+- The generator validates natural alignment and overlap but does not currently
+  encode register access permissions. TXDATA write-only and STATUS read-only
+  behavior must therefore be normative in the target RTL/specification and
+  covered by invalid-direction tests.
+- The current fabric is a single-outstanding registered-owner mux with a 2-bit
+  owner enum. Timer/RAM/default use three encodings, so UART is the fourth and
+  final encoding available without widening the enum.
+- The regression runner compiles all sources from `sim/filelist.f` and permits
+  a dedicated top per manifest test, so focused UART tests can be added without
+  changing the runner.

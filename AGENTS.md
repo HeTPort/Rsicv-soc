@@ -35,7 +35,10 @@ The active core also includes `src/core/radix2_divider.sv`, a kill-safe
 - `src/bus/core_bus_default_target.sv` — one-cycle registered, side-effect-free error target for every non-RAM data address.
 - `src/periph/mtime_timer.sv` — registered RV32 machine-timer target for
   `mtime`/`mtimecmp` and the level-sensitive MTIP signal.
-- `src/riscv_soc.sv` — SoC wrapper that connects the CPU to program RAM and routes its data bus through the fabric to RAM/default targets.
+- `src/periph/core_bus_uart.sv` — registered polling-UART MMIO target with a
+  one-byte holding stage and backpressure.
+- `src/periph/uart_tx.sv` — parameterized valid/ready 8N1 TX shifter.
+- `src/riscv_soc.sv` — SoC wrapper that connects the CPU to program RAM and routes its data bus through the fabric to timer/UART/RAM/default targets.
 - `src/mem/prog_ram.sv` — synchronous instruction/program RAM.
 - `src/mem/data_ram.sv` — synchronous data RAM, now written as a pure BRAM template.
 - `sim/tb/tb_riscv_core.sv` — main testbench that loads `testdata/prog.hex` and checks the CPU.
@@ -94,6 +97,14 @@ cd sim
 vsim -c -do run_soc_data_fabric.do
 ```
 
+### Run the focused UART tests
+
+```bash
+cd sim
+vsim -c -do run_uart_tx.do
+vsim -c -do run_core_bus_uart.do
+```
+
 ### Run the focused Phase 3 tests
 
 ```bash
@@ -106,6 +117,10 @@ vsim -c -do run_mtime_timer.do
 The two end-to-end timer tests are selected from
 `sim/regress/phase3_tests.json`; one checks precise WFI/interrupt behavior and
 the other checks 10,000 repeated timer interrupts.
+
+The Phase 4 UART vertical slice is selected from
+`sim/regress/phase4_tests.json`; it runs polling firmware and decodes the
+actual `uart_tx_o` 8N1 waveform as `Hello, UART!\r\n`.
 
 `run.do` does the following:
 
@@ -128,7 +143,7 @@ configured `tohost` address:
 ### Current filelist notes
 
 - `sim/filelist.f` includes `regfile.sv`, `lsu.sv`, `core_ctrl.sv`,
-  `retire_stage.sv`, and `mtime_timer.sv`.
+  `retire_stage.sv`, `mtime_timer.sv`, `core_bus_uart.sv`, and `uart_tx.sv`.
 - `tb_riscv_core.sv` uses parameterized relative test-image paths.
 - `tb_riscv_soc.sv` is the Phase 2 SoC integration environment. The
   separate `sim/regress/soc_red_tests.json` manifest selects it for unmapped
@@ -154,7 +169,7 @@ Then convert the Intel HEX to the plain `$readmemh` format used by `prog_ram`.
 The CPU is organized as a simple in-order pipeline:
 
 ```text
-IF -> IF/ID -> ID -> ID/EX -> EX -> LSU -> SoC fabric -> RAM/timer/default -> EX/WB -> retire
+IF -> IF/ID -> ID -> ID/EX -> EX -> LSU -> SoC fabric -> RAM/timer/UART/default -> EX/WB -> retire
 ```
 
 | Stage | Modules / logic |

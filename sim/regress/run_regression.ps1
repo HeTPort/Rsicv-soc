@@ -254,6 +254,9 @@ try {
             "-gTRACE_ENABLE=$([int][bool]$Trace)",
             "-gDUMP_WAVES=$([int][bool]$DumpWaves)"
         )
+        if ($null -ne $testCase.PSObject.Properties["uart_check_enable"]) {
+            $vsimArgs += "-gUART_CHECK_ENABLE=$([int][bool]$testCase.uart_check_enable)"
+        }
         if (-not [string]::IsNullOrWhiteSpace($dataImagePath)) {
             $modelSimDataImagePath = $dataImagePath.Replace("\", "/")
             $vsimArgs += "-gDATA_FILE=$modelSimDataImagePath"

@@ -1,9 +1,9 @@
 # Semantic Signal and Interface Specification
 
-**Status:** Phase 3 normative design specification
+**Status:** Phase 4 normative design specification
 
-**Scope:** CPU pipeline, retirement, CSR state, redirects, and the CPU-local
-data bus
+**Scope:** CPU pipeline, retirement, CSR state, redirects, the CPU-local data
+bus, and polling UART TX
 
 **Last updated:** 2026-08-09
 
@@ -58,6 +58,8 @@ Every architectural effect has exactly one state owner.
 | LSU transaction state | `lsu.sv` | ID/EX memory intent and bus handshakes |
 | Fabric response ownership | `soc_data_fabric.sv` | accepted-target identity |
 | Timer state | `mtime_timer.sv` | accepted core-bus writes and clock ticks |
+| UART queued byte | `core_bus_uart.sv` | accepted legal TXDATA write or shifter transfer |
+| UART active frame/timing | `uart_tx.sv` | accepted byte transfer and baud counter |
 
 A producer must not directly mutate state owned by another module. It emits an
 intent, candidate, command, or protocol transfer instead.
@@ -321,7 +323,34 @@ writing the low word to all ones, then the high word, then the final low word.
 The hardware provides ordinary word writes; it must not invent a hidden
 multiword transaction that the bus cannot represent.
 
-## 11. Assertions required for new semantic contracts
+## 11. UART TX signal semantics
+
+| Signal/value | Semantic definition |
+|---|---|
+| `uart_tx_o` | Physical 8N1 serial level: high while idle, low start bit, eight LSB-first data bits, high stop bit. |
+| `tx_ready_o` | Level: the holding stage can accept a byte now, including simultaneous dequeue/enqueue. |
+| `tx_busy_o` | Level: the holding stage or active shifter owns at least one byte. |
+| `shifter_valid` | The holding register owns a byte offered to the shifter; not proof of transfer. |
+| `shifter_ready` | The shifter can accept a new frame in the current cycle. |
+| `dequeue` | Event: `shifter_valid && shifter_ready`; ownership moves from holding register to shifter. |
+| `enqueue` | Event: an accepted, legal core-bus TXDATA write; ownership moves from CPU transaction to holding register. |
+
+The UART target receives only local offsets from the fabric. `TXDATA=0x00` is
+an aligned, full-strobe word write whose low byte is enqueued. `STATUS=0x04` is
+an aligned word read returning `TX_READY` in bit 0 and `TX_BUSY` in bit 1.
+Other sizes, directions, strobes, or offsets return one registered error and
+have no side effect.
+
+A legal TXDATA request presented while the holding stage cannot accept remains
+backpressured. Resource occupancy is not an error. The request payload must
+remain stable until `req_valid && req_ready`; once accepted, exactly one
+registered response follows.
+
+Do not redefine ready as `!hold_full_q`: during simultaneous dequeue/enqueue,
+the old byte transfers to the shifter and the newly accepted byte replaces it.
+Ready describes transfer capability, not a single implementation bit.
+
+## 12. Assertions required for new semantic contracts
 
 - Invalid pipeline packets equal their canonical bubble.
 - Invalid commands have all side-effect enables clear.
@@ -338,8 +367,14 @@ multiword transaction that the bus cannot represent.
   registered owner.
 - Hardware MTIP in CSR reads/context equals the timer input regardless of CSR
   write data.
+- UART byte ownership changes only on the corresponding valid/ready transfer.
+- A full UART holding stage backpressures a legal TXDATA write without dropping
+  it or returning an error.
+- Invalid UART accesses produce no enqueue event.
+- UART serial output is high when idle and emits exactly one start, eight data,
+  and one stop bit for every shifter transfer.
 
-## 12. Review checklist for future signals
+## 13. Review checklist for future signals
 
 Before adding a signal or struct, answer:
 

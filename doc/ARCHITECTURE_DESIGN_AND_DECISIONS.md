@@ -4,14 +4,12 @@
 
 **Audience:** Designers, reviewers, learners, and future maintainers
 
-**Last updated:** 2026-08-02
+**Last updated:** 2026-08-09
 
-**Current milestone:** Phase 1 and the AR-009/AR-016
-`freertos_split_64k_v1` core-to-SoC contract are accepted. AR-019 implements
-and verifies its centralized data decoder/default target, while AR-017
-implements the multi-cycle divider. AR-018 completes the Phase 2 instruction
-error path and all four SoC fault runs are GREEN. Timer/peripheral work and
-exact-board timing closure remain open.
+**Current milestone:** Phases 1–3 are complete. AR-020 implements and verifies
+the Phase 4 polling-UART TX vertical slice using the accepted
+`freertos_split_64k_v1` map and registered fabric contract. GPIO, the broader
+firmware stack, FreeRTOS, and exact-board validation remain open.
 
 > This is the consolidated record of what the architecture is, why it evolved
 > this way, what was learned while fixing problems, and which decisions remain
@@ -94,7 +92,9 @@ flowchart LR
     ADAPTER["Core-bus to RAM adapter"]
     DBRAM["Synchronous data RAM"]
     TIMER["Registered mtime/mtimecmp target"]
-    FABRIC["Timer/RAM/default fabric"]
+    UART["UART target + holding byte"]
+    TX["8N1 UART shifter"]
+    FABRIC["Timer/UART/RAM/default fabric"]
 
     subgraph CPU["riscv"]
       FETCH["PC + accepted-request tag"]
@@ -117,8 +117,10 @@ flowchart LR
   IDEX --> LSU
   LSU -->|"request valid/ready"| FABRIC
   FABRIC --> TIMER
+  FABRIC --> UART --> TX -->|"uart_tx_o"| PIN["Serial pin"]
   FABRIC --> ADAPTER --> DBRAM
   TIMER -->|"response + MTIP"| FABRIC
+  UART -->|"registered response"| FABRIC
   DBRAM --> ADAPTER -->|"response"| FABRIC --> LSU
   LSU -->|"one completed memory-result packet"| EXWB
   RETIRE -->|"GPR write-first path"| DECODE
@@ -146,8 +148,10 @@ Key boundary facts:
 - `retire_stage.sv` owns RF/CSR/trap/MRET/WFI/commit decisions;
   `csr_regfile.sv` owns storage, WARL preview, MTIP composition, and ordered
   state updates.
-- The fabric registers timer, RAM, or default ownership from request acceptance
+- The fabric registers timer, UART, RAM, or default ownership from request acceptance
   through response.
+- `core_bus_uart` owns MMIO legality, one queued byte, and its registered
+  response; `uart_tx` owns only the active frame and bit timing.
 
 ## 4. Governing architecture principles
 
@@ -170,6 +174,8 @@ future work:
     architectural state.**
 14. **Group signals by owner, validity, direction, and lifetime—not by visual
     proximity.**
+15. **Move data ownership only on an explicit handshake; normal full/busy
+    conditions apply backpressure rather than masquerading as errors.**
 
 ## 5. Architecture evolution by stage
 
@@ -381,6 +387,24 @@ target. The fabric now retains timer/RAM/default response ownership.
 The stage is verified by focused semantic/protocol tests, precise firmware, a
 10,000-interrupt stress run, 22/22 legacy smoke, and 4/4 Phase 2 SoC fault
 cases. Physical clock gating remains deferred.
+
+### Stage I — Minimal polling UART TX
+
+**Period:** 2026-08-09
+
+**State:** UART slice complete; Phase 4 remains open for GPIO
+
+AR-020 adds a native core-bus UART target with one holding byte, a separate
+parameterized 8N1 shifter, `TX_READY`/`TX_BUSY` polling semantics, UART local
+address translation, and `TARGET_UART` response ownership in the fabric.
+Unsupported accesses return registered errors without side effects; a valid
+write presented while full is backpressured and never dropped.
+
+The stage is verified by focused shifter/target/fabric tests, polling firmware
+whose actual serial pin decodes as `Hello, UART!\r\n`, 2/2 Phase 3 regressions,
+22/22 smoke, and Vivado OOC synthesis retaining 72 UART-hierarchy cells.
+Physical pins, baud accuracy against the real clock, and terminal behavior
+remain Phase 7 evidence.
 
 ## 6. Resolved problem decisions
 
@@ -1023,6 +1047,32 @@ RAMB36E1 blocks, and retains the fabric/default hierarchy. Detailed invariants,
 timing, commands, and limitations are in
 [`AR019_CENTRALIZED_DATA_FABRIC.md`](AR019_CENTRALIZED_DATA_FABRIC.md).
 
+### AR-020 — Minimal polling UART TX
+
+**State:** Implemented and verified through OOC synthesis; hardware validation deferred
+
+**Problem/root cause:** The SoC lacked observable character output, and the
+available example UARTs coupled unrelated packet/CRC or APB behavior to serial
+timing. A CPU store and a ten-bit serial frame also cannot safely share one
+unbuffered ownership event.
+
+**Options:** Import packet UART, bridge APB, connect MMIO directly to a shifter,
+or build a native target with one holding byte. The native holding-stage option
+was selected to preserve the existing protocol and make ownership explicit.
+
+**Decision:** `core_bus_uart` owns legal `TXDATA +0x00` writes, `STATUS +0x04`
+reads, registered responses, and one queued byte. `uart_tx` accepts that byte
+only on valid/ready and owns the parameterized 8N1 frame. Full is normal
+backpressure; malformed accesses are side-effect-free errors. The fabric
+base-subtracts the UART window and registers `TARGET_UART` until response.
+
+**Consequences/evidence:** CPU and serial timing are decoupled with effective
+two-byte capacity. Focused timing, target, and fabric suites pass; serial-pin
+scoreboarding confirms `Hello, UART!\r\n`; Phase 3 remains 2/2 and smoke 22/22.
+Vivado retains 72 UART cells with 0 errors and 0 critical warnings. Exact-board
+clock/pin/voltage and terminal evidence remain Phase 7. Full details are in
+[`AR020_MINIMAL_POLLING_UART_TX.md`](AR020_MINIMAL_POLLING_UART_TX.md).
+
 ## 9. Future stage architecture gates
 
 | Stage | Architecture decisions required before implementation | Exit evidence |
@@ -1030,7 +1080,7 @@ timing, commands, and limitations are in
 | Phase 1: contract freeze | Complete: AR-009/AR-016 accept topology, byte map, faults, timer atomicity, and bus lifecycle | Accepted contract answers every address/access/error case |
 | Phase 2: external data bus | Complete: data decode/default, EX/WB response packet, precise data/instruction access faults, LSU FSM/backpressure | 4/4 SoC fault runs, data-fabric protocol suite, 22/22 smoke |
 | Phase 3: timer interrupt | Complete: MTIP ownership, effective eligibility, retirement boundary, MRET exclusion, logical WFI, timer target | Precise firmware plus 10,000 repeated interrupts, focused assertions, 22/22 smoke, OOC synthesis |
-| Phase 4: UART/GPIO | Register semantics, partial writes, reset, decode exclusivity | Peripheral and SoC-level scoreboards |
+| Phase 4: UART/GPIO | UART TX complete: native registers, buffering, reset, decode/owner exclusivity; GPIO still open | UART focused tests and serial-pin firmware scoreboard PASS; GPIO scoreboard pending |
 | Phase 5: firmware | Startup ABI, linker map, image split, drivers | Same bare-metal programs in simulation and FPGA |
 | Phase 6: FreeRTOS | Official port boundary, tick source, heap/stack policy | Context sentinels, preemption, queues, long run |
 | Phase 7: FPGA | Board part, clock/reset, XDC, BRAM init, frequency | Timing closure, utilization, UART/LED evidence |
@@ -1137,5 +1187,6 @@ An architecture-changing task is incomplete until this document is updated.
 - [AR-017 Radix-2 iterative divider](AR017_RADIX2_ITERATIVE_DIVIDER.md)
 - [AR-018 SoC fabric RED tests](AR018_SOC_FABRIC_RED_TESTS.md)
 - [AR-019 centralized data fabric](AR019_CENTRALIZED_DATA_FABRIC.md)
+- [AR-020 minimal polling UART TX](AR020_MINIMAL_POLLING_UART_TX.md)
 - [ACT4 integration handoff](ACT4_RV32I_INTEGRATION_HANDOFF_2026-07-27.md)
 - [ACT4 integration guide](../verif/act4/README.md)

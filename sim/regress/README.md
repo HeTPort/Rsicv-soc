@@ -110,6 +110,16 @@ Run the Phase 3 architectural and long-duration timer tests from
 ./run_regression.ps1 -Manifest .\phase3_tests.json -Test soc_timer_10k
 ```
 
+Run the Phase 4 polling-UART vertical slice with:
+
+```powershell
+./run_regression.ps1 -Manifest .\phase4_tests.json -Test soc_uart_hello
+```
+
+The UART run enables the `tb_riscv_soc` serial-pin decoder. It passes only
+after `uart_tx_o` decodes as `Hello, UART!\r\n` and firmware commits
+`tohost=1`.
+
 Success produces process exit code `0`. Manifest, tool, compile, assertion,
 timeout, simulator, or architectural failures produce a nonzero exit code. The
 focused classifier test proves that a PASS-looking transcript cannot override

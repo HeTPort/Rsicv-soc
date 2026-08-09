@@ -1,5 +1,5 @@
 # AR-003 out-of-context synthesis check for the external CPU data bus, LSU
-# transaction state machine, and core-bus-to-data-RAM adapter.
+# transaction state machine, core-bus targets, and external UART TX output.
 #
 # Override the provisional part when the exact board is known:
 #   set AR003_PART xc7z010clg400-1
@@ -37,6 +37,8 @@ set rtl_files [list \
   [file join $repo_root src bus core_bus_data_ram.sv] \
   [file join $repo_root src bus core_bus_default_target.sv] \
   [file join $repo_root src periph mtime_timer.sv] \
+  [file join $repo_root src periph uart_tx.sv] \
+  [file join $repo_root src periph core_bus_uart.sv] \
   [file join $repo_root src bus soc_data_fabric.sv] \
   [file join $repo_root src core riscv.sv] \
   [file join $repo_root src riscv_soc.sv] \
@@ -51,6 +53,7 @@ set bram_cells [get_cells -hier -filter {
 set lsu_state_cells [get_cells -hier -regexp {
   .*u_riscv/u_lsu/state_q_reg.*
 }]
+set uart_cells [get_cells -hier -regexp {.*u_uart_target.*}]
 
 report_utilization -file [file join $output_dir riscv_soc_utilization.rpt]
 write_checkpoint -force [file join $output_dir riscv_soc_synth.dcp]
@@ -58,6 +61,7 @@ write_checkpoint -force [file join $output_dir riscv_soc_synth.dcp]
 puts "AR003_PART=$part_name"
 puts "AR003_BRAM_COUNT=[llength $bram_cells]"
 puts "AR003_LSU_STATE_CELL_COUNT=[llength $lsu_state_cells]"
+puts "AR003_UART_CELL_COUNT=[llength $uart_cells]"
 
 if {[llength $bram_cells] == 0} {
   error "AR-003 failed: riscv_soc did not retain Block RAM cells"
@@ -65,5 +69,8 @@ if {[llength $bram_cells] == 0} {
 if {[llength $lsu_state_cells] == 0} {
   error "AR-003 failed: LSU transaction state was not synthesized"
 }
+if {[llength $uart_cells] == 0} {
+  error "AR-003 failed: UART target/output logic was not synthesized"
+}
 
-puts "AR-003 PASS: SoC bus/LSU/RAM hierarchy synthesized"
+puts "AR-003 PASS: SoC bus/LSU/RAM/UART hierarchy synthesized"

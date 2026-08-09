@@ -8,7 +8,9 @@ module riscv_soc #(
   parameter DATA_RAM_DEPTH = SOC_DATA_RAM_DEPTH_WORDS,
   parameter int DATA_REQ_WAIT_CYCLES = 0,
   parameter int DATA_RSP_WAIT_CYCLES = 0,
-  parameter int unsigned TIMER_TICK_CYCLES = 1
+  parameter int unsigned TIMER_TICK_CYCLES = 1,
+  parameter int unsigned UART_CLK_FREQ_HZ = 25_000_000,
+  parameter int unsigned UART_BAUD_RATE = 115_200
 )(
   input  logic              clk,
   input  logic              rst_n,
@@ -21,7 +23,8 @@ module riscv_soc #(
   output logic [DW-1:0]     reg_s10,
   output logic [DW-1:0]     reg_s11,
   output commit_pkt_t       commit_o,
-  output trap_entry_t       trap_entry_o
+  output trap_entry_t       trap_entry_o,
+  output logic              uart_tx_o
 );
   logic          cpu_rst_n;
   logic          instr_ren;
@@ -34,6 +37,10 @@ module riscv_soc #(
       SOC_MTIMECMP_ADDR - SOC_TIMER_BASE;
   localparam logic [AW-1:0] MTIME_LOCAL_OFFSET =
       SOC_MTIME_ADDR - SOC_TIMER_BASE;
+  localparam logic [AW-1:0] UART_TXDATA_LOCAL_OFFSET =
+      SOC_UART_TXDATA_ADDR - SOC_UART_BASE;
+  localparam logic [AW-1:0] UART_STATUS_LOCAL_OFFSET =
+      SOC_UART_STATUS_ADDR - SOC_UART_BASE;
 
   logic          cpu_data_req_valid;
   logic          cpu_data_req_ready;
@@ -51,6 +58,13 @@ module riscv_soc #(
   logic          timer_rsp_valid;
   core_bus_rsp_t timer_rsp;
   logic          timer_irq_mti;
+  logic          uart_req_valid;
+  logic          uart_req_ready;
+  core_bus_req_t uart_req;
+  logic          uart_rsp_valid;
+  core_bus_rsp_t uart_rsp;
+  logic          uart_tx_ready;
+  logic          uart_tx_busy;
   assign cpu_rst_n = rst_n & load_done;
   prog_ram #(
     .AW(AW), .DW(DW), .DEPTH(PROG_RAM_DEPTH)
@@ -95,6 +109,8 @@ module riscv_soc #(
     .DW(DW),
     .TIMER_BASE(SOC_TIMER_BASE),
     .TIMER_END(SOC_TIMER_END),
+    .UART_BASE(SOC_UART_BASE),
+    .UART_END(SOC_UART_END),
     .DATA_RAM_BASE(SOC_DATA_RAM_BASE),
     .DATA_RAM_END(DATA_RAM_END),
     .DEFAULT_RDATA(SOC_DEFAULT_RDATA),
@@ -112,11 +128,36 @@ module riscv_soc #(
     .timer_req_o      (timer_req),
     .timer_rsp_valid_i(timer_rsp_valid),
     .timer_rsp_i      (timer_rsp),
+    .uart_req_valid_o (uart_req_valid),
+    .uart_req_ready_i (uart_req_ready),
+    .uart_req_o       (uart_req),
+    .uart_rsp_valid_i (uart_rsp_valid),
+    .uart_rsp_i       (uart_rsp),
     .data_req_valid_o (ram_data_req_valid),
     .data_req_ready_i (ram_data_req_ready),
     .data_req_o       (ram_data_req),
     .data_rsp_valid_i (ram_data_rsp_valid),
     .data_rsp_i       (ram_data_rsp)
+  );
+
+  core_bus_uart #(
+    .AW(AW),
+    .DW(DW),
+    .CLK_FREQ_HZ(UART_CLK_FREQ_HZ),
+    .BAUD_RATE(UART_BAUD_RATE),
+    .TXDATA_OFFSET(UART_TXDATA_LOCAL_OFFSET),
+    .STATUS_OFFSET(UART_STATUS_LOCAL_OFFSET)
+  ) u_uart_target (
+    .clk_i       (clk),
+    .rst_ni      (cpu_rst_n),
+    .req_valid_i (uart_req_valid),
+    .req_ready_o (uart_req_ready),
+    .req_i       (uart_req),
+    .rsp_valid_o (uart_rsp_valid),
+    .rsp_o       (uart_rsp),
+    .uart_tx_o   (uart_tx_o),
+    .tx_ready_o  (uart_tx_ready),
+    .tx_busy_o   (uart_tx_busy)
   );
 
   mtime_timer #(

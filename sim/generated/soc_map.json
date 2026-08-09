@@ -65,6 +65,20 @@
       "offset": 49144,
       "region": "timer",
       "width_bits": 64
+    },
+    {
+      "address": 268435456,
+      "name": "uart_txdata",
+      "offset": 0,
+      "region": "uart",
+      "width_bits": 32
+    },
+    {
+      "address": 268435460,
+      "name": "uart_status",
+      "offset": 4,
+      "region": "uart",
+      "width_bits": 32
     }
   ],
   "schema_version": 1,

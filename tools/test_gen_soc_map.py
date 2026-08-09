@@ -41,7 +41,12 @@ class SocMapGeneratorTests(unittest.TestCase):
         self.assertEqual(config["simulation"]["tohost"]["address"], 0x8000_FFFC)
         self.assertEqual(
             {register["name"]: register["address"] for register in config["registers"]},
-            {"mtimecmp": 0x0200_4000, "mtime": 0x0200_BFF8},
+            {
+                "mtimecmp": 0x0200_4000,
+                "mtime": 0x0200_BFF8,
+                "uart_txdata": 0x1000_0000,
+                "uart_status": 0x1000_0004,
+            },
         )
 
     def test_rejects_overlapping_regions(self) -> None:

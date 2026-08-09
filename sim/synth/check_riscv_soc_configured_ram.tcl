@@ -32,7 +32,7 @@ set rtl_files [list \
   [file join $repo_root src core radix2_divider.sv] \
   [file join $repo_root src core execute.sv] \
   [file join $repo_root src core lsu.sv] \
-  [file join $repo_root src core wb_stage.sv] \
+  [file join $repo_root src core retire_stage.sv] \
   [file join $repo_root src core csr_regfile.sv] \
   [file join $repo_root src core regfile.sv] \
   [file join $repo_root src core core_ctrl.sv] \
@@ -40,6 +40,9 @@ set rtl_files [list \
   [file join $repo_root src mem data_ram.sv] \
   [file join $repo_root src bus core_bus_data_ram.sv] \
   [file join $repo_root src bus core_bus_default_target.sv] \
+  [file join $repo_root src periph mtime_timer.sv] \
+  [file join $repo_root src periph uart_tx.sv] \
+  [file join $repo_root src periph core_bus_uart.sv] \
   [file join $repo_root src bus soc_data_fabric.sv] \
   [file join $repo_root src core riscv.sv] \
   [file join $repo_root src riscv_soc.sv] \

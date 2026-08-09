@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "defaults": {
+    "top": "work.tb_riscv_soc",
+    "tohost_addr": 2147549180,
+    "prog_ram_depth": 16384,
+    "data_ram_depth": 16384
+  },
+  "tests": [
+    {
+      "name": "soc_uart_hello",
+      "image": "testdata/soc_uart_hello_test.hex",
+      "timeout_cycles": 20000,
+      "uart_check_enable": true,
+      "tags": ["phase4", "soc", "uart", "polling", "serial"]
+    }
+  ]
+}

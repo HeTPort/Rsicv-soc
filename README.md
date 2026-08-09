@@ -47,8 +47,8 @@ every corner of the ISA has been proven.
 | Instruction path | One-cycle synchronous program RAM with paired fetch-error status and precise cause-1 traps |
 | Data path | One outstanding request, inserted wait-state support, registered results, and precise access faults |
 | Verification | Architectural commit checking, `tohost`, ModelSim regression, ELF conversion, and a 47/47 ACT4 RV32I/RV32M baseline |
-| Memory map | AR-009 split 64 KiB map accepted; centralized data decode/default target implemented by AR-019 |
-| Peripherals | Timer, UART, and GPIO are planned; RTL modules will be added with their owning phases |
+| Memory map | AR-009 split 64 KiB map accepted; timer/UART/RAM/default decode is implemented |
+| Peripherals | Machine timer and polling UART TX are implemented; GPIO and UART RX/IRQ remain open |
 | Software | Startup code, final linker layout, drivers, and FreeRTOS are still to come |
 | FPGA | Block RAM inference has been checked; board timing and hardware testing have not been completed |
 
@@ -67,7 +67,9 @@ IF -> IF/ID -> ID -> ID/EX -> EX / LSU -> EX/WB -> WB
                               request/response bus
                                     |
                                     v
-                       core_bus_data_ram -> data_ram
+               +---------- SoC fabric -----------+
+               | timer | UART TX | data RAM | error |
+               +---------------------------------+
 ```
 
 Instruction memory takes one cycle to return a word. The front end therefore
@@ -227,7 +229,7 @@ src/
   bus/        Active RAM adapter and future bus work
   generated/  Generated accepted SoC-map constants
   mem/        Synchronous program and data RAM
-  periph/     Placeholder timer, UART, and GPIO directories
+  periph/     Implemented machine timer and polling UART TX targets
   riscv_soc.sv
 
 sim/
@@ -253,14 +255,15 @@ when their interface and owning phase are ready.
 ## Where it is going
 
 Phase 0A repaired retirement and pipeline side-effect precision, Phase 1 froze
-the core-to-SoC contract, and Phase 2 implemented and verified the external
-data fabric plus instruction-access-fault path. The next steps are:
+the core-to-SoC contract, Phase 2 implemented the external data fabric, Phase 3
+implemented precise timer interrupts/WFI, and Phase 4 now has polling UART TX.
+The next steps are:
 
 1. keep the Phase 2 SoC-fault and ACT4 RV32I/RV32M baselines continuously green;
 2. finish migrating linker, images, `tohost`, regression, and ACT4 consumers
    to the accepted split 64 KiB map as one verified change;
-3. implement precise machine-timer interrupts;
-4. add a polling UART and simple GPIO;
+3. keep precise machine-timer/WFI and polling-UART regressions green;
+4. add simple GPIO and complete the combined Phase 4 exit gate;
 5. build startup code, drivers, and bare-metal tests;
 6. integrate the official FreeRTOS RISC-V port;
 7. add board constraints, close timing, and test the design on hardware.

@@ -19,6 +19,7 @@ module tb_riscv_soc #(
   // faults must come from real fabric decode rather than injected RAM errors.
   parameter int DATA_REQ_WAIT_CYCLES = 0,
   parameter int DATA_RSP_WAIT_CYCLES = 0,
+  parameter bit UART_CHECK_ENABLE = 1'b0,
   parameter bit DATA_FORCE_ERROR = 1'b0,
   parameter bit DATA_ERROR_ADDR_ENABLE = 1'b0,
   parameter logic [31:0] DATA_ERROR_ADDR = '0
@@ -26,6 +27,11 @@ module tb_riscv_soc #(
   localparam int AW = 32;
   localparam int DW = 32;
   localparam int CLK_PERIOD_NS = 10;
+  localparam int UART_CLK_FREQ_HZ = 16;
+  localparam int UART_BAUD_RATE = 4;
+  localparam int UART_CLKS_PER_BIT =
+      (UART_CLK_FREQ_HZ + (UART_BAUD_RATE / 2)) / UART_BAUD_RATE;
+  localparam int UART_EXPECTED_BYTES = 14;
 
   logic clk;
   logic rst_n;
@@ -39,11 +45,13 @@ module tb_riscv_soc #(
   commit_pkt_t commit;
   trap_entry_t trap_entry;
   logic cpu_rst_n;
+  logic uart_tx;
 
   logic [DW-1:0] tohost_val;
   logic tohost_seen;
   logic [63:0] expected_commit_order;
   integer cycle_count;
+  integer uart_byte_count;
 
   assign cpu_rst_n = rst_n && load_done;
 
@@ -76,7 +84,9 @@ module tb_riscv_soc #(
     .PROG_RAM_DEPTH(PROG_RAM_DEPTH),
     .DATA_RAM_DEPTH(DATA_RAM_DEPTH),
     .DATA_REQ_WAIT_CYCLES(DATA_REQ_WAIT_CYCLES),
-    .DATA_RSP_WAIT_CYCLES(DATA_RSP_WAIT_CYCLES)
+    .DATA_RSP_WAIT_CYCLES(DATA_RSP_WAIT_CYCLES),
+    .UART_CLK_FREQ_HZ(UART_CLK_FREQ_HZ),
+    .UART_BAUD_RATE(UART_BAUD_RATE)
   ) u_dut (
     .clk         (clk),
     .rst_n       (rst_n),
@@ -88,8 +98,70 @@ module tb_riscv_soc #(
     .reg_s10     (reg_s10),
     .reg_s11     (reg_s11),
     .commit_o    (commit),
-    .trap_entry_o(trap_entry)
+    .trap_entry_o(trap_entry),
+    .uart_tx_o  (uart_tx)
   );
+
+  function automatic logic [7:0] expected_uart_byte(input integer index);
+    begin
+      unique case (index)
+        0:  expected_uart_byte = 8'h48; // H
+        1:  expected_uart_byte = 8'h65; // e
+        2:  expected_uart_byte = 8'h6c; // l
+        3:  expected_uart_byte = 8'h6c; // l
+        4:  expected_uart_byte = 8'h6f; // o
+        5:  expected_uart_byte = 8'h2c; // ,
+        6:  expected_uart_byte = 8'h20; // space
+        7:  expected_uart_byte = 8'h55; // U
+        8:  expected_uart_byte = 8'h41; // A
+        9:  expected_uart_byte = 8'h52; // R
+        10: expected_uart_byte = 8'h54; // T
+        11: expected_uart_byte = 8'h21; // !
+        12: expected_uart_byte = 8'h0d;
+        13: expected_uart_byte = 8'h0a;
+        default: expected_uart_byte = 8'hxx;
+      endcase
+    end
+  endfunction
+
+  task automatic decode_uart_byte;
+    logic [7:0] sampled_byte;
+    integer bit_index;
+    begin
+      @(negedge uart_tx);
+      repeat (UART_CLKS_PER_BIT / 2) @(posedge clk);
+      #1;
+      assert (!uart_tx)
+        else $fatal(1, "UART start bit was not low at its center");
+
+      for (bit_index = 0; bit_index < 8; bit_index = bit_index + 1) begin
+        repeat (UART_CLKS_PER_BIT) @(posedge clk);
+        #1;
+        sampled_byte[bit_index] = uart_tx;
+      end
+
+      repeat (UART_CLKS_PER_BIT) @(posedge clk);
+      #1;
+      assert (uart_tx)
+        else $fatal(1, "UART stop bit was not high at its center");
+      assert (uart_byte_count < UART_EXPECTED_BYTES)
+        else $fatal(1, "UART emitted more bytes than expected");
+      assert (sampled_byte == expected_uart_byte(uart_byte_count))
+        else $fatal(1,
+          "UART byte %0d mismatch: got 0x%02h expected 0x%02h",
+          uart_byte_count, sampled_byte,
+          expected_uart_byte(uart_byte_count));
+      uart_byte_count = uart_byte_count + 1;
+    end
+  endtask
+
+  initial begin
+    uart_byte_count = 0;
+    if (UART_CHECK_ENABLE) begin
+      wait (cpu_rst_n == 1'b1);
+      forever decode_uart_byte();
+    end
+  end
 
   initial begin
     if (DUMP_WAVES) begin
@@ -160,6 +232,11 @@ module tb_riscv_soc #(
     $display("[SOC-TB] x10    = 0x%08h", reg_s10);
     $display("[SOC-TB] x11    = 0x%08h", reg_s11);
     if (tohost_val == 32'd1) begin
+      if (UART_CHECK_ENABLE) begin
+        assert (uart_byte_count == UART_EXPECTED_BYTES)
+          else $fatal(1, "UART byte count mismatch: got %0d expected %0d",
+                      uart_byte_count, UART_EXPECTED_BYTES);
+      end
       $display("[TB] RESULT: PASS");
       $display("============================================================");
       $finish;

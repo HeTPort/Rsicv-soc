@@ -53,6 +53,18 @@
       "region": "timer",
       "offset": "0x0000bff8",
       "width_bits": 64
+    },
+    {
+      "name": "uart_txdata",
+      "region": "uart",
+      "offset": "0x00000000",
+      "width_bits": 32
+    },
+    {
+      "name": "uart_status",
+      "region": "uart",
+      "offset": "0x00000004",
+      "width_bits": 32
     }
   ],
   "simulation": {

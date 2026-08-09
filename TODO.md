@@ -102,8 +102,9 @@ Still missing:
 
 - [x] Hardware interrupt input and precise interrupt entry.
 - [x] `mtime`/`mtimecmp` machine timer with registered core-bus target.
-- [ ] Implemented UART and GPIO peripherals; empty placeholder RTL was removed
-  and real modules will be added in Phase 4.
+- [x] Polling UART TX with native bus target, queued byte, 8N1 shifter, and
+  serial-pin firmware scoreboard.
+- [ ] Memory-mapped GPIO peripheral.
 - [ ] Firmware startup code, linker script, drivers, and FreeRTOS application.
 - [ ] FPGA top, XDC constraints, Vivado build script, and physical-board result.
 
@@ -118,6 +119,8 @@ Current planning position:
   and AR-018 verifies precise data and instruction access faults.
 - AR-008 belongs to Phase 3; AR-010 is continuous verification; AR-011 is an
   early FPGA feasibility gate; and AR-012 is cross-stage cleanup.
+- Phase 3 is complete. Phase 4 UART TX is complete through OOC synthesis;
+  Phase 4 remains open for GPIO and its combined exit gate.
 - AR-014 accepted-map generation infrastructure is complete. AR-019 uses its
   SystemVerilog constants in the implemented data decoder/default target;
   remaining software/tool consumers continue in their owning later phases.
@@ -441,13 +444,17 @@ interrupts and returns correctly, with the complete smoke regression green.
 
 ## Phase 4 — Add minimal peripherals
 
+**Status:** in progress. Polling UART TX is complete through simulation and
+OOC synthesis; GPIO and physical-board UART validation remain open. See
+[`doc/AR020_MINIMAL_POLLING_UART_TX.md`](doc/AR020_MINIMAL_POLLING_UART_TX.md).
+
 **Purpose:** provide observable hardware behavior and a FreeRTOS console.
 
 ### UART
 
-- [ ] Implement parameterized UART TX with data register, busy/ready status,
+- [x] Implement parameterized UART TX with data register, busy/ready status,
   baud divider, start/data/stop bits, and polling operation.
-- [ ] Add a loopback or serial decoder testbench that checks the transmitted
+- [x] Add a loopback or serial decoder testbench that checks the transmitted
   byte stream and baud timing.
 - [ ] Add UART RX later; it is not required for the first FreeRTOS milestone.
 - [ ] Defer UART interrupts and PLIC until polling TX is working on hardware.
@@ -460,9 +467,13 @@ interrupts and returns correctly, with the complete smoke regression green.
 
 ### Integration
 
-- [ ] Add UART/GPIO address decode to the SoC bus.
-- [ ] Verify RAM and peripheral accesses cannot both accept one request.
-- [ ] Add a SoC-level test that writes a UART message and toggles GPIO.
+- [x] Add UART address decode and registered response ownership to the SoC bus.
+- [ ] Add GPIO address decode when its target contract is implemented.
+- [x] Verify RAM, timer, UART, and default targets cannot accept/respond to one
+  request simultaneously.
+- [x] Add a SoC-level polling program whose decoded UART output is
+  `Hello, UART!\r\n`.
+- [ ] Extend the SoC-level peripheral program/scoreboard with GPIO output.
 
 **Exit gate:** ModelSim decodes the expected UART text and observes the expected
 GPIO waveform from a bare-metal program.
@@ -601,8 +612,8 @@ for the first FreeRTOS FPGA demonstration:
 
 1. Keep all 47 official ACT4 RV32I/RV32M baseline tests active as continuous
    Track A.
-2. Begin Phase 4 with polling UART TX and GPIO targets using the verified
-   timer/RAM/default fabric contract.
+2. Complete Phase 4 by adding the GPIO target and combined UART/GPIO
+   scoreboard; keep the verified polling UART TX baseline green.
 3. Continue the accepted-map migration for linker, images, regression/ACT4
    consumers, and peripheral target integration; the SoC RTL defaults and data
    decoder already consume the accepted 64 KiB map.

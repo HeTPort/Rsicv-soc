@@ -32,6 +32,10 @@ package soc_mem_map_pkg;
   localparam int unsigned SOC_MTIMECMP_WIDTH_BITS = 64;
   localparam logic [SOC_ADDRESS_WIDTH-1:0] SOC_MTIME_ADDR = 32'h0200BFF8;
   localparam int unsigned SOC_MTIME_WIDTH_BITS = 64;
+  localparam logic [SOC_ADDRESS_WIDTH-1:0] SOC_UART_TXDATA_ADDR = 32'h10000000;
+  localparam int unsigned SOC_UART_TXDATA_WIDTH_BITS = 32;
+  localparam logic [SOC_ADDRESS_WIDTH-1:0] SOC_UART_STATUS_ADDR = 32'h10000004;
+  localparam int unsigned SOC_UART_STATUS_WIDTH_BITS = 32;
 
   localparam logic [SOC_ADDRESS_WIDTH-1:0] SOC_TOHOST_ADDR = 32'h8000FFFC;
   localparam logic [SOC_DATA_WIDTH-1:0] SOC_DEFAULT_RDATA = 32'h00000000;
