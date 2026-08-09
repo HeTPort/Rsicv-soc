@@ -49,6 +49,7 @@ package riscv_pkg;
   localparam logic [31:0] INST_ECALL  = 32'h0000_0073;
   localparam logic [31:0] INST_EBREAK = 32'h0010_0073;
   localparam logic [31:0] INST_MRET   = 32'h3020_0073; // 特权架构返回
+  localparam logic [31:0] INST_WFI    = 32'h1050_0073;
 
   // ------------------------------------------------------------
   // Section 3: Opcodes
@@ -246,6 +247,11 @@ package riscv_pkg;
   localparam logic [DW-1:0] MCAUSE_IRQ_M_TIMER      = {1'b1, 31'd7};
   localparam logic [DW-1:0] MCAUSE_IRQ_M_EXT        = {1'b1, 31'd11};
 
+  localparam int MSTATUS_MIE_BIT  = 3;
+  localparam int MSTATUS_MPIE_BIT = 7;
+  localparam int MIE_MTIE_BIT     = 7;
+  localparam int MIP_MTIP_BIT     = 7;
+
   // Multiply/divide operation type
   typedef enum logic [3:0] {
     MULDIV_NONE   = 4'd0,
@@ -276,6 +282,15 @@ package riscv_pkg;
     CSR_OP_RSI  = 3'b110,
     CSR_OP_RCI  = 3'b111
   } csr_op_e;
+
+  typedef enum logic [2:0] {
+    REDIRECT_NONE      = 3'd0,
+    REDIRECT_BRANCH    = 3'd1,
+    REDIRECT_JUMP      = 3'd2,
+    REDIRECT_MRET      = 3'd3,
+    REDIRECT_SYNC_TRAP = 3'd4,
+    REDIRECT_INTERRUPT = 3'd5
+  } redirect_reason_e;
 
    // ============================================================
   // Section 11: Pipeline Payload Structures
@@ -354,6 +369,48 @@ package riscv_pkg;
     logic          error;
   } core_bus_rsp_t;
 
+  // Semantic retirement contracts. These structures group signals that share
+  // one owner, validity rule, direction, and architectural lifetime.
+  typedef struct packed {
+    logic          valid;
+    logic [4:0]    addr;
+    logic [DW-1:0] data;
+  } rf_write_cmd_t;
+
+  typedef struct packed {
+    logic          valid;
+    logic [11:0]   addr;
+    logic [DW-1:0] wdata;
+  } csr_write_req_t;
+
+  typedef struct packed {
+    logic [DW-1:0] mstatus;
+    logic [DW-1:0] mie;
+    logic [DW-1:0] mip;
+    logic [AW-1:0] mtvec;
+  } csr_irq_context_t;
+
+  typedef struct packed {
+    logic          valid;
+    logic          interrupt;
+    logic [AW-1:0] pc;
+    logic [DW-1:0] cause;
+    logic [DW-1:0] tval;
+  } trap_entry_t;
+
+  typedef struct packed {
+    logic             valid;
+    logic [AW-1:0]    pc;
+    redirect_reason_e reason;
+  } redirect_t;
+
+  typedef struct packed {
+    csr_write_req_t csr_write;
+    trap_entry_t    trap;
+    logic           mret;
+    logic           instret;
+  } csr_retire_cmd_t;
+
   // 11.7 CSR Packet
   typedef struct packed {
     logic          valid;     // This instruction is a CSR operation
@@ -388,6 +445,7 @@ package riscv_pkg;
   typedef struct packed {
     logic          valid;
     logic [AW-1:0] pc;
+    logic [AW-1:0] next_pc;     // Architectural resume PC after this instruction
     logic [31:0]   instr;
     rf_pkt_t       rf;          // 包含 rf_wen, rf_waddr
     wb_sel_e       wb_sel;
@@ -410,6 +468,7 @@ package riscv_pkg;
     logic [DW-1:0] trap_cause;  // mcause value
     logic [DW-1:0] trap_val;    // mtval value
     logic          is_mret;     // Instruction is mret
+    logic          is_wfi;      // Instruction is wfi
   } ex_wb_pkt_t;
 
   // Canonical pipeline bubbles. All-zero packets make every control and

@@ -39,11 +39,11 @@ Current ownership and status:
 |---|---|---|
 | AR-001, AR-002, AR-005, AR-006, AR-007 | Phase 0A | Implemented and verified |
 | AR-003, AR-004 | Phase 2 transaction/result sub-gates | Implemented and verified |
-| AR-008 | Phase 3 | Proposed; interrupt boundary work has not started |
+| AR-008 | Phase 3 | Implemented and verified; precise timer IRQ/WFI and 10,000-interrupt gate complete |
 | AR-009 | Phase 1 | Accepted; Phase 1 contract and Phase 2 RTL adoption complete, later software consumers pending |
 | AR-010 | Continuous verification track | Ongoing |
 | AR-011 | Early FPGA feasibility, then Phase 7 closure | AR-017 closes the MULDIV OOC blocker; exact-board closure remains open |
-| AR-012 | Cross-stage cleanup | Proposed; perform items when their owning interfaces stabilize |
+| AR-012 | Cross-stage cleanup | Partial: retirement owner and control-port cleanup complete; halt/README cleanup remains |
 | AR-013 | Regression infrastructure | Implemented and verified |
 | AR-014 | Phase 1 contract tooling | Accepted contract generation implemented and verified |
 | AR-015 | AR-011 evidence supporting Phase 1 | 16 KiB/64 KiB utilization and post-synthesis timing comparison verified |
@@ -106,21 +106,20 @@ system integration.
 
 ### AR-001 — A killed CSR packet can still write a CSR
 
-**Progress:** the reproduced CSR corruption is fixed and retained as a smoke
-regression. See
+**Progress:** fixed, verified, and superseded by the single retirement owner.
+The reproduced CSR corruption is retained as a smoke regression. See
 [`AR001_PRECISE_CSR_SQUASH_FIX.md`](AR001_PRECISE_CSR_SQUASH_FIX.md) for the
 RED/GREEN evidence. Directed CSR, GPR, and store squash cases are now covered;
 the broader retirement-ownership work below remains open.
 
-**Evidence**
+**Historical evidence before the fix**
 
 - [`wb_csr_we`](../src/core/riscv.sv#L148) uses `csr.valid` without also
   requiring `ex2wb_pkt_out.valid`.
 - The trap safety block in [`riscv.sv`](../src/core/riscv.sv#L318) clears the
   packet's `valid` bit but does not clear its CSR sub-packet.
-- [`wb_stage.sv`](../src/core/wb_stage.sv#L47) already calculates a
-  valid-qualified CSR write enable, but that output is not used by the top
-  level.
+- The former `wb_stage.sv` calculated a valid-qualified CSR write enable, but
+  that output was not used by the top level. Phase 3 removed this second owner.
 
 **Failure sequence**
 
@@ -136,9 +135,9 @@ the broader retirement-ownership work below remains open.
 - [x] Define `wb_csr_we` as `packet.valid && packet.csr.valid && !trap`.
 - [x] Prefer clearing the complete EX/WB packet on a kill rather than maintaining
       a growing list of individually masked fields.
-- [ ] Route CSR write information through one owner, either `wb_stage` or a new
-      retirement block; remove the duplicate top-level derivation.
-- [ ] Audit every architectural side effect so it is qualified by one common
+- [x] Route CSR write information through the new `retire_stage` owner and
+      remove the duplicate top-level derivation and obsolete `wb_stage`.
+- [x] Audit every architectural side effect so it is qualified by one common
       `retire_fire`/valid condition.
 
 **Required tests**
@@ -147,10 +146,9 @@ the broader retirement-ownership work below remains open.
 - [x] Trap followed by younger GPR write and store; confirm both are suppressed.
 - [x] Assertion: an invalid EX/WB packet never enables RF, CSR, or memory writes.
 
-Implemented now: focused assertions prevent an invalid packet from enabling a
-CSR write and check that `pipe_kill` clears the younger packet's RF/CSR/memory
-side-effect controls and suppresses its LSU request. The broader common
-retirement assertion remains open with the ownership audit.
+Focused assertions prevent an invalid packet from enabling a CSR write, check
+that `pipe_kill` suppresses younger side effects, and check that trap/WFI wake
+events cannot accidentally create normal retirement effects.
 
 ### AR-002 — Pipeline bubbles do not clear all packet fields
 
@@ -325,8 +323,8 @@ bit zero, but bit one can remain set.
 **Status:** fixed and verified for the current M-mode CSR contract. See
 [`AR007_CSR_LEGALITY_WARL_AND_HAZARDS.md`](AR007_CSR_LEGALITY_WARL_AND_HAZARDS.md)
 for the exact implemented CSR set, RED/GREEN evidence, implementation
-decisions, and concepts. Hardware composition of `mip.MTIP` remains a Phase 3
-timer integration item; ordinary CSR writes cannot modify `mip` today.
+decisions, and concepts. Phase 3 now composes `mip.MTIP` from the hardware
+timer level; ordinary CSR writes cannot manufacture or clear it.
 
 **Evidence**
 
@@ -350,7 +348,7 @@ timer integration item; ordinary CSR writes cannot modify `mip` today.
       operations for one cycle.
 - [x] Apply WARL masks to `mstatus`, `mie`, `mip`, `mtvec`, and `mepc`; do not
       allow unsupported state to be stored accidentally.
-- [ ] When timer interrupts are added, compose `mip.MTIP` from hardware and make
+- [x] Compose `mip.MTIP` from hardware and make
       ordinary CSR writes unable to manufacture or clear that level-sensitive
       pending condition.
 
@@ -364,7 +362,7 @@ timer integration item; ordinary CSR writes cannot modify `mip` today.
 
 ### AR-008 — Interrupt entry needs an explicit retirement boundary
 
-**Status:** proposed. **Target:** Phase 3.
+**Status:** implemented and verified 2026-08-09. **Target:** Phase 3 complete.
 
 Interrupts occur between architectural instructions. Reusing only the current
 synchronous-exception packet does not identify the correct resume PC after a
@@ -373,18 +371,18 @@ not caused by a faulting instruction.
 
 **Handling**
 
-- [ ] Add `next_pc` to the retiring packet. For sequential instructions it is
+- [x] Add `next_pc` to the retiring packet. For sequential instructions it is
       `pc+4`; for a taken branch or jump it is the resolved target.
-- [ ] Use `next_pc` as interrupt `mepc` after the current instruction retires.
-- [ ] Give a synchronous exception on the current instruction priority over an
+- [x] Use `next_pc` as interrupt `mepc` after the current instruction retires.
+- [x] Give a synchronous exception on the current instruction priority over an
       eligible interrupt.
-- [ ] Defer interrupt entry while an accepted data-bus transaction is
+- [x] Defer interrupt entry while an accepted data-bus transaction is
       outstanding.
-- [ ] Suppress all younger RF, CSR, memory, and redirect effects.
-- [ ] Keep asynchronous trap-entry information separate from a fabricated
+- [x] Suppress all younger RF, CSR, memory, and redirect effects.
+- [x] Keep asynchronous trap-entry information separate from a fabricated
       instruction commit, for example with a `trap_entry` record containing
       interrupt/cause/mepc/mtval.
-- [ ] Define how WFI records its resume PC and waits for an eligible interrupt.
+- [x] Define how WFI records its resume PC and waits for an eligible interrupt.
 
 Timer interrupt eligibility should be equivalent to:
 
@@ -394,13 +392,16 @@ mstatus.MIE && mie.MTIE && mip.MTIP
 
 **Required tests**
 
-- [ ] Masked but pending timer interrupt.
-- [ ] Interrupt immediately after enabling `mstatus.MIE`/`mie.MTIE`.
-- [ ] Interrupt around sequential ALU, branch, jump, CSR, load, store, and bus
+- [x] Masked but pending timer interrupt.
+- [x] Interrupt immediately after enabling `mstatus.MIE`/`mie.MTIE`.
+- [x] Interrupt around sequential ALU, branch, jump, CSR, load, store, and bus
       stall boundaries.
-- [ ] Synchronous exception and interrupt pending in the same cycle.
-- [ ] Repeated interrupt/`mret` loop with no duplicate or skipped work.
-- [ ] At least 10,000 simulated timer interrupts before closing Phase 3.
+- [x] Synchronous exception and interrupt pending in the same cycle.
+- [x] Repeated interrupt/`mret` loop with no duplicate or skipped work.
+- [x] At least 10,000 simulated timer interrupts before closing Phase 3.
+
+Implementation rationale, limitations, signal flow, and evidence are in
+[`AR008_PRECISE_MACHINE_TIMER_INTERRUPTS.md`](AR008_PRECISE_MACHINE_TIMER_INTERRUPTS.md).
 
 ### AR-009 — The accepted memory map requires migration from the current ACT4 flow
 
@@ -568,8 +569,8 @@ area being redesigned for the bus.
 
 ### AR-012 — Documentation and interface cleanup
 
-**Status:** proposed. **Target:** cross-stage cleanup as each affected interface
-stabilizes, with final closure before release.
+**Status:** partially implemented. **Target:** retirement/control portion
+complete; final public-interface/document cleanup remains before release.
 
 The repository README still describes the long-term Linux target and an older
 five-stage/privilege status, while `TODO.md` now correctly targets FreeRTOS.
@@ -583,9 +584,9 @@ outputs.
 - [ ] Document the real pipeline stages and actual instruction/data memory
       latency rather than the conceptual five-stage labels.
 - [ ] Remove or explicitly deprecate `halt_o` and obsolete halt-based tests.
-- [ ] Make one module own retirement, CSR writes, trap entry, and commit record
+- [x] Make one module own retirement, CSR writes, trap entry, and commit record
       construction.
-- [ ] Remove unused control ports after the bus/interrupt control contract is
+- [x] Remove unused control ports after the bus/interrupt control contract is
       stable.
 - [x] Remove empty placeholder RTL files; add implemented modules when their
       owning phase starts and defines a real interface.
@@ -640,23 +641,23 @@ Protocol rules:
 
 For the initial single-hart FreeRTOS target:
 
-- [ ] Reset `mtime` to zero.
-- [ ] Reset `mtimecmp` to all ones so reset does not create an immediate tick.
-- [ ] Increment `mtime` at an explicitly documented frequency.
-- [ ] Assert MTIP as a level while `mtime >= mtimecmp`.
-- [ ] Define RV32 high/low read and write sequencing.
-- [ ] Either require and document the conventional safe software update
-      sequence or add hardware shadowing that prevents a transient early
-      compare while `mtimecmp` halves are updated.
-- [ ] Keep MTIP hardware-owned even if other writable `mip` bits are added.
+- [x] Reset `mtime` to zero.
+- [x] Reset `mtimecmp` to all ones so reset does not create an immediate tick.
+- [x] Increment `mtime` at an explicitly documented frequency.
+- [x] Assert MTIP as a level while `mtime >= mtimecmp`.
+- [x] Define RV32 high/low read and write sequencing.
+- [x] Require and document the conventional safe software update sequence;
+      hardware shadowing is not needed for this milestone.
+- [x] Keep MTIP hardware-owned even if other writable `mip` bits are added.
 
 ## Revised execution order and current position
 
-Steps 1–3 are complete. AR-003/AR-004 complete transaction/result ownership,
-and AR-019 now completes the centralized data decoder/default-target portion of
-step 4. AR-018 has two GREEN data cases; explicit fetch-error signaling remains
-RED. Remaining accepted-map consumers and peripheral targets are open.
-AR-017's MULDIV redesign and repeated OOC timing checkpoint are complete.
+Steps 1–6 are complete. AR-003/AR-004 complete transaction/result ownership,
+AR-019 completes centralized data decoding/default routing, and Phase 3 adds
+the timer target as a registered response owner. AR-018's data and fetch fault
+cases are GREEN. Remaining accepted-map software consumers and Phase 4
+peripheral targets are open. AR-017's MULDIV redesign and repeated OOC timing
+checkpoint are complete.
 
 1. **Checkpoint the current working tree and archived 9/9 + 4/4 evidence.**
 2. **Complete Phase 0A:** precise side-effect gating, complete bubbles, CSR
@@ -669,7 +670,7 @@ AR-017's MULDIV redesign and repeated OOC timing checkpoint are complete.
    confirmed and AR-017's multi-cycle divider passes the repeated OOC timing
    checkpoint; exact-board closure remains later work.
 6. **Add the machine timer interrupt.** Implement retirement-boundary entry,
-   hardware MTIP, timer MMIO, WFI, and long repeated-interrupt tests.
+   hardware MTIP, timer MMIO, WFI, and long repeated-interrupt tests. **Done.**
 7. **Add startup/linker/driver infrastructure.** This should begin immediately
    after the memory map is frozen rather than waiting until every peripheral is
    complete.
@@ -697,6 +698,6 @@ document can be considered fully handled only when:
 - [ ] ACT4 configuration describes the implemented hardware and final memory
       map accurately.
 - [ ] Vivado reports confirm BRAM inference and timing at the selected clock.
-- [ ] A bare-metal timer handler survives at least 10,000 interrupts.
+- [x] A bare-metal timer handler survives at least 10,000 interrupts.
 - [ ] FreeRTOS preempts tasks, preserves context, communicates through a queue,
       writes UART output, and controls GPIO in simulation and on the board.

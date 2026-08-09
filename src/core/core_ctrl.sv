@@ -18,18 +18,11 @@ module core_ctrl(
     input  logic        ex_valid,
     input  logic [4:0]  ex_rd_addr,
     input  logic        ex_rf_we,
-    input  logic        ex_mem_req,    // 保留接口，但当前不参与 hazard_stall 判断
-    input  logic        ex_mem_we,
-
-    input  logic        wb_valid,
-    input  logic [4:0]  wb_rd_addr,
-    input  logic        wb_rf_we,
-
-    input  logic        ex_redirect_en,
     input  logic        ex_flush_req,  // 必须保留，严格遵循原逻辑
     input  logic        ex_wait_i,
-    input  logic        trap_redirect_en,
-    input  logic        wb_trap_event,
+    input  logic        retire_redirect_en,
+    input  logic        wfi_enter_i,
+    input  logic        wfi_wait_i,
 
     //----------------------
     // 2. 控制输出
@@ -47,7 +40,7 @@ module core_ctrl(
   // ============================================================
   // Trap handling: pipe_kill flushes younger instructions
   // ============================================================
-  assign pipe_kill = trap_redirect_en;
+  assign pipe_kill = retire_redirect_en | wfi_enter_i;
 
   // ============================================================
   // 冒险检测 (严格还原原始逻辑：对所有写寄存器指令的RAW都停顿)
@@ -67,15 +60,15 @@ module core_ctrl(
   logic fetch_kill_q;
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) fetch_kill_q <= 1'b0;
-    else         fetch_kill_q <= ex_flush_req || trap_redirect_en;
+    else         fetch_kill_q <= ex_flush_req || retire_redirect_en || wfi_enter_i;
   end
 
   // ============================================================
   // 生成流水线控制信号
   // ============================================================
-  assign pc_stall   = hazard_stall | ex_stall | pipe_kill;
-  assign ifid_stall = hazard_stall | ex_stall;
-  assign idex_stall = ex_stall;
+  assign pc_stall   = hazard_stall | ex_stall | pipe_kill | wfi_wait_i;
+  assign ifid_stall = hazard_stall | ex_stall | wfi_wait_i;
+  assign idex_stall = ex_stall | wfi_wait_i;
   assign exwb_stall = 1'b0;
 
   assign ifid_flush = ex_flush_req | fetch_kill_q | pipe_kill;

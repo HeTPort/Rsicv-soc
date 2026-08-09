@@ -23,23 +23,14 @@ module csr_regfile #(
   output logic          csr_read_only_o,
   output logic          csr_privilege_ok_o,
 
-  // Registered write port (driven from WB stage)
-  input  logic         csr_we_i,
-  input  logic [11:0]  csr_waddr_i,
-  input  logic [DW-1:0] csr_wdata_i,
-  output logic [DW-1:0] csr_wdata_effective_o,
+  // Combinational preview and clocked architectural retirement command.
+  input  csr_write_req_t  preview_req_i,
+  output logic [DW-1:0]   preview_wdata_effective_o,
+  output csr_irq_context_t irq_context_o,
+  input  csr_retire_cmd_t retire_cmd_i,
 
-  // Trap entry (one-cycle pulse)
-  input  logic         trap_entry_i,
-  input  logic [AW-1:0] trap_pc_i,
-  input  logic [DW-1:0] trap_cause_i,
-  input  logic [DW-1:0] trap_val_i,
-
-  // MRET (one-cycle pulse, asserted when mret is in WB)
-  input  logic         mret_i,
-
-  // Instruction retire (for minstret)
-  input  logic         instret_i,
+  // Hardware-owned machine timer pending level.
+  input  logic            irq_mti_i,
 
   // Outputs to the core
   output logic [AW-1:0] mtvec_o,
@@ -50,8 +41,6 @@ module csr_regfile #(
 );
 
   // mstatus bit fields
-  localparam int MSTATUS_MIE_BIT  = 3;
-  localparam int MSTATUS_MPIE_BIT = 7;
   localparam int MSTATUS_MPP_LO   = 11;
   localparam int MSTATUS_MPP_HI   = 12;
 
@@ -80,6 +69,8 @@ module csr_regfile #(
   logic [DW-1:0] mtval_q;
   logic [63:0] mcycle_q;
   logic [63:0] minstret_q;
+  logic [DW-1:0] mip_composed;
+  logic [DW-1:0] retire_wdata_effective;
 
   // ------------------------------------------------------------
   // Explicit CSR contract
@@ -146,7 +137,35 @@ module csr_regfile #(
   assign csr_implemented_o = csr_implemented(csr_addr_i);
   assign csr_read_only_o = csr_read_only_address(csr_addr_i);
   assign csr_privilege_ok_o = (csr_addr_i[9:8] <= current_priv_i);
-  assign csr_wdata_effective_o = csr_warl_value(csr_waddr_i, csr_wdata_i);
+  assign preview_wdata_effective_o =
+      csr_warl_value(preview_req_i.addr, preview_req_i.wdata);
+  assign retire_wdata_effective =
+      csr_warl_value(retire_cmd_i.csr_write.addr,
+                     retire_cmd_i.csr_write.wdata);
+  assign mip_composed = mip_q | (DW'(irq_mti_i) << MIP_MTIP_BIT);
+
+  // Post-retirement preview used only for interrupt eligibility/vector
+  // selection. WARL filtering remains owned by this module.
+  always_comb begin
+    irq_context_o.mstatus = mstatus_q;
+    irq_context_o.mie     = mie_q;
+    irq_context_o.mip     = mip_composed;
+    irq_context_o.mtvec   = mtvec_q;
+
+    if (preview_req_i.valid) begin
+      unique case (preview_req_i.addr)
+        CSR_MSTATUS:
+          irq_context_o.mstatus = preview_wdata_effective_o;
+        CSR_MIE:
+          irq_context_o.mie = preview_wdata_effective_o;
+        CSR_MIP:
+          irq_context_o.mip = mip_composed;
+        CSR_MTVEC:
+          irq_context_o.mtvec = AW'(preview_wdata_effective_o);
+        default: ;
+      endcase
+    end
+  end
 
   // ------------------------------------------------------------
   // Read logic (combinational)
@@ -164,7 +183,7 @@ module csr_regfile #(
       CSR_MEPC:     csr_rdata_o = DW'(mepc_q);
       CSR_MCAUSE:   csr_rdata_o = mcause_q;
       CSR_MTVAL:    csr_rdata_o = mtval_q;
-      CSR_MIP:      csr_rdata_o = mip_q;
+      CSR_MIP:      csr_rdata_o = mip_composed;
       CSR_MCYCLE:   csr_rdata_o = mcycle_q[31:0];
       CSR_MINSTRET: csr_rdata_o = minstret_q[31:0];
       CSR_MCYCLEH:  csr_rdata_o = mcycle_q[63:32];
@@ -196,41 +215,50 @@ module csr_regfile #(
     end else begin
       // Counters
       mcycle_q <= mcycle_q + 64'd1;
-      if (instret_i) begin
+      if (retire_cmd_i.instret) begin
         minstret_q <= minstret_q + 64'd1;
       end
 
-      // Trap entry has priority
-      if (trap_entry_i) begin
-        mepc_q   <= trap_pc_i;
-        mcause_q <= trap_cause_i;
-        mtval_q  <= trap_val_i;
-        mstatus_q[MSTATUS_MPIE_BIT] <= mstatus_q[MSTATUS_MIE_BIT];
-        mstatus_q[MSTATUS_MIE_BIT]  <= 1'b0;
-        // MPP remains M (M-only core)
-      end else if (mret_i) begin
-        // Restore MIE from MPIE, set MPIE=1
-        mstatus_q[MSTATUS_MIE_BIT]  <= mstatus_q[MSTATUS_MPIE_BIT];
-        mstatus_q[MSTATUS_MPIE_BIT] <= 1'b1;
-      end else if (csr_we_i) begin
-        unique case (csr_waddr_i)
-          CSR_MSTATUS:  mstatus_q  <= csr_wdata_effective_o;
-          CSR_MIE:      mie_q      <= csr_wdata_effective_o;
-          CSR_MIP:      mip_q      <= csr_wdata_effective_o;
-          CSR_MTVEC:    mtvec_q    <= AW'(csr_wdata_effective_o);
-          CSR_MSCRATCH: mscratch_q <= csr_wdata_effective_o;
-          CSR_MEPC:     mepc_q     <= AW'(csr_wdata_effective_o);
-          CSR_MCAUSE:   mcause_q   <= csr_wdata_effective_o;
-          CSR_MTVAL:    mtval_q    <= csr_wdata_effective_o;
-          CSR_MCYCLE:   mcycle_q[31:0] <= csr_wdata_effective_o;
-          CSR_MINSTRET: minstret_q[31:0] <= csr_wdata_effective_o;
-          CSR_MCYCLEH:  mcycle_q[63:32] <= csr_wdata_effective_o;
-          CSR_MINSTRETH: minstret_q[63:32] <= csr_wdata_effective_o;
+      // Ordered boundary semantics: retire the instruction's CSR write first,
+      // then apply MRET or trap entry. Later assignments intentionally win for
+      // fields architecturally owned by the boundary event.
+      if (retire_cmd_i.csr_write.valid) begin
+        unique case (retire_cmd_i.csr_write.addr)
+          CSR_MSTATUS:  mstatus_q  <= retire_wdata_effective;
+          CSR_MIE:      mie_q      <= retire_wdata_effective;
+          CSR_MIP:      mip_q      <= retire_wdata_effective;
+          CSR_MTVEC:    mtvec_q    <= AW'(retire_wdata_effective);
+          CSR_MSCRATCH: mscratch_q <= retire_wdata_effective;
+          CSR_MEPC:     mepc_q     <= AW'(retire_wdata_effective);
+          CSR_MCAUSE:   mcause_q   <= retire_wdata_effective;
+          CSR_MTVAL:    mtval_q    <= retire_wdata_effective;
+          CSR_MCYCLE:   mcycle_q[31:0] <= retire_wdata_effective;
+          CSR_MINSTRET: minstret_q[31:0] <= retire_wdata_effective;
+          CSR_MCYCLEH:  mcycle_q[63:32] <= retire_wdata_effective;
+          CSR_MINSTRETH: minstret_q[63:32] <= retire_wdata_effective;
           // misa and the delegation registers are legal fixed-value WARL
           // CSRs. Machine identity CSRs cannot reach this write port because
           // their read-only encoding traps in EX.
           default: ;
         endcase
+      end
+
+      if (retire_cmd_i.mret) begin
+        // Restore MIE from MPIE, set MPIE=1.
+        mstatus_q[MSTATUS_MIE_BIT]  <= mstatus_q[MSTATUS_MPIE_BIT];
+        mstatus_q[MSTATUS_MPIE_BIT] <= 1'b1;
+      end
+
+      if (retire_cmd_i.trap.valid) begin
+        mepc_q   <= retire_cmd_i.trap.pc;
+        mcause_q <= retire_cmd_i.trap.cause;
+        mtval_q  <= retire_cmd_i.trap.tval;
+        // irq_context_o includes the retiring instruction's effective CSR
+        // write, so MPIE records the post-retirement MIE value.
+        mstatus_q[MSTATUS_MPIE_BIT] <=
+            irq_context_o.mstatus[MSTATUS_MIE_BIT];
+        mstatus_q[MSTATUS_MIE_BIT] <= 1'b0;
+        // MPP remains M (M-only core).
       end
     end
   end
@@ -242,7 +270,22 @@ module csr_regfile #(
   assign mepc_o    = mepc_q;
   assign mstatus_o = mstatus_q;
   assign mie_o     = mie_q;
-  assign mip_o     = mip_q;
+  assign mip_o     = mip_composed;
+
+`ifndef SYNTHESIS
+  always @(negedge clk_i) begin
+    if (rst_ni) begin
+      assert (!(retire_cmd_i.trap.valid && retire_cmd_i.mret))
+        else $error("CSR command selected trap entry and MRET together");
+      if (retire_cmd_i.csr_write.valid) begin
+        assert (retire_cmd_i.csr_write == preview_req_i)
+          else $error("CSR preview request and committed write diverged");
+      end
+      assert (mip_composed[MIP_MTIP_BIT] == irq_mti_i)
+        else $error("Hardware MTIP composition is inconsistent");
+    end
+  end
+`endif
 
 endmodule
 `default_nettype wire

@@ -93,16 +93,18 @@ flowchart LR
     IBRAM["Synchronous instruction BRAM"]
     ADAPTER["Core-bus to RAM adapter"]
     DBRAM["Synchronous data RAM"]
+    TIMER["Registered mtime/mtimecmp target"]
+    FABRIC["Timer/RAM/default fabric"]
 
     subgraph CPU["riscv"]
       FETCH["PC + accepted-request tag"]
       IFID["IF/ID"]
       DECODE["Decode + GPR read"]
       IDEX["ID/EX"]
-      EXEC["Execute + CSR/trap decision"]
+      EXEC["Execute + redirect candidate"]
       LSU["LSU transaction FSM"]
       EXWB["EX/WB"]
-      RETIRE["WB + commit"]
+      RETIRE["Retirement + IRQ/WFI + commands"]
       CTRL["Central control"]
       CSR["M-mode CSR state"]
     end
@@ -113,8 +115,11 @@ flowchart LR
   IBRAM -->|"registered response"| IFID
   FETCH --> IFID --> DECODE --> IDEX --> EXEC --> EXWB --> RETIRE
   IDEX --> LSU
-  LSU -->|"request valid/ready"| ADAPTER --> DBRAM
-  DBRAM --> ADAPTER -->|"response valid/data/error"| LSU
+  LSU -->|"request valid/ready"| FABRIC
+  FABRIC --> TIMER
+  FABRIC --> ADAPTER --> DBRAM
+  TIMER -->|"response + MTIP"| FABRIC
+  DBRAM --> ADAPTER -->|"response"| FABRIC --> LSU
   LSU -->|"one completed memory-result packet"| EXWB
   RETIRE -->|"GPR write-first path"| DECODE
   RETIRE --> CSR --> EXEC
@@ -134,11 +139,15 @@ Key boundary facts:
 - The LSU owns one request from capture through response and emits a one-cycle
   completion to EX/WB.
 - The data target may delay request acceptance and response independently.
-- `commit_o` is the stable architectural observation boundary.
+- `commit_o` observes instruction retirement; `trap_entry_t` separately
+  observes synchronous/asynchronous architectural trap entry.
 - EX/WB owns the completed request metadata, raw response, aligned load value,
   and response-error status consumed by WB and commit.
-- Retirement, CSR writes, trap entry, and commit construction are still
-  distributed across top-level and WB logic.
+- `retire_stage.sv` owns RF/CSR/trap/MRET/WFI/commit decisions;
+  `csr_regfile.sv` owns storage, WARL preview, MTIP composition, and ordered
+  state updates.
+- The fabric registers timer, RAM, or default ownership from request acceptance
+  through response.
 
 ## 4. Governing architecture principles
 
@@ -157,6 +166,10 @@ future work:
 10. **Memory/resource timing is an architecture contract, not an RTL detail.**
 11. **Synthesis evidence is separate from behavioral simulation evidence.**
 12. **Every fixed defect becomes a permanent focused regression.**
+13. **A post-retirement interrupt observes the retiring instruction's effective
+    architectural state.**
+14. **Group signals by owner, validity, direction, and lifetime—not by visual
+    proximity.**
 
 ## 5. Architecture evolution by stage
 
@@ -294,6 +307,9 @@ Consequences:
 - Trap precision became testable at the architectural boundary.
 - Some retirement ownership remains duplicated between top-level and WB logic.
 
+The Phase 3 AR-008 work later removed that duplication by introducing
+`retire_stage.sv` and deleting `wb_stage.sv`.
+
 ### Stage F — Reproducible verification and ACT4 readiness
 
 **Period:** July to August 2026
@@ -350,6 +366,21 @@ Reason for ordering:
 > response-pairing bugs much harder to isolate.
 
 Completed decisions are recorded in the following sections.
+
+### Stage H — Precise retirement, timer interrupt, and logical WFI
+
+**Period:** 2026-08-09
+
+**State:** Complete
+
+AR-008 extracted the architectural retirement owner, added post-retirement CSR
+preview/ordering, carried resolved `next_pc`, composed hardware MTIP, added
+one-time WFI wait/wake, and implemented the timer as a registered core-bus
+target. The fabric now retains timer/RAM/default response ownership.
+
+The stage is verified by focused semantic/protocol tests, precise firmware, a
+10,000-interrupt stress run, 22/22 legacy smoke, and 4/4 Phase 2 SoC fault
+cases. Physical clock gating remains deferred.
 
 ## 6. Resolved problem decisions
 
@@ -631,22 +662,39 @@ and Vivado 2019.2 synthesis in
 
 ### AR-008 — Interrupt retirement boundary
 
-**State:** Proposed
+**State:** Implemented and verified; Phase 3 complete 2026-08-09
 
 **Owning stage:** Phase 3
 
-Required decision:
+**Problem:** The synchronous-trap path had no semantic boundary for an
+asynchronous interrupt after a normally retiring instruction. CSR write, RF
+write, trap entry, and commit construction were distributed, and EX/WB lacked
+resolved `next_pc` and WFI state.
 
-- Define interrupt entry between architectural instructions, including the
-  correct resume PC after sequential, branch, jump, CSR, and memory operations.
+**Options:** Take the interrupt in EX, fabricate a synchronous exception packet,
+stall a live WFI instruction, or extract a retirement owner with CSR preview.
 
-Likely requirement:
+**Decision:** Add `retire_stage.sv`; carry `next_pc`/WFI to EX/WB; preview a
+WARL-effective `csr_irq_context_t`; allow CSR write and asynchronous trap in one
+ordered `csr_retire_cmd_t`; give synchronous traps priority; exclude MRET on the
+same boundary; defer while LSU/divider state is owned; and model WFI as one
+retirement plus logical wait state.
 
-- Add or derive retiring `next_pc`.
-- Give the current instruction's synchronous exception priority.
-- Defer an interrupt during an accepted data transaction.
-- Keep asynchronous interrupt entry separate from a fabricated faulting
-  instruction commit.
+Add a registered `mtime_timer` core-bus target at local offsets `0x4000` and
+`0xBFF8`, compose hardware MTIP into `mip`, and extend the fabric owner enum to
+timer/RAM/default. Physical clock gating is deferred.
+
+**Consequences:** Retirement and CSR policy now have single owners; normal
+instruction commits remain separate from asynchronous `trap_entry_t`; the CSR
+preview adds a combinational path; timer MMIO supports aligned word accesses in
+this milestone.
+
+**Evidence:** focused retirement, CSR-ordering, timer, and fabric tests PASS;
+precise timer/WFI firmware PASS; 10,000 repeated interrupts PASS; 22/22 smoke;
+4/4 Phase 2 SoC fault cases; 4/4 Python utilities; Vivado 2019.2 OOC synthesis
+PASS with 0 errors, 0 critical warnings, 32 `RAMB36E1`, and the timer and
+retirement hierarchy retained. Full rationale and commands are in
+[`AR008_PRECISE_MACHINE_TIMER_INTERRUPTS.md`](AR008_PRECISE_MACHINE_TIMER_INTERRUPTS.md).
 
 ### AR-009 — Architectural memory topology and map
 
@@ -750,16 +798,22 @@ and the implemented follow-up is in
 
 ### AR-012 — Retirement and interface cleanup
 
-**State:** Proposed
+**State:** Partially implemented; retirement/control cleanup complete, release
+documentation and obsolete `halt_o` cleanup remain
 
 **Owning stage:** Cross-stage cleanup, closed before release
 
-Required decisions:
+Implemented decisions:
 
-- One owner for retirement, CSR writes, trap entry, and commit construction.
-- Removal or explicit deprecation of `halt_o`.
-- Removal of unused control ports after bus/interrupt contracts stabilize.
-- Rules for placeholder files and build inclusion.
+- `retire_stage.sv` owns RF/CSR/trap/MRET/WFI/commit construction.
+- `wb_stage.sv` was removed after behavior-preserving regression evidence.
+- Unused WB/memory observation inputs were removed from `core_ctrl.sv`.
+- Real peripheral directories/modules appear only with implemented interfaces.
+
+Remaining:
+
+- Remove or explicitly deprecate `halt_o` in the public boundary.
+- Complete README/release-document cleanup.
 
 ### AR-013 — Regression simulator exit-status gate
 
@@ -975,7 +1029,7 @@ timing, commands, and limitations are in
 |---|---|---|
 | Phase 1: contract freeze | Complete: AR-009/AR-016 accept topology, byte map, faults, timer atomicity, and bus lifecycle | Accepted contract answers every address/access/error case |
 | Phase 2: external data bus | Complete: data decode/default, EX/WB response packet, precise data/instruction access faults, LSU FSM/backpressure | 4/4 SoC fault runs, data-fabric protocol suite, 22/22 smoke |
-| Phase 3: timer interrupt | MTIP ownership, eligibility, retirement boundary, MRET, WFI | Long repeated-interrupt test and precise commit assertions |
+| Phase 3: timer interrupt | Complete: MTIP ownership, effective eligibility, retirement boundary, MRET exclusion, logical WFI, timer target | Precise firmware plus 10,000 repeated interrupts, focused assertions, 22/22 smoke, OOC synthesis |
 | Phase 4: UART/GPIO | Register semantics, partial writes, reset, decode exclusivity | Peripheral and SoC-level scoreboards |
 | Phase 5: firmware | Startup ABI, linker map, image split, drivers | Same bare-metal programs in simulation and FPGA |
 | Phase 6: FreeRTOS | Official port boundary, tick source, heap/stack policy | Context sentinels, preemption, queues, long run |

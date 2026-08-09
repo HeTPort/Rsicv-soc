@@ -8,7 +8,7 @@
 ./../src/core/radix2_divider.sv
 ./../src/core/execute.sv
 ./../src/core/lsu.sv
-./../src/core/wb_stage.sv
+./../src/core/retire_stage.sv
 ./../src/core/csr_regfile.sv
 ./../src/core/regfile.sv
 ./../src/core/core_ctrl.sv
@@ -16,6 +16,7 @@
 ./../src/mem/data_ram.sv
 ./../src/bus/core_bus_data_ram.sv
 ./../src/bus/core_bus_default_target.sv
+./../src/periph/mtime_timer.sv
 ./../src/bus/soc_data_fabric.sv
 ./../src/core/riscv.sv
 ./../src/riscv_soc.sv

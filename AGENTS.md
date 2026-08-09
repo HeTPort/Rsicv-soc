@@ -27,10 +27,14 @@ The active core also includes `src/core/radix2_divider.sv`, a kill-safe
 
 - `src/core/riscv.sv` — top of the pipelined CPU.
 - `src/core/core_ctrl.sv` — centralized pipeline control: hazard detection, stall/flush generation, delayed fetch kill, and `pipe_kill`.
+- `src/core/retire_stage.sv` — sole retirement owner for final RF/CSR effects,
+  synchronous/interrupt trap selection, MRET, WFI, redirects, and commit.
 - `src/core/lsu.sv` — Load/Store Unit: address/alignment, store lanes, load extension, and the single-outstanding data-bus transaction FSM.
 - `src/bus/core_bus_data_ram.sv` — adapter from the CPU-local request/response bus to synchronous data RAM, with verification wait-state parameters.
 - `src/bus/soc_data_fabric.sv` — centralized full-address data decoder, local-address translator, and registered response-owner mux.
 - `src/bus/core_bus_default_target.sv` — one-cycle registered, side-effect-free error target for every non-RAM data address.
+- `src/periph/mtime_timer.sv` — registered RV32 machine-timer target for
+  `mtime`/`mtimecmp` and the level-sensitive MTIP signal.
 - `src/riscv_soc.sv` — SoC wrapper that connects the CPU to program RAM and routes its data bus through the fabric to RAM/default targets.
 - `src/mem/prog_ram.sv` — synchronous instruction/program RAM.
 - `src/mem/data_ram.sv` — synchronous data RAM, now written as a pure BRAM template.
@@ -58,7 +62,8 @@ A later refactor extracted the load/store logic out of `execute.sv` into `src/co
   alignment, and load alignment/sign/zero-extension.
 - `riscv.sv` exposes the single-outstanding data bus; RAM and future
   peripherals are targets outside the CPU.
-- `wb_stage.sv` no longer performs load alignment; it receives pre-aligned `load_data_i` from the LSU and muxes it into the register write port.
+- `retire_stage.sv` receives pre-aligned `load_data_i` from the LSU and owns
+  final writeback selection; the superseded `wb_stage.sv` was removed.
 - `core_ctrl.sv` centralizes `hazard_stall`, `pc_stall`/`ifid_stall`/`idex_stall`, `ifid_flush`/`idex_flush`, delayed fetch kill, and `pipe_kill`.
 - `radix2_divider.sv` produces one quotient bit per run cycle. `riscv.sv` holds
   ID/EX and bubbles EX/WB until `div_complete`, combines `div_wait` with
@@ -89,6 +94,19 @@ cd sim
 vsim -c -do run_soc_data_fabric.do
 ```
 
+### Run the focused Phase 3 tests
+
+```bash
+cd sim
+vsim -c -do run_retire_stage.do
+vsim -c -do run_csr_retire_order.do
+vsim -c -do run_mtime_timer.do
+```
+
+The two end-to-end timer tests are selected from
+`sim/regress/phase3_tests.json`; one checks precise WFI/interrupt behavior and
+the other checks 10,000 repeated timer interrupts.
+
 `run.do` does the following:
 
 1. Deletes/recreates the `work` library.
@@ -109,7 +127,8 @@ configured `tohost` address:
 
 ### Current filelist notes
 
-- `sim/filelist.f` includes `regfile.sv`, `lsu.sv`, and `core_ctrl.sv`.
+- `sim/filelist.f` includes `regfile.sv`, `lsu.sv`, `core_ctrl.sv`,
+  `retire_stage.sv`, and `mtime_timer.sv`.
 - `tb_riscv_core.sv` uses parameterized relative test-image paths.
 - `tb_riscv_soc.sv` is the Phase 2 SoC integration environment. The
   separate `sim/regress/soc_red_tests.json` manifest selects it for unmapped
@@ -135,7 +154,7 @@ Then convert the Intel HEX to the plain `$readmemh` format used by `prog_ram`.
 The CPU is organized as a simple in-order pipeline:
 
 ```text
-IF -> IF/ID -> ID -> ID/EX -> EX -> LSU -> SoC fabric -> RAM/default -> EX/WB -> WB
+IF -> IF/ID -> ID -> ID/EX -> EX -> LSU -> SoC fabric -> RAM/timer/default -> EX/WB -> retire
 ```
 
 | Stage | Modules / logic |
@@ -147,12 +166,12 @@ IF -> IF/ID -> ID -> ID/EX -> EX -> LSU -> SoC fabric -> RAM/default -> EX/WB ->
 | EX    | `execute` runs ALU/branch/jump/multiply; `radix2_divider` runs multi-cycle DIV/REM; completed results form an `ex_wb_pkt_t` |
 | MEM   | `lsu.sv` captures one request, holds it until accepted, waits for one response, and emits one completion; `core_bus_data_ram.sv` translates it to synchronous RAM |
 | EX/WB | `ex2wb` registers the `ex_wb_pkt_t` writeback metadata from EX/LSU |
-| WB    | `wb_stage` selects the final writeback value (using pre-aligned load data from LSU) and writes to `regfile` |
+| Retire | `retire_stage` selects final RF/CSR effects, exceptions/interrupts, MRET/WFI, redirect, and architectural observations |
 
 Important: there is **no explicit `ex2mem` or `mem2wb` register**. The LSU
 holds ID/EX during REQUEST/RESPONSE and allows the memory instruction into
 EX/WB only during COMPLETE. Response data is registered in the LSU and still
-feeds `wb_stage`/commit outside `ex2wb`; AR-004 remains open until the response
+feeds `retire_stage`/commit outside `ex2wb`; AR-004 remains open until the response
 data/error are carried by the registered EX/WB packet.
 
 ### Pipeline packets (structs)
@@ -169,6 +188,7 @@ data/error are carried by the registered EX/WB packet.
   - `use_rs1`, `use_rs2`
 - `ex_wb_pkt_t` — used by `ex2wb`, containing:
   - `valid`
+  - `pc`, `next_pc`, `instr`, and `is_wfi`
   - `rf_pkt_t rf`
   - `wb_sel`
   - `alu_data`, `pc4_data`
@@ -218,13 +238,18 @@ owning ID/EX packet is held and EX/WB receives bubbles until completion.
 
 ### Trap handling
 
-A valid EX/WB packet causes a synchronous trap for illegal instruction, ECALL,
-EBREAK, instruction-address misalignment, or load/store misalignment.
+A valid EX/WB packet can cause a synchronous trap for illegal instruction,
+ECALL, EBREAK, instruction-address misalignment, or load/store misalignment.
+`retire_stage` also selects a machine-timer interrupt between instructions from
+the effective post-retirement CSR context.
 
 - The faulting instruction remains valid so it can provide `mepc`, `mcause`,
   and `mtval`, but its normal register/CSR/memory/redirect effects are
   suppressed.
-- WB trap entry updates the machine CSRs and redirects the PC to `mtvec`.
+- Retirement emits one ordered CSR command; trap entry updates the machine
+  CSRs and redirects the PC to the effective `mtvec`.
+- WFI retires once, records `next_pc`, and enters a logical wait state. A later
+  eligible interrupt wakes directly into trap entry without retiring WFI twice.
 - `pipe_kill` converts the complete younger EX/WB input packet to the canonical
   bubble and suppresses younger LSU activity.
 - `halt_o` is fixed low; tests and software use `tohost` completion.
@@ -237,7 +262,7 @@ EBREAK, instruction-address misalignment, or load/store misalignment.
 - RV32M multiplication remains combinational in `execute.sv`. DIV/DIVU/REM/REMU
   use `radix2_divider.sv`; `riscv.sv` selects quotient/remainder, asserts the
   generic EX wait path, and suppresses incomplete EX/WB packets.
-- Data memory is little-endian; `lsu.sv` handles store strobe alignment and load byte/halfword extraction and sign/zero extension before forwarding the data to `wb_stage.sv`.
+- Data memory is little-endian; `lsu.sv` handles store strobe alignment and load byte/halfword extraction and sign/zero extension before forwarding the data to `retire_stage.sv`.
 - `data_ram.sv` is a pure BRAM template (no reset branch, no range checks) and
   is instantiated outside the CPU through `core_bus_data_ram.sv`. It accepts
   an `INIT_FILE` parameter for loading firmware images in simulation.

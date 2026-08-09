@@ -362,6 +362,7 @@ module execute #(
 
   assign pkt_exe_o.valid               = wb_valid_o;
   assign pkt_exe_o.pc                  = pc_i;
+  assign pkt_exe_o.next_pc             = control_transfer ? control_target : AW'(pc4_data);
   assign pkt_exe_o.instr               = instr_i[31:0];
   assign pkt_exe_o.rf.we               = wb_rf_wen_o;
   assign pkt_exe_o.rf.addr             = wb_rf_waddr_o;
@@ -390,6 +391,7 @@ module execute #(
   assign pkt_exe_o.trap_cause          = wb_trap_cause_o;
   assign pkt_exe_o.trap_val            = wb_trap_val_o;
   assign pkt_exe_o.is_mret             = wb_is_mret_o;
+  assign pkt_exe_o.is_wfi              = valid_i && is_wfi_i;
 
 endmodule
 `default_nettype wire

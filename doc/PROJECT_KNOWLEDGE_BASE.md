@@ -4,13 +4,13 @@
 
 **Audience:** New contributors and learners
 
-**Last updated:** 2026-08-05
+**Last updated:** 2026-08-09
 
-**Current reference:** `codex/architecture-review-roadmap`, with Phase 1 and the
-AR-009/AR-016 split 64 KiB core-to-SoC contract accepted. AR-019 implements the
-centralized data decoder/default target, AR-017 implements the multi-cycle
-divider, and AR-018 verifies precise instruction/data access faults. Phase 2 is
-complete; timer/peripheral work and physical timing closure remain open.
+**Current reference:** `codex/phase2-act4-cleanup`. Phase 3 is implemented:
+AR-008 adds precise retirement-boundary timer interrupts, ordered CSR preview
+and commit, one-time WFI wait/wake, the CLINT-compatible timer target, and a
+three-owner data fabric. UART/GPIO, firmware/FreeRTOS integration, physical
+clock gating, and exact-board timing closure remain open.
 
 > Update this document whenever a change alters a module boundary, pipeline
 > timing, packet field, architectural behavior, memory map, verification
@@ -25,7 +25,7 @@ SystemVerilog. The processor currently supports:
 
 - RV32I integer instructions;
 - the RV32M multiply/divide extension;
-- a minimal machine-mode CSR and synchronous-exception implementation;
+- machine-mode CSR, synchronous-exception, and machine-timer-interrupt support;
 - precise traps for the currently implemented exception classes;
 - synchronous instruction and data Block RAM;
 - an architectural commit interface for verification.
@@ -60,6 +60,11 @@ the minimal architecture needed for the first working system.
 - Precise load/store access-fault completion.
 - Precise instruction-access-fault completion for out-of-range program fetches.
 - M-mode CSR instructions, WARL behavior, trap entry, and `mret`.
+- Retirement-owned RF/CSR/trap/commit commands with post-retirement interrupt
+  eligibility and separate asynchronous `trap_entry_t` observation.
+- A CLINT-compatible 64-bit `mtime`/`mtimecmp` target and hardware MTIP.
+- One-time WFI retirement followed by logical wait and precise interrupt wake.
+- Timer/RAM/default full-address decode with registered response ownership.
 - Precise illegal-instruction, ECALL, EBREAK, instruction-misalignment, and
   load/store-misalignment traps.
 - Ordered architectural commit records.
@@ -82,7 +87,6 @@ the minimal architecture needed for the first working system.
 
 ### Not implemented yet
 
-- Machine timer and interrupt input.
 - Implemented UART, GPIO, or other peripherals.
 - Firmware startup/linker/driver stack.
 - FreeRTOS port integration.
@@ -91,7 +95,7 @@ the minimal architecture needed for the first working system.
 ### Phase numbers and AR numbers are different axes
 
 Phases are ordered execution gates; AR numbers are stable review-finding IDs.
-Therefore, Phase 0A can be complete while AR-008 through AR-012 remain open.
+Therefore, Phase completion and AR cleanup status must be read independently.
 The current mapping is:
 
 | Work | Planning meaning |
@@ -99,10 +103,10 @@ The current mapping is:
 | AR-001, AR-002, AR-005, AR-006, AR-007 | Phase 0A work, implemented and verified |
 | AR-003, AR-004 | Phase 2 transaction/result sub-gates, implemented and verified |
 | AR-009 | Phase 1 split 64 KiB map accepted; data RTL partially adopted in Phase 2 |
-| AR-008 | Future Phase 3 interrupt-boundary work |
+| AR-008 | Phase 3 precise timer interrupt/WFI/timer target, implemented and verified |
 | AR-010 | Ongoing verification-depth work across phases |
 | AR-011 | Early FPGA feasibility plus later timing closure |
-| AR-012 | Cleanup performed as interfaces stabilize |
+| AR-012 | Retirement owner/control-port cleanup implemented; `halt_o`/README cleanup remains |
 | AR-013 | Regression infrastructure fix, implemented and verified |
 | AR-014 | Accepted-map generation infrastructure, implemented and verified |
 | AR-015 | Paired 16 KiB/64 KiB utilization/timing evidence, implemented and verified |
@@ -157,7 +161,7 @@ Read and experiment in this order:
 2. **Decode and operands:** `decode`, `regfile`, `id2ex`.
 3. **Execution:** `execute`, ALU, branches, jumps, and RV32M.
 4. **Memory:** `lsu`, `data_ram`, and load/store alignment.
-5. **Retirement:** `ex2wb`, `wb_stage`, and `commit_o`.
+5. **Retirement:** `ex2wb`, `retire_stage`, semantic commands, and observations.
 6. **Control:** `core_ctrl`, hazards, stalls, flushes, and kills.
 7. **Privilege behavior:** `csr_regfile`, trap entry, and `mret`.
 8. **Verification:** `tohost`, commit assertions, regressions, and ACT4.
@@ -181,14 +185,15 @@ flowchart LR
   subgraph CORE["riscv core"]
     IF["Fetch request and response tag"]
     ID["Decode and register read"]
-    EX["ALU, branch, RV32M, CSR, trap decision"]
+    EX["ALU, branch, RV32M, CSR result"]
     LSU["LSU transaction FSM"]
-    WB["Writeback and retirement"]
+    WB["retire_stage: RF/CSR/trap/commit/WFI"]
     CTRL["Hazard, flush, and kill control"]
     CSR["M-mode CSR state"]
   end
 
   FABRIC["Full-address data fabric"]
+  TIMER["Registered mtime/mtimecmp target"]
   DEFAULT["Registered default error target"]
   ADAPTER["Core-bus to RAM adapter"]
   DRAM["Synchronous data RAM"]
@@ -197,56 +202,59 @@ flowchart LR
   IF --> ID --> EX --> WB
   EX --> LSU
   LSU -->|"architectural request"| FABRIC
+  FABRIC -->|"timer-local request"| TIMER
   FABRIC -->|"base-subtracted RAM request"| ADAPTER --> DRAM
-  FABRIC -->|"all other data addresses"| DEFAULT
+  FABRIC -->|"all unmapped data addresses"| DEFAULT
+  TIMER -->|"response + MTIP"| FABRIC
   DRAM --> ADAPTER --> FABRIC
   DEFAULT --> FABRIC -->|"owned response/data/error"| LSU
   LSU -->|"one completion"| WB
   WB -->|"GPR result"| ID
-  WB -->|"CSR write / trap entry"| CSR
-  CSR -->|"read data, mtvec, mepc"| EX
+  WB -->|"csr_retire_cmd_t"| CSR
+  CSR -->|"read data / csr_irq_context_t"| WB
+  CSR -->|"read data, mepc"| EX
   ID -.->|"dependency state"| CTRL
   EX -.->|"redirect / exception state"| CTRL
-  WB -.->|"trap event"| CTRL
+  WB -.->|"redirect / WFI movement events"| CTRL
   CTRL -.->|"stall / flush / kill"| IF
   CTRL -.->|"bubble / hold"| ID
   CTRL -.->|"suppress younger effects"| EX
 ```
 
-The current SoC is still mostly a core plus memories. `riscv.sv` exposes a
-small request/response data bus; `riscv_soc.sv` now routes it through
-`soc_data_fabric.sv` to the RAM adapter or registered default error target.
-Phase 2 is complete. Timer and UART/GPIO targets are introduced in Phases 3
-and 4, respectively.
+`riscv.sv` exposes a small request/response data bus; `riscv_soc.sv` routes it
+through `soc_data_fabric.sv` to the timer, RAM adapter, or registered default
+target. Phase 3 is complete. UART/GPIO targets are introduced in Phase 4.
 
 ## 5. Repository map
 
 | Path | Purpose |
 |---|---|
-| `src/core/riscv.sv` | CPU integration, redirect/trap arbitration, external data bus, and commit wiring |
+| `src/core/riscv.sv` | CPU composition, execute/retirement redirect selection, and external data bus |
 | `src/core/riscv_pkg.sv` | ISA constants, enums, packet definitions, trap causes |
 | `src/core/decode.sv` | Instruction fields, immediates, operands, and control generation |
 | `src/core/execute.sv` | ALU, branches/jumps, multiply/completed-divide selection, CSR operations, trap metadata |
 | `src/core/radix2_divider.sv` | Iterative DIV/DIVU/REM/REMU arithmetic, completion, and kill handling |
 | `src/core/core_ctrl.sv` | RAW hazards, LSU/divider EX wait, stalls, flushes, delayed fetch kill |
+| `src/core/retire_stage.sv` | Final RF/CSR commands, exception/IRQ choice, WFI state, redirect and commit observations |
 | `src/core/lsu.sv` | Effective address, alignment, store lanes, transaction FSM, load extension |
-| `src/core/csr_regfile.sv` | M-mode CSR state, legality, WARL, counters, trap entry |
+| `src/core/csr_regfile.sv` | M-mode CSR state, legality, WARL preview, MTIP composition, ordered retirement update |
 | `src/core/regfile.sv` | 32 integer registers, x0 behavior, WB-to-read bypass |
 | `src/core/if2id.sv` | Fetch-to-decode pipeline register |
 | `src/core/id2ex.sv` | Decode-to-execute pipeline register |
 | `src/core/ex2wb.sv` | Execute-to-writeback pipeline register |
-| `src/core/wb_stage.sv` | Final GPR result selection and side-effect suppression |
 | `src/mem/prog_ram.sv` | One-cycle synchronous instruction/program BRAM |
 | `src/mem/data_ram.sv` | Synchronous byte-writeable data RAM |
 | `src/bus/core_bus_data_ram.sv` | CPU-local bus to synchronous RAM adapter |
-| `src/bus/soc_data_fabric.sv` | Full-address decode, RAM base subtraction, response-owner mux |
+| `src/bus/soc_data_fabric.sv` | Full-address timer/RAM/default decode, local translation, registered response owner |
 | `src/bus/core_bus_default_target.sv` | Registered zero-data error response with no write side effect |
+| `src/periph/mtime_timer.sv` | Registered RV32 `mtime`/`mtimecmp` bus target and level-sensitive MTIP |
 | `src/riscv_soc.sv` | Program loader, memories, data fabric/targets, and CPU wrapper |
 | `sim/tb/tb_riscv_core.sv` | Main testbench and architectural checks |
 | `sim/regress/` | Manifest-driven ModelSim runner and image conversion |
 | `verif/act4/` | Official architectural-test integration metadata |
 | `testdata/` | Directed assembly tests and generated memory images |
 | `doc/` | Architecture reviews, decisions, evidence, and learning notes |
+| `doc/SEMANTIC_SIGNAL_SPEC.md` | Normative signal ownership, timing, naming, and packing rules |
 
 `src/bus` contains the fabric, default target, and RAM adapter. Empty future
 module placeholders were removed: a planned timer, UART, or GPIO appears in
@@ -312,8 +320,12 @@ one typed value.
 |---|---|---|
 | `fetch_pkt_t` | `valid`, `error`, `pc`, `instr` | `if2id` |
 | `id_ex_pkt_t` | operands, immediate, destination, ALU/branch/memory/CSR intent | `id2ex` |
-| `ex_wb_pkt_t` | execution result, memory metadata, trap record, CSR result | `ex2wb` |
-| `commit_pkt_t` | final architectural register, memory, and trap effects | top-level observation only |
+| `ex_wb_pkt_t` | result, memory/trap metadata, resolved `next_pc`, CSR/MRET/WFI semantics | `ex2wb` |
+| `rf_write_cmd_t` | selected GPR retirement effect | `retire_stage` to `regfile` |
+| `csr_retire_cmd_t` | CSR write plus independent trap/MRET/instret events | `retire_stage` to `csr_regfile` |
+| `csr_irq_context_t` | effective mstatus/mie/mip/mtvec preview | `csr_regfile` to `retire_stage` |
+| `commit_pkt_t` | final instruction register, memory, and synchronous-trap observation | verification only |
+| `trap_entry_t` | synchronous or asynchronous architectural trap-entry observation | verification only |
 
 An invalid registered packet is always a canonical all-zero bubble. A bubble is
 not a NOP instruction: it is the absence of an instruction.
@@ -350,7 +362,7 @@ add x5, x6, x7
 7. `id2ex` registers that packet.
 8. `execute` adds the operands and builds an `ex_wb_pkt_t`.
 9. `ex2wb` registers the result.
-10. `wb_stage` selects the ALU value and enables the x5 write.
+10. `retire_stage` selects the ALU value and emits `rf_write_cmd_t`.
 11. `regfile` writes x5 on the rising edge.
 12. `commit_o` reports the instruction, PC, destination, and result in order.
 
@@ -491,17 +503,18 @@ data-memory `RAMB36E1` cells. Detailed AR-003 rationale and evidence are in
 
 ### 10.5 Implemented centralized data fabric
 
-AR-019 inserts `soc_data_fabric` between the LSU bus and targets. It compares
-the complete architectural address with the configured data-RAM interval,
-subtracts `0x8000_0000` only in the RAM-facing copy, and records the accepting
-target until the response arrives. It never re-decodes a changed live address
-while a transaction is outstanding.
+AR-019 inserted `soc_data_fabric` between the LSU bus and targets. AR-008
+extends it with the timer window. It compares the complete architectural
+address, subtracts the selected target base only in that target-facing copy,
+and records timer, RAM, or default ownership until the response arrives. It
+never re-decodes a changed live address while a transaction is outstanding.
 
-Every non-RAM data address selects `core_bus_default_target`. That target
-returns zero data with `error=1` during the cycle after acceptance and owns no
-writable state. Future timer/UART/GPIO windows therefore fault safely until
-their real targets replace the default selection. The original architectural
-address remains in the LSU/commit packet for correct `mtval` and debug output.
+The implemented timer window selects `mtime_timer`; the data-RAM window selects
+the RAM adapter; every other address selects `core_bus_default_target`. The
+default target returns zero data with `error=1` during the cycle after
+acceptance and owns no writable state. UART/GPIO windows continue to fault
+safely until Phase 4 supplies real targets. The original architectural address
+remains in the LSU/commit packet for correct `mtval` and debug output.
 
 Focused boundary, back-pressure, owner-stability, cross-target, invalid-load,
 and invalid-store tests pass. Instruction fetch uses a separate fixed-latency
@@ -521,8 +534,12 @@ The current privilege model is machine mode only.
 1. Decode determines CSR operation and architectural write intent.
 2. EX checks implemented address, privilege, and read-only encoding.
 3. EX computes the final read-modify-write value.
-4. WB writes the CSR only when the packet is valid and non-trapping.
-5. A younger same-address CSR operation receives the older WARL-filtered value
+4. Retirement emits a raw CSR preview only when the packet is valid and not a
+   synchronous trap.
+5. `csr_regfile` applies WARL and returns the effective interrupt context.
+6. Retirement emits one clocked command that may contain both the CSR write and
+   an asynchronous trap entry.
+7. A younger same-address CSR operation receives the older WARL-filtered value
    through WB-to-EX bypass.
 
 Do not infer write intent from whether source data equals zero. CSR write intent
@@ -562,6 +579,37 @@ sequenceDiagram
 Older instructions may complete. The faulting instruction reports the trap but
 cannot perform its normal side effect. Younger instructions must disappear.
 
+### 11.4 Precise machine-timer interrupt and WFI
+
+An interrupt is selected at retirement, after the current normal instruction's
+effects. Eligibility uses the post-retirement `csr_irq_context_t`:
+
+```text
+mstatus.MIE && mie.MTIE && mip.MTIP
+```
+
+The interrupt saves `ex_wb_pkt_t.next_pc`, not the retiring instruction PC. A
+synchronous exception has priority. MRET excludes a same-boundary interrupt,
+and `irq_defer_i` waits for an LSU/divider owner to complete.
+
+WFI retires once, saves `next_pc`, kills younger packets, and leaves only a
+logical wait record. WFI wake creates `trap_entry_t` without another
+instruction commit or `minstret` increment. See
+[`AR008_PRECISE_MACHINE_TIMER_INTERRUPTS.md`](AR008_PRECISE_MACHINE_TIMER_INTERRUPTS.md).
+
+### 11.5 Timer registers
+
+The timer target receives local offsets from the fabric:
+
+| Offset | Meaning |
+|---:|---|
+| `0x4000/0x4004` | `mtimecmp` low/high |
+| `0xBFF8/0xBFFC` | `mtime` low/high |
+
+MTIP is the level `mtime >= mtimecmp`. RV32 software replaces `mtimecmp` with
+the safe low-all-ones, high, low sequence. Only aligned word accesses are
+implemented in this milestone.
+
 ## 12. Architectural commit interface
 
 `commit_o` is the stable observation record for each valid retired instruction.
@@ -581,9 +629,10 @@ trap  = 1
 rd_we = 0
 ```
 
-This interface supports regression checking, trace comparison, future
-differential testing, and debugging without relying on fragile internal signal
-names.
+An interrupt after a normal instruction does not set that instruction's commit
+`trap` bit. The separate `trap_entry_t` observation reports asynchronous entry.
+This keeps commit trace semantics truthful and supports regression checking,
+future differential testing, and debugging without fragile internal names.
 
 ## 13. Verification workflow
 
@@ -592,9 +641,11 @@ names.
 From PowerShell:
 
 ```powershell
-Set-Location D:\Rsicv-soc\sim\regress
+Set-Location D:\Rsicv-soc-worktrees\phase2-act4-cleanup\sim\regress
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 ./run_regression.ps1 -Tag smoke
+./run_regression.ps1 -Manifest ./phase3_tests.json -Test soc_timer_wfi
+./run_regression.ps1 -Manifest ./phase3_tests.json -Test soc_timer_10k
 ./test_regression_result.ps1
 python -m unittest test_elf_to_mem.py test_import_act4.py
 ```
@@ -609,9 +660,26 @@ python -m unittest tools/test_gen_soc_map.py
 For the original single testbench:
 
 ```powershell
-Set-Location D:\Rsicv-soc\sim
+Set-Location D:\Rsicv-soc-worktrees\phase2-act4-cleanup\sim
 vsim -do run.do
+vsim -c -do run_retire_stage.do
+vsim -c -do run_csr_retire_order.do
+vsim -c -do run_mtime_timer.do
+vsim -c -do run_soc_data_fabric.do
 ```
+
+The final Phase 3 out-of-context synthesis check also consumes the updated
+retirement/timer source list:
+
+```powershell
+Set-Location D:\Rsicv-soc-worktrees\phase2-act4-cleanup\sim\synth
+& 'D:\vivado\Vivado\2019.2\bin\vivado.bat' `
+  -mode batch -source .\check_riscv_soc_ar003.tcl
+```
+
+The verified result is 0 errors, 0 critical warnings, 32 retained
+`RAMB36E1` cells, and nonempty synthesized LSU, retirement, and timer
+hierarchies. This is an OOC structural result, not exact-board timing closure.
 
 ### 13.2 Result reporting
 
@@ -669,19 +737,26 @@ Recommended waveform groups:
 10. A failure is not fixed until its regression remains in the suite.
 11. A completed result's data, status, and identity must cross pipeline
     boundaries together.
+12. A post-retirement interrupt preserves the retiring instruction's normal
+    effects and saves its resolved `next_pc`.
+13. Hardware-pending levels and one-cycle trap-entry events are different
+    contracts.
+14. WFI is a one-time retirement plus logical state, never a repeatedly valid
+    pipeline instruction.
 
 ## 15. Current architecture risks and open questions
 
 | Topic | Current risk or question | Planned stage |
 |---|---|---|
 | Blocking LSU performance | Correct but the front end waits for every memory response | Measure before adding a MEM stage/cache |
-| Memory-map implementation | Data RAM/default decode, 64 KiB RTL defaults, and fetch errors are implemented; peripherals and remaining consumer migration are open | Phases 3-5 / AR-009/AR-016/AR-019 |
+| Memory-map implementation | Timer/RAM/default decode, 64 KiB RTL defaults, and fetch errors are implemented; UART/GPIO and remaining consumer migration are open | Phases 4-5 / AR-009/AR-016/AR-019 |
 | Unmapped access faults | Data load/store and out-of-range instruction fetches trap precisely; redirect/stall edge cases need broader directed coverage | Continuous verification / AR-018 |
-| Interrupt boundary | Correct resume PC and outstanding transaction deferral | Phase 3 / AR-008 |
-| Timer | No `mtime`, `mtimecmp`, or hardware MTIP | Phase 3 |
+| Interrupt boundary | Implemented and verified; broader randomized boundary coverage remains useful | Continuous verification / AR-008/AR-010 |
+| Timer | Implemented word-access timer; frequency calibration and firmware driver ABI remain | Phases 5-7 |
 | RV32M timing | Iterative divider passes 25/50 MHz OOC post-synthesis checks; exact-board routed closure and multiply-high margin remain | Phase 7 / AR-011/AR-017 |
-| Retirement ownership | CSR/trap/commit logic remains distributed | Cleanup / AR-012 |
-| Peripherals | UART/GPIO/timer RTL is not implemented yet | Phases 3–4 |
+| Retirement ownership | `retire_stage` is the owner; obsolete `halt_o` and broader README cleanup remain | Cleanup / AR-012 |
+| Peripherals | Timer is implemented; UART/GPIO remain open | Phase 4 |
+| Clock gating | Logical WFI is verified, but no safe FPGA clock gating is implemented | Phase 7 after board clock design |
 
 ## 16. Practical study exercises
 
@@ -733,6 +808,8 @@ compare RAM data, `load_offset`, extracted value, and committed result.
 - [AR-005 synchronous instruction BRAM](AR005_SYNCHRONOUS_INSTRUCTION_BRAM.md)
 - [AR-006 control-flow misalignment](AR006_CONTROL_FLOW_MISALIGNMENT.md)
 - [AR-007 CSR contract](AR007_CSR_LEGALITY_WARL_AND_HAZARDS.md)
+- [AR-008 precise machine-timer interrupts](AR008_PRECISE_MACHINE_TIMER_INTERRUPTS.md)
+- [Semantic signal specification](SEMANTIC_SIGNAL_SPEC.md)
 - [AR-013 regression exit-status gate](AR013_REGRESSION_EXIT_STATUS_GATE.md)
 - [AR-014 machine-readable SoC map](AR014_MACHINE_READABLE_SOC_MAP.md)
 - [AR-015 RAM-capacity utilization and timing comparison](AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md)

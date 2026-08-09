@@ -17,6 +17,9 @@ module riscv #(
   output core_bus_req_t data_req_o,
   input  logic          data_rsp_valid_i,
   input  core_bus_rsp_t data_rsp_i,
+  input  logic          irq_mti_i,
+  output logic          wfi_wait_o,
+  output trap_entry_t   trap_entry_o,
   output logic [DW-1:0] dbg_x3_o,
   output logic [DW-1:0] dbg_x10_o,
   output logic [DW-1:0] dbg_x11_o,
@@ -54,6 +57,17 @@ module riscv #(
   logic          wb_rf_wen_safe;
   logic [4:0]    wb_rf_waddr;
   logic [DW-1:0] wb_rf_wdata;
+
+  // Architectural retirement contracts
+  rf_write_cmd_t    retire_rf_write;
+  csr_write_req_t   csr_preview_req;
+  csr_retire_cmd_t  csr_retire_cmd;
+  csr_irq_context_t csr_irq_context;
+  redirect_t        retire_redirect;
+  trap_entry_t      retire_trap_entry;
+  logic             retire_irq_taken;
+  logic             retire_wfi_enter;
+  logic             retire_wfi_wait;
 
   // EX outputs
   logic          ex_redirect_en;
@@ -110,17 +124,35 @@ module riscv #(
   logic pc_stall, ifid_stall, idex_stall, exwb_stall;
   logic ifid_flush, idex_flush, pipe_kill;
 
-  assign wb_trap_event = ex2wb_pkt_out.valid &&
-      (ex2wb_pkt_out.exc.illegal_instr || ex2wb_pkt_out.exc.instr_access_fault ||
-       ex2wb_pkt_out.exc.ecall ||
-       ex2wb_pkt_out.exc.ebreak || ex2wb_pkt_out.instr_misaligned ||
-       ex2wb_pkt_out.mem_misaligned || ex2wb_pkt_out.mem_error);
-  assign wb_mret_event = ex2wb_pkt_out.valid && ex2wb_pkt_out.is_mret;
-
-  assign trap_redirect_en = wb_trap_event;
-  assign trap_redirect_pc = csr_mtvec;
+  assign wb_mret_event = csr_retire_cmd.mret;
+  assign trap_redirect_en = retire_redirect.valid;
+  assign trap_redirect_pc = retire_redirect.pc;
   assign pc_redirect_en   = ex_redirect_en || trap_redirect_en;
   assign pc_redirect_pc   = trap_redirect_en ? trap_redirect_pc : ex_redirect_pc;
+
+  retire_stage #(
+    .AW(AW),
+    .DW(DW)
+  ) u_retire_stage (
+    .clk_i             (clk_i),
+    .rst_ni            (rst_ni),
+    .pkt_i             (ex2wb_pkt_out),
+    .csr_irq_context_i (csr_irq_context),
+    .irq_defer_i       (ex_wait),
+    .csr_preview_req_o (csr_preview_req),
+    .rf_write_cmd_o    (retire_rf_write),
+    .csr_retire_cmd_o  (csr_retire_cmd),
+    .redirect_o        (retire_redirect),
+    .trap_entry_o      (retire_trap_entry),
+    .commit_o          (commit_o),
+    .sync_trap_o       (wb_trap_event),
+    .irq_taken_o       (retire_irq_taken),
+    .wfi_enter_o       (retire_wfi_enter),
+    .wfi_wait_o        (retire_wfi_wait)
+  );
+
+  assign wfi_wait_o   = retire_wfi_wait;
+  assign trap_entry_o = retire_trap_entry;
 
   // ============================================================
   // 4. Core Control Unit Instantiation
@@ -136,16 +168,11 @@ module riscv #(
     .ex_valid       (id2ex_pkt_out.valid),
     .ex_rd_addr     (id2ex_pkt_out.rf.addr),
     .ex_rf_we       (id2ex_pkt_out.rf.we),
-    .ex_mem_req     (id2ex_pkt_out.ex_ctrl.mem_req),
-    .ex_mem_we      (id2ex_pkt_out.ex_ctrl.mem_we),
-    .wb_valid       (ex2wb_pkt_out.valid),
-    .wb_rd_addr     (ex2wb_pkt_out.rf.addr),
-    .wb_rf_we       (ex2wb_pkt_out.rf.we),
-    .ex_redirect_en (ex_redirect_en),
     .ex_flush_req   (ex_flush_req),
     .ex_wait_i      (ex_wait),
-    .trap_redirect_en(trap_redirect_en),
-    .wb_trap_event  (wb_trap_event),
+    .retire_redirect_en(trap_redirect_en),
+    .wfi_enter_i    (retire_wfi_enter),
+    .wfi_wait_i     (retire_wfi_wait),
     .pc_stall       (pc_stall),
     .ifid_stall     (ifid_stall),
     .idex_stall     (idex_stall),
@@ -168,12 +195,9 @@ module riscv #(
   logic [DW-1:0] wb_csr_wdata_effective;
   logic [AW-1:0] csr_mepc_for_ex;
 
-  assign wb_csr_we    = ex2wb_pkt_out.valid &&
-                        ex2wb_pkt_out.csr.valid &&
-                        ex2wb_pkt_out.csr.write &&
-                        !wb_trap_event;
-  assign wb_csr_addr  = ex2wb_pkt_out.csr.addr;
-  assign wb_csr_wdata = ex2wb_pkt_out.csr.wdata;
+  assign wb_csr_we    = csr_preview_req.valid;
+  assign wb_csr_addr  = csr_preview_req.addr;
+  assign wb_csr_wdata = csr_preview_req.wdata;
   // An adjacent CSR instruction in EX must observe the effective (WARL-filtered)
   // value written by the older CSR instruction in WB.
   assign csr_rdata_for_ex =
@@ -199,20 +223,12 @@ module riscv #(
     .csr_implemented_o(csr_implemented),
     .csr_read_only_o(csr_read_only),
     .csr_privilege_ok_o(csr_privilege_ok),
-    // Write port (from WB stage)
-    .csr_we_i     (wb_csr_we),
-    .csr_waddr_i  (wb_csr_addr),
-    .csr_wdata_i  (wb_csr_wdata),
-    .csr_wdata_effective_o(wb_csr_wdata_effective),
-    // Trap entry
-    .trap_entry_i (wb_trap_event),
-    .trap_pc_i    (ex2wb_pkt_out.trap_pc),
-    .trap_cause_i (ex2wb_pkt_out.trap_cause),
-    .trap_val_i   (ex2wb_pkt_out.trap_val),
-    // MRET
-    .mret_i       (wb_mret_event),
-    // Retire
-    .instret_i    (ex2wb_pkt_out.valid && !wb_trap_event),
+    // Preview and clocked retirement command
+    .preview_req_i             (csr_preview_req),
+    .preview_wdata_effective_o (wb_csr_wdata_effective),
+    .irq_context_o             (csr_irq_context),
+    .retire_cmd_i              (csr_retire_cmd),
+    .irq_mti_i                 (irq_mti_i),
     // Outputs
     .mtvec_o      (csr_mtvec),
     .mepc_o       (csr_mepc),
@@ -493,7 +509,10 @@ module riscv #(
   // ============================================================
   // 11. Regfile
   // ============================================================
-  assign wb_rf_wen_safe = wb_rf_wen && !wb_trap_event;
+  assign wb_rf_wen      = retire_rf_write.valid;
+  assign wb_rf_waddr    = retire_rf_write.addr;
+  assign wb_rf_wdata    = retire_rf_write.data;
+  assign wb_rf_wen_safe = wb_rf_wen;
 
   regfile #(
     .DW(DW)
@@ -510,22 +529,6 @@ module riscv #(
     .dbg_x3_o    (dbg_x3_o),
     .dbg_x10_o   (dbg_x10_o),
     .dbg_x11_o   (dbg_x11_o)
-  );
-
-  // ============================================================
-  // 12. WB Stage (memory result is owned by the EX/WB packet)
-  // ============================================================
-  wb_stage u_wb_stage (
-    .pkt_wb_i    (ex2wb_pkt_out),
-    .rf_wen_o    (wb_rf_wen),
-    .rf_waddr_o  (wb_rf_waddr),
-    .rf_wdata_o  (wb_rf_wdata),
-    .csr_we_o    (/* tied off in top; csr write handled above */),
-    .csr_addr_o  (),
-    .csr_wdata_o (),
-    .mret_o      (),
-    .trap_cause_o(),
-    .trap_val_o  ()
   );
 
 `ifndef SYNTHESIS
@@ -559,56 +562,6 @@ module riscv #(
     end
   end
 `endif
-
-  // ============================================================
-  // 13. Architectural Commit Interface
-  // ============================================================
-  logic [63:0] commit_order_q;
-
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (!rst_ni) begin
-      commit_order_q <= '0;
-    end else if (ex2wb_pkt_out.valid) begin
-      commit_order_q <= commit_order_q + 64'd1;
-    end
-  end
-
-  always_comb begin
-    commit_o = '0;
-    commit_o.valid      = ex2wb_pkt_out.valid;
-    commit_o.order      = commit_order_q;
-    commit_o.pc         = ex2wb_pkt_out.pc;
-    commit_o.instr      = ex2wb_pkt_out.instr;
-    commit_o.rd_we      = wb_rf_wen_safe;
-    commit_o.rd_addr    = wb_rf_wen_safe ? wb_rf_waddr : '0;
-    commit_o.rd_data    = wb_rf_wen_safe ? wb_rf_wdata : '0;
-    commit_o.mem_valid  = ex2wb_pkt_out.mem_valid;
-    commit_o.mem_we     = ex2wb_pkt_out.mem_we;
-    commit_o.mem_addr   = ex2wb_pkt_out.mem_valid ? ex2wb_pkt_out.mem_addr : '0;
-    commit_o.mem_wmask  = ex2wb_pkt_out.mem_we ? ex2wb_pkt_out.mem_wstrb : '0;
-    commit_o.mem_rdata  = (ex2wb_pkt_out.mem_valid &&
-                           !ex2wb_pkt_out.mem_we &&
-                           !ex2wb_pkt_out.mem_error) ?
-                          ex2wb_pkt_out.mem_rdata : '0;
-    commit_o.mem_wdata  = (ex2wb_pkt_out.mem_valid && ex2wb_pkt_out.mem_we) ?
-                          ex2wb_pkt_out.mem_wdata : '0;
-    commit_o.trap       = wb_trap_event;
-    commit_o.trap_cause = ex2wb_pkt_out.trap_cause;
-    commit_o.trap_val   = ex2wb_pkt_out.trap_val;
-
-    if (ex2wb_pkt_out.mem_valid && !ex2wb_pkt_out.mem_we) begin
-      unique case (ex2wb_pkt_out.mem_info.mem_size)
-        MEM_SIZE_BYTE:
-          commit_o.mem_rmask = 4'b0001 << ex2wb_pkt_out.mem_info.load_offset;
-        MEM_SIZE_HALF:
-          commit_o.mem_rmask = 4'b0011 << ex2wb_pkt_out.mem_info.load_offset;
-        MEM_SIZE_WORD:
-          commit_o.mem_rmask = 4'b1111;
-        default:
-          commit_o.mem_rmask = '0;
-      endcase
-    end
-  end
 
 endmodule
 `default_nettype wire

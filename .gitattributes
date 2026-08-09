@@ -1,2 +1,5 @@
 # Preserve generated synthesis/timing evidence byte-for-byte.
 doc/evidence/** -text -diff
+
+# WSL/Linux build entry points must retain a valid Unix shebang and shell syntax.
+*.sh text eol=lf

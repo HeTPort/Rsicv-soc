@@ -10,6 +10,7 @@ logs, and returns a nonzero process status if any test fails.
 - `tests.json` - test names, firmware images, timeouts, and selection tags.
 - `soc_red_tests.json` - isolated Phase 2 SoC contract cases for data and
   instruction access faults.
+- `phase3_tests.json` - precise timer/WFI and 10,000-interrupt Phase 3 cases.
 - `run_regression.ps1` - Windows PowerShell orchestration and result checking.
 - `regression_result.ps1` - shared simulator result-classification policy.
 - `test_regression_result.ps1` - dependency-free positive/negative classifier
@@ -99,6 +100,14 @@ The selected fetch case must also pass. The focused fabric protocol test is:
 ```powershell
 Set-Location D:\Rsicv-soc\sim
 vsim -c -do run_soc_data_fabric.do
+```
+
+Run the Phase 3 architectural and long-duration timer tests from
+`sim/regress` with:
+
+```powershell
+./run_regression.ps1 -Manifest .\phase3_tests.json -Test soc_timer_wfi
+./run_regression.ps1 -Manifest .\phase3_tests.json -Test soc_timer_10k
 ```
 
 Success produces process exit code `0`. Manifest, tool, compile, assertion,

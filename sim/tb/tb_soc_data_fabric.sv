@@ -3,6 +3,8 @@
 import riscv_pkg::*;
 
 module tb_soc_data_fabric;
+  localparam logic [31:0] TIMER_BASE = 32'h0200_0000;
+  localparam logic [31:0] TIMER_END  = 32'h0200_ffff;
   localparam logic [31:0] DATA_BASE = 32'h8000_0000;
   localparam logic [31:0] DATA_END  = 32'h8000_ffff;
 
@@ -15,6 +17,12 @@ module tb_soc_data_fabric;
   logic cpu_rsp_valid;
   core_bus_rsp_t cpu_rsp;
 
+  logic timer_req_valid;
+  logic timer_req_ready;
+  core_bus_req_t timer_req;
+  logic timer_rsp_valid;
+  core_bus_rsp_t timer_rsp;
+
   logic data_req_valid;
   logic data_req_ready;
   core_bus_req_t data_req;
@@ -22,12 +30,15 @@ module tb_soc_data_fabric;
   core_bus_rsp_t data_rsp;
 
   int cpu_accept_count;
+  int timer_accept_count;
   int data_accept_count;
   int cpu_response_count;
 
   soc_data_fabric #(
     .AW(32),
     .DW(32),
+    .TIMER_BASE(TIMER_BASE),
+    .TIMER_END(TIMER_END),
     .DATA_RAM_BASE(DATA_BASE),
     .DATA_RAM_END(DATA_END),
     .DEFAULT_RDATA(32'h0000_0000),
@@ -40,6 +51,11 @@ module tb_soc_data_fabric;
     .cpu_req_i        (cpu_req),
     .cpu_rsp_valid_o  (cpu_rsp_valid),
     .cpu_rsp_o        (cpu_rsp),
+    .timer_req_valid_o(timer_req_valid),
+    .timer_req_ready_i(timer_req_ready),
+    .timer_req_o      (timer_req),
+    .timer_rsp_valid_i(timer_rsp_valid),
+    .timer_rsp_i      (timer_rsp),
     .data_req_valid_o (data_req_valid),
     .data_req_ready_i (data_req_ready),
     .data_req_o       (data_req),
@@ -52,11 +68,14 @@ module tb_soc_data_fabric;
   always_ff @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
       cpu_accept_count   <= 0;
+      timer_accept_count <= 0;
       data_accept_count  <= 0;
       cpu_response_count <= 0;
     end else begin
       if (cpu_req_valid && cpu_req_ready)
         cpu_accept_count <= cpu_accept_count + 1;
+      if (timer_req_valid && timer_req_ready)
+        timer_accept_count <= timer_accept_count + 1;
       if (data_req_valid && data_req_ready)
         data_accept_count <= data_accept_count + 1;
       if (cpu_rsp_valid)
@@ -89,10 +108,37 @@ module tb_soc_data_fabric;
     data_req_ready = 1'b1;
     data_rsp_valid = 1'b0;
     data_rsp       = '0;
+    timer_req_ready = 1'b1;
+    timer_rsp_valid = 1'b0;
+    timer_rsp       = '0;
 
     repeat (3) @(posedge clk);
     @(negedge clk);
     rst_n = 1'b1;
+
+    // Timer decode uses the full SoC window but presents a base-subtracted
+    // local register offset to the target. The registered owner must retain
+    // timer response ownership even if the live CPU request changes.
+    set_request(TIMER_BASE + 32'h4000, 1'b0, MEM_SIZE_WORD, '0, '0);
+    cpu_req_valid = 1'b1;
+    #1;
+    assert (cpu_req_ready && timer_req_valid && !data_req_valid &&
+            timer_req.addr == 32'h0000_4000)
+      else $fatal(1, "timer decode/local address translation is wrong");
+    @(posedge clk);
+    @(negedge clk);
+    cpu_req_valid = 1'b0;
+    set_request(DATA_BASE, 1'b0, MEM_SIZE_WORD, '0, '0);
+    timer_rsp.rdata = 32'h1234_abcd;
+    timer_rsp.error = 1'b0;
+    timer_rsp_valid = 1'b1;
+    #1;
+    assert (!cpu_req_ready && !data_req_valid && cpu_rsp_valid &&
+            cpu_rsp.rdata == 32'h1234_abcd && !cpu_rsp.error)
+      else $fatal(1, "registered timer owner did not route its response");
+    @(posedge clk);
+    @(negedge clk);
+    timer_rsp_valid = 1'b0;
 
     // An unmapped store must select only the registered default target.
     set_request(32'h4000_0000, 1'b1, MEM_SIZE_WORD,
@@ -191,11 +237,13 @@ module tb_soc_data_fabric;
     #1;
     data_rsp_valid = 1'b0;
 
-    assert (cpu_accept_count == 4)
+    assert (cpu_accept_count == 5)
       else $fatal(1, "CPU acceptance count mismatch: %0d", cpu_accept_count);
+    assert (timer_accept_count == 1)
+      else $fatal(1, "timer acceptance count mismatch: %0d", timer_accept_count);
     assert (data_accept_count == 2)
       else $fatal(1, "RAM acceptance count mismatch: %0d", data_accept_count);
-    assert (cpu_response_count == 4)
+    assert (cpu_response_count == 5)
       else $fatal(1, "response count mismatch: %0d", cpu_response_count);
 
     $display("[SOC-DATA-FABRIC-TB] RESULT: PASS");

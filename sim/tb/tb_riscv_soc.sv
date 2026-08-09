@@ -37,6 +37,7 @@ module tb_riscv_soc #(
   logic [DW-1:0] reg_s10;
   logic [DW-1:0] reg_s11;
   commit_pkt_t commit;
+  trap_entry_t trap_entry;
   logic cpu_rst_n;
 
   logic [DW-1:0] tohost_val;
@@ -86,7 +87,8 @@ module tb_riscv_soc #(
     .test_case   (test_case),
     .reg_s10     (reg_s10),
     .reg_s11     (reg_s11),
-    .commit_o    (commit)
+    .commit_o    (commit),
+    .trap_entry_o(trap_entry)
   );
 
   initial begin
@@ -122,6 +124,15 @@ module tb_riscv_soc #(
           else $fatal(1, "tohost store completed as a trap");
         tohost_val  <= commit.mem_wdata;
         tohost_seen <= 1'b1;
+      end
+    end
+  end
+
+  always_ff @(posedge clk) begin
+    if (cpu_rst_n && trap_entry.valid) begin
+      if (trap_entry.interrupt) begin
+        assert (trap_entry.cause == MCAUSE_IRQ_M_TIMER && trap_entry.tval == '0)
+          else $fatal(1, "Malformed machine-timer trap entry observation");
       end
     end
   end

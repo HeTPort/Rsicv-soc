@@ -100,8 +100,8 @@ Implemented:
 
 Still missing:
 
-- [ ] Hardware interrupt input and precise interrupt entry.
-- [ ] `mtime`/`mtimecmp` machine timer.
+- [x] Hardware interrupt input and precise interrupt entry.
+- [x] `mtime`/`mtimecmp` machine timer with registered core-bus target.
 - [ ] Implemented UART and GPIO peripherals; empty placeholder RTL was removed
   and real modules will be added in Phase 4.
 - [ ] Firmware startup code, linker script, drivers, and FreeRTOS application.
@@ -395,41 +395,44 @@ next changed, or earlier only if a regression exposes a real failure.
 
 ## Phase 3 — Implement precise machine timer interrupts
 
+**Status:** complete (2026-08-09). Detailed decisions and verification evidence
+are in [`doc/AR008_PRECISE_MACHINE_TIMER_INTERRUPTS.md`](doc/AR008_PRECISE_MACHINE_TIMER_INTERRUPTS.md).
+
 **Purpose:** provide the periodic scheduler tick required by preemptive
 FreeRTOS.
 
 ### CPU interrupt work
 
-- [ ] Add a machine-timer interrupt input to the CPU.
-- [ ] Drive `mip.MTIP` from hardware and prevent ordinary CSR writes from
+- [x] Add a machine-timer interrupt input to the CPU.
+- [x] Drive `mip.MTIP` from hardware and prevent ordinary CSR writes from
   falsely creating or clearing the hardware-pending state.
-- [ ] Gate timer interrupts with `mie.MTIE` and `mstatus.MIE`.
-- [ ] Give synchronous exceptions priority over an interrupt at the same
+- [x] Gate timer interrupts with `mie.MTIE` and `mstatus.MIE`.
+- [x] Give synchronous exceptions priority over an interrupt at the same
   retirement boundary.
-- [ ] On interrupt entry, write `mcause = 0x8000_0007`, save the correct resume
+- [x] On interrupt entry, write `mcause = 0x8000_0007`, save the correct resume
   PC in `mepc`, update `MIE/MPIE`, flush younger instructions, and suppress
   younger stores/register writes.
-- [ ] Verify `mret` restores interrupt-enable state and resumes exactly once.
-- [ ] Define useful `wfi` behavior; a simple wait-until-interrupt implementation
+- [x] Verify `mret` restores interrupt-enable state and resumes exactly once.
+- [x] Define useful `wfi` behavior; a simple wait-until-interrupt implementation
   is sufficient.
 
 ### Timer peripheral work
 
-- [ ] Implement 64-bit `mtime`, incrementing from the SoC clock.
-- [ ] Implement 64-bit memory-mapped `mtimecmp`.
-- [ ] Assert MTIP while `mtime >= mtimecmp`.
-- [ ] Support safe RV32 high/low-word accesses without a transient early tick.
-- [ ] Make timer frequency and reset values explicit parameters.
+- [x] Implement 64-bit `mtime`, incrementing from the SoC clock.
+- [x] Implement 64-bit memory-mapped `mtimecmp`.
+- [x] Assert MTIP while `mtime >= mtimecmp`.
+- [x] Support safe RV32 high/low-word accesses without a transient early tick.
+- [x] Make timer frequency and reset values explicit parameters.
 
 ### Required verification
 
-- [ ] Timer increments and compare crossing test.
-- [ ] Masked-pending interrupt test.
-- [ ] Enabled interrupt entry test.
-- [ ] `mcause`, `mepc`, `mtval`, and `mstatus` value tests.
-- [ ] Interrupt taken around load, store, branch, CSR, and pipeline-stall tests.
-- [ ] Repeated tick and `mret` loop test to detect skipped or duplicated work.
-- [ ] Commit-interface assertions proving precise retirement around interrupts.
+- [x] Timer increments and compare crossing test.
+- [x] Masked-pending interrupt test.
+- [x] Enabled interrupt entry test.
+- [x] `mcause`, `mepc`, `mtval`, and `mstatus` value tests.
+- [x] Interrupt taken around load, store, branch, CSR, and pipeline-stall tests.
+- [x] Repeated tick and `mret` loop test to detect skipped or duplicated work.
+- [x] Commit-interface assertions proving precise retirement around interrupts.
 
 **Exit gate:** a bare-metal handler services at least 10,000 simulated timer
 interrupts and returns correctly, with the complete smoke regression green.
@@ -598,9 +601,9 @@ for the first FreeRTOS FPGA demonstration:
 
 1. Keep all 47 official ACT4 RV32I/RV32M baseline tests active as continuous
    Track A.
-2. Begin Phase 3 with the CLINT-style timer and precise machine-timer-interrupt
-   regression.
-3. Complete the accepted-map migration for linker, images, regression/ACT4
+2. Begin Phase 4 with polling UART TX and GPIO targets using the verified
+   timer/RAM/default fabric contract.
+3. Continue the accepted-map migration for linker, images, regression/ACT4
    consumers, and peripheral target integration; the SoC RTL defaults and data
    decoder already consume the accepted 64 KiB map.
 4. Keep the verified AR-017 iterative-divider regression and timing checkpoint
