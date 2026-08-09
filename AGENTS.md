@@ -36,8 +36,10 @@ The active core also includes `src/core/radix2_divider.sv`, a kill-safe
 - `src/periph/mtime_timer.sv` — registered RV32 machine-timer target for
   `mtime`/`mtimecmp` and the level-sensitive MTIP signal.
 - `src/periph/core_bus_uart.sv` — registered polling-UART MMIO target with a
-  one-byte holding stage and backpressure.
+  one-byte TX holding stage, parameterized default 16-byte RX FIFO, and sticky
+  RX errors.
 - `src/periph/uart_tx.sv` — parameterized valid/ready 8N1 TX shifter.
+- `src/periph/uart_rx.sv` — synchronized midpoint-sampling 8N1 RX engine.
 - `src/riscv_soc.sv` — SoC wrapper that connects the CPU to program RAM and routes its data bus through the fabric to timer/UART/RAM/default targets.
 - `src/mem/prog_ram.sv` — synchronous instruction/program RAM.
 - `src/mem/data_ram.sv` — synchronous data RAM, now written as a pure BRAM template.
@@ -102,7 +104,9 @@ vsim -c -do run_soc_data_fabric.do
 ```bash
 cd sim
 vsim -c -do run_uart_tx.do
+vsim -c -do run_uart_rx.do
 vsim -c -do run_core_bus_uart.do
+vsim -c -do run_core_bus_uart_rx.do
 ```
 
 ### Run the focused Phase 3 tests
@@ -118,9 +122,10 @@ The two end-to-end timer tests are selected from
 `sim/regress/phase3_tests.json`; one checks precise WFI/interrupt behavior and
 the other checks 10,000 repeated timer interrupts.
 
-The Phase 4 UART vertical slice is selected from
-`sim/regress/phase4_tests.json`; it runs polling firmware and decodes the
-actual `uart_tx_o` 8N1 waveform as `Hello, UART!\r\n`.
+The Phase 4 UART vertical slices are selected from
+`sim/regress/phase4_tests.json`. One runs TX polling firmware and decodes
+`Hello, UART!\r\n`; the other drives 16 serial bytes into `uart_rx_i`, has
+firmware poll/echo them, and decodes `RX FIFO 16 OK!\r\n` from `uart_tx_o`.
 
 `run.do` does the following:
 

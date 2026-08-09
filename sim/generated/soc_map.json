@@ -79,6 +79,20 @@
       "offset": 4,
       "region": "uart",
       "width_bits": 32
+    },
+    {
+      "address": 268435464,
+      "name": "uart_rxdata",
+      "offset": 8,
+      "region": "uart",
+      "width_bits": 32
+    },
+    {
+      "address": 268435468,
+      "name": "uart_rxerror",
+      "offset": 12,
+      "region": "uart",
+      "width_bits": 32
     }
   ],
   "schema_version": 1,

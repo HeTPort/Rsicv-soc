@@ -3,7 +3,7 @@
 **Status:** Phase 4 normative design specification
 
 **Scope:** CPU pipeline, retirement, CSR state, redirects, the CPU-local data
-bus, and polling UART TX
+bus, and polling UART TX/RX
 
 **Last updated:** 2026-08-09
 
@@ -58,8 +58,10 @@ Every architectural effect has exactly one state owner.
 | LSU transaction state | `lsu.sv` | ID/EX memory intent and bus handshakes |
 | Fabric response ownership | `soc_data_fabric.sv` | accepted-target identity |
 | Timer state | `mtime_timer.sv` | accepted core-bus writes and clock ticks |
-| UART queued byte | `core_bus_uart.sv` | accepted legal TXDATA write or shifter transfer |
-| UART active frame/timing | `uart_tx.sv` | accepted byte transfer and baud counter |
+| UART TX queued byte | `core_bus_uart.sv` | accepted legal TXDATA write or shifter transfer |
+| UART TX active frame/timing | `uart_tx.sv` | accepted byte transfer and baud counter |
+| UART RX synchronization/frame timing | `uart_rx.sv` | asynchronous pin samples and baud counter |
+| UART RX FIFO/error state | `core_bus_uart.sv` | receiver byte/error events and accepted MMIO reads/W1C writes |
 
 A producer must not directly mutate state owned by another module. It emits an
 intent, candidate, command, or protocol transfer instead.
@@ -323,7 +325,7 @@ writing the low word to all ones, then the high word, then the final low word.
 The hardware provides ordinary word writes; it must not invent a hidden
 multiword transaction that the bus cannot represent.
 
-## 11. UART TX signal semantics
+## 11. UART TX/RX signal semantics
 
 | Signal/value | Semantic definition |
 |---|---|
@@ -334,12 +336,25 @@ multiword transaction that the bus cannot represent.
 | `shifter_ready` | The shifter can accept a new frame in the current cycle. |
 | `dequeue` | Event: `shifter_valid && shifter_ready`; ownership moves from holding register to shifter. |
 | `enqueue` | Event: an accepted, legal core-bus TXDATA write; ownership moves from CPU transaction to holding register. |
+| `uart_rx_i` | Asynchronous physical input. It has no synchronous semantic meaning until it passes through the receiver's two-flop synchronizer. |
+| `rx_byte_valid_o` | One-cycle event: a complete 8N1 frame with a valid stop bit produced `rx_byte_data_o`. |
+| `rx_frame_error_o` | One-cycle event: the sampled stop bit was low. It is mutually exclusive with `rx_byte_valid_o`. |
+| `rx_valid` | Level: FIFO count is nonzero, so a legal `RXDATA` read will return and pop the oldest byte. |
+| `rx_full` | Level: FIFO count equals `RX_FIFO_DEPTH`. |
+| `rx_overrun` | Sticky state: at least one good byte was dropped because the FIFO was full. |
+| `rx_frame_error` | Sticky state: at least one invalid stop bit was observed. |
+| `rx_push` | Event: a good receiver byte is accepted into available FIFO storage. |
+| `rx_pop` | Event: an accepted legal `RXDATA` read observes a nonempty FIFO. |
 
 The UART target receives only local offsets from the fabric. `TXDATA=0x00` is
 an aligned, full-strobe word write whose low byte is enqueued. `STATUS=0x04` is
-an aligned word read returning `TX_READY` in bit 0 and `TX_BUSY` in bit 1.
-Other sizes, directions, strobes, or offsets return one registered error and
-have no side effect.
+an aligned word read returning TX ready/busy in bits 0/1, RX valid/full in bits
+2/3, sticky overrun/framing state in bits 4/5, and FIFO count in bits 15:8.
+`RXDATA=0x08` is an aligned word read that returns and pops the oldest byte; an
+empty read legally returns zero without a side effect. `RXERROR=0x0C` reads
+overrun/framing in bits 0/1 and clears selected flags through a full-strobe
+word write-one-to-clear. Other sizes, directions, strobes, or offsets return
+one registered error and have no side effect.
 
 A legal TXDATA request presented while the holding stage cannot accept remains
 backpressured. Resource occupancy is not an error. The request payload must
@@ -349,6 +364,13 @@ registered response follows.
 Do not redefine ready as `!hold_full_q`: during simultaneous dequeue/enqueue,
 the old byte transfers to the shifter and the newly accepted byte replaces it.
 Ready describes transfer capability, not a single implementation bit.
+
+The asynchronous RX pin is synchronized before the start/data/stop state
+machine uses it. A good byte is enqueued only if storage is available. When
+full, the newest byte is dropped, ordered queued data is preserved, and the
+sticky overrun flag is set. A bad stop bit sets the sticky framing flag and
+does not enqueue the byte. If software clears an error in the same cycle that
+hardware reports a new occurrence, the hardware event wins.
 
 ## 12. Assertions required for new semantic contracts
 
@@ -373,6 +395,14 @@ Ready describes transfer capability, not a single implementation bit.
 - Invalid UART accesses produce no enqueue event.
 - UART serial output is high when idle and emits exactly one start, eight data,
   and one stop bit for every shifter transfer.
+- RX byte-valid and framing-error events are mutually exclusive.
+- RX FIFO count never exceeds `RX_FIFO_DEPTH`; a full FIFO drops the newest
+  arrival without changing the existing head or count.
+- An empty RXDATA read completes with zero and never causes a FIFO underflow.
+- A legal nonempty RXDATA read pops exactly once when the bus request is
+  accepted.
+- A same-cycle receive error takes priority over software W1C so the new event
+  remains observable.
 
 ## 13. Review checklist for future signals
 

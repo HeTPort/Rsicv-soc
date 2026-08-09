@@ -1,184 +1,174 @@
 # RV32IM RISC-V SoC
 
-A small 32-bit RISC-V processor and SoC, written in SystemVerilog as a learning
-project.
+A small 32-bit RISC-V processor and SoC written in SystemVerilog as a learning
+project. The immediate goal is a transparent, testable path from instruction
+fetch to bare-metal UART interaction and eventually preemptive FreeRTOS on an
+FPGA—not maximum performance or Linux compatibility.
 
-> "I am not trying to build the fastest RISC-V core. I am trying to understand
-> why every instruction retires exactly once, even when memory stalls, a branch
-> redirects the pipeline, or a trap interrupts the normal path."
+> I want to understand why every instruction retires exactly once, even when
+> memory stalls, a branch redirects the pipeline, or a trap interrupts the
+> normal path.
 
-I started this project because CPU block diagrams make everything look tidy.
-The interesting lessons begin when the implementation is not tidy: a response
-returns late, a younger instruction must be killed, or two parts of the design
-disagree about which instruction owns a result.
+The repository records the reasoning as well as the RTL. Focused `AR*.md`
+reports preserve failures, alternatives, decisions, consequences, and proof;
+the [project knowledge base](doc/PROJECT_KNOWLEDGE_BASE.md) is the best gradual
+introduction.
 
-The first practical goal is to run preemptive FreeRTOS on this custom RV32IM
-core in the programmable logic of a Zynq XC7Z010. Linux is still an interesting
-long-term direction, but it is not the current milestone. There is plenty to
-learn before adding an MMU, caches, S-mode, and the rest of a Linux-capable
-system.
+## Current development status
 
-If this is your first visit, start with the
-[project knowledge base](doc/PROJECT_KNOWLEDGE_BASE.md). It explains the design
-gradually and links the code to the bugs and tests that shaped it.
+Phases 1–3 are complete. Phase 4 now has a bidirectional polling UART: a queued
+TX path and a parameterized RX FIFO with a default depth of 16 bytes. GPIO and
+physical-board validation remain open, so Phase 4 is not yet closed.
 
-## Where the project is today
-
-The processor can execute RV32I instructions and the RV32M multiply/divide
-extension. It has M-mode CSR instructions, synchronous traps, `mret`, a
-synchronous instruction RAM, and a wait-state-safe load/store path.
-
-The latest recorded verification result is:
-
-```text
-Directed ModelSim tests       22/22 passed
-Python converter tests         4/4 passed
-Regression false-pass test     passed
-```
-
-That result is a useful baseline, not a claim that the SoC is finished or that
-every corner of the ISA has been proven.
-
-| Area | Current state |
+| Area | Implemented now |
 |---|---|
-| CPU | RV32IM in-order core using packed pipeline packets |
-| Pipeline control | RAW stalls, redirect flushing, delayed fetch kill, and complete bubbles |
-| Traps and CSRs | M-mode CSR operations, legality checks, WARL behavior, precise synchronous traps, and `mret` |
-| Instruction path | One-cycle synchronous program RAM with paired fetch-error status and precise cause-1 traps |
-| Data path | One outstanding request, inserted wait-state support, registered results, and precise access faults |
-| Verification | Architectural commit checking, `tohost`, ModelSim regression, ELF conversion, and a 47/47 ACT4 RV32I/RV32M baseline |
-| Memory map | AR-009 split 64 KiB map accepted; timer/UART/RAM/default decode is implemented |
-| Peripherals | Machine timer and polling UART TX are implemented; GPIO and UART RX/IRQ remain open |
-| Software | Startup code, final linker layout, drivers, and FreeRTOS are still to come |
-| FPGA | Block RAM inference has been checked; board timing and hardware testing have not been completed |
+| ISA | RV32I plus RV32M; iterative 32-cycle DIV/DIVU/REM/REMU |
+| Pipeline | In-order packed packets, RAW stalls, redirects, delayed fetch kill, and canonical bubbles |
+| Retirement | Central architectural decision point for RF/CSR writes, traps, MRET, WFI, and `minstret` |
+| Privilege | Machine CSRs, legality/WARL behavior, precise synchronous exceptions and timer interrupts |
+| WFI | Retires once, then enters a logical wait state until an eligible interrupt |
+| Memory | Synchronous program/data RAM, one-outstanding LSU, byte lanes, alignment, wait states, and access faults |
+| Fabric | Registered response-owner mux for timer, UART, RAM, and default error target |
+| Timer | 64-bit `mtime`/`mtimecmp`, MTIP level, local offsets `0xBFF8`/`0x4000` |
+| UART | Polling 8N1 TX and RX, default 16-byte RX FIFO, sticky overrun/framing errors |
+| Verification | Focused protocol tests, 22/22 smoke, 47/47 applicable ACT4 I/M, Phase 3 2/2, Phase 4 2/2 |
+| FPGA | BRAM and complete SoC hierarchy synthesize OOC; board constraints and hardware testing remain open |
+| Software | Directed assembly firmware exists; startup/runtime drivers and FreeRTOS integration remain open |
 
-## A short tour of the design
+This is a verified development baseline, not a complete ISA-compliance or
+production-readiness claim. There is no cache, MMU, S-mode, PLIC, AXI fabric,
+or full forwarding network.
 
-```text
-                         +----------------------+
-                         | synchronous prog_ram |
-                         +----------+-----------+
-                                    |
-                                    v
-IF -> IF/ID -> ID -> ID/EX -> EX / LSU -> EX/WB -> WB
- |                ^            |                  |
- |                |            |                  +-> GPR / CSR / trap entry
- +---- core_ctrl -+            |
-                              request/response bus
-                                    |
-                                    v
-               +---------- SoC fabric -----------+
-               | timer | UART TX | data RAM | error |
-               +---------------------------------+
+## Architecture at a glance
+
+```mermaid
+flowchart LR
+  PRAM["Synchronous program RAM"] --> IF["IF / IF-ID"]
+  IF --> ID["ID / ID-EX"] --> EX["EX + iterative divider"]
+  EX --> LSU["LSU: one outstanding request"] --> FABRIC["SoC data fabric"]
+  FABRIC --> TIMER["mtime / mtimecmp"]
+  FABRIC --> UART["UART MMIO"]
+  FABRIC --> DRAM["Synchronous data RAM"]
+  FABRIC --> ERR["Default error target"]
+  LSU --> RETIRE["EX-WB / retire_stage"]
+  RETIRE --> RF["Register file"]
+  RETIRE --> CSR["CSR state / trap entry"]
+  UART --> TX["TX holding byte + shifter"] --> TXPIN["uart_tx_o"]
+  RXPIN["uart_rx_i"] --> RX["2-flop sync + RX sampler"] --> FIFO["RX FIFO, default 16"] --> UART
 ```
 
-Instruction memory takes one cycle to return a word. The front end therefore
-keeps the request PC beside the delayed response and discards stale responses
-after a redirect.
+Instruction RAM has one-cycle read latency, so fetch carries a delayed request
+PC beside each response and kills the stale response after a redirect. The LSU
+captures a memory request, holds its payload stable until accepted, waits for
+exactly one response, and advances the owning instruction only after completion.
 
-Loads and stores use a small request/response interface. The LSU accepts one
-transaction, keeps its payload stable while the target stalls, waits for one
-response, and moves the completed result into the EX/WB packet. RAM and future
-peripherals sit outside the CPU core.
+`retire_stage.sv` is the architectural boundary. Execution may produce a
+redirect or trap candidate, but only retirement chooses register/CSR effects,
+trap entry, MRET, WFI entry, and the next architectural PC. This distinction
+keeps younger or faulting instructions from leaking side effects.
 
-The design is deliberately modest. It has no cache, MMU, S-mode, PLIC, AXI
-fabric, or general forwarding network. RV32M multiplication remains
-combinational, while DIV/DIVU/REM/REMU use a 32-iteration Radix-2 divider and
-the existing EX backpressure mechanism.
+The data fabric decodes full addresses, subtracts each target base, and records
+which target accepted the request. The registered owner—not the current
+address—selects the later response. That is essential when RAM or a peripheral
+responds after the request cycle.
 
-## What you can study here
+## UART: the current FPGA interaction path
 
-The repository is intended to be readable as well as runnable. Some useful
-starting points are:
+The UART uses the native `core_bus_req_t`/`core_bus_rsp_t` protocol; there is no
+APB bridge and no packet/CRC layer.
 
-- follow one instruction from fetch to architectural commit;
-- see why a pipeline bubble must clear the complete packet;
-- trace a stalled load through request, response, and writeback;
-- compare misalignment traps with bus access faults;
-- inspect RED and GREEN evidence for bugs that once produced wrong behavior;
-- see how a testbench, regression runner, linker plan, and RTL memory map must
-  agree.
+| Address | Register | Access | Meaning |
+|---:|---|---|---|
+| `0x1000_0000` | `TXDATA` | W | Enqueue low byte for transmission |
+| `0x1000_0004` | `STATUS` | R | TX ready/busy, RX valid/full/errors/count |
+| `0x1000_0008` | `RXDATA` | R | Pop oldest received byte; zero when empty |
+| `0x1000_000C` | `RXERROR` | R/W1C | Sticky overrun and framing-error flags |
 
-The focused reports in [`doc/`](doc/) describe the problem, root cause, options,
-decision, consequences, and verification evidence. They are written as a study
-record, not only as a changelog.
+`STATUS[0]` is TX ready, `[1]` TX busy, `[2]` RX valid, `[3]` RX full,
+`[4]` RX overrun, `[5]` RX framing error, and `[15:8]` RX count.
 
-## How it is tested
+The RX pin first passes through a two-flop synchronizer. A separate midpoint
+8N1 sampler emits byte or framing-error events; the MMIO target then owns FIFO
+and sticky-error policy. If the FIFO is full, the newest byte is dropped and
+old ordered data is preserved. An empty RXDATA read returns immediately rather
+than deadlocking the core bus.
 
-Tests finish by committing a store to a configured `tohost` address:
+See the [Phase 4 UART guide](docs/phase4-uart-guide.md),
+[AR-020 TX](doc/AR020_MINIMAL_POLLING_UART_TX.md), and
+[AR-021 RX FIFO](doc/AR021_POLLING_UART_RX_FIFO.md).
 
-```text
-tohost == 1       PASS
-tohost != 0 or 1  FAIL with a test-specific code
-```
+## Verification evidence
 
-The regression runner accepts PASS only when four signals agree:
+Tests report completion through a committed store to `tohost`: value 1 is
+PASS; another nonzero value is a test-specific failure. The regression runner
+also requires simulator exit zero, the architectural PASS marker, no fatal
+marker, and zero ModelSim errors, preventing PASS-looking false positives.
 
-1. the simulator process exits with status zero;
-2. the architectural PASS marker appears;
-3. no fatal marker appears; and
-4. ModelSim reports zero errors.
+| Gate | Current result | What it proves |
+|---|---:|---|
+| Smoke regression | 22/22 PASS | Directed CPU, CSR, trap, LSU, and bus behavior |
+| Applicable ACT4 | 47/47 PASS | 39 RV32I and 8 RV32M architectural cases |
+| Phase 3 | 2/2 PASS | Precise timer/WFI behavior and long-duration timer run |
+| Phase 4 | 2/2 PASS | Serial `Hello, UART!` plus 16-byte RX-to-TX firmware echo |
+| SoC-map generator unit tests | 9/9 PASS | Canonical map validation and generated addresses |
+| UART focused tests | PASS | TX/RX framing, FIFO order/full/error/W1C, and bus semantics |
+| Vivado 2019.2 OOC SoC check | PASS | 0 errors/critical warnings; BRAM, LSU, UART RX/TX hierarchy retained |
 
-The testbench also checks ordered commits, x0 protection, trap and write
-exclusion, memory byte masks, single-outstanding data transactions, response
-pairing, and instruction-fetch timing.
-
-The repository's current applicable ACT4 baseline passes all 39 RV32I and all
-8 RV32M tests. That is strong regression evidence for the implemented I/M
-subset, but it is not a claim of complete ISA or privileged-architecture
-compliance.
+The Phase 4 echo test drives actual 8N1 waveforms into `uart_rx_i`. Firmware
+polls and drains a 16-byte stream, writes each byte to TX, and an independent
+serial decoder checks `RX FIFO 16 OK!\r\n`. The focused FIFO test separately
+fills all 16 entries and verifies full/overrun behavior. Together they verify
+the complete pin → receiver → FIFO → CPU → transmitter → pin path in simulation.
 
 ## Try it
 
 ### Requirements
 
-- ModelSim or QuestaSim, with `vlog` and `vsim` on `PATH`
+- ModelSim or QuestaSim (`vlog` and `vsim` on `PATH`)
 - Windows PowerShell for the regression scripts
-- Python 3 for the converter and importer tests
-- Vivado for the optional synthesis checks
-- a RISC-V GNU toolchain when rebuilding assembly programs
+- Python 3 for map/tool tests
+- a RISC-V GNU toolchain under WSL when rebuilding assembly images
+- Vivado 2019.2 or compatible for optional synthesis checks
 
-### Run one simulation
-
-From the repository root:
+### Main core simulation
 
 ```powershell
 Set-Location .\sim
 vsim -do run.do
 ```
 
-This rebuilds the ModelSim work library, compiles the files in
-[`sim/filelist.f`](sim/filelist.f), starts `tb_riscv_core`, and runs until the
-test reports completion.
+### Focused UART and fabric tests
 
-### Run the regression
+From `sim/`:
 
 ```powershell
-Set-Location .\sim\regress
+vsim -c -do run_uart_tx.do
+vsim -c -do run_uart_rx.do
+vsim -c -do run_core_bus_uart.do
+vsim -c -do run_core_bus_uart_rx.do
+vsim -c -do run_soc_data_fabric.do
+```
+
+### Regressions
+
+From `sim/regress/`:
+
+```powershell
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 .\run_regression.ps1 -Tag smoke
+.\run_regression.ps1 -Manifest .\phase3_tests.json
+.\run_regression.ps1 -Manifest .\phase4_tests.json -Tag phase4
 .\test_regression_result.ps1
 python -m unittest test_elf_to_mem.py test_import_act4.py
 ```
 
-A few useful selections:
+Useful selectors include `-List`, `-Test soc_uart_echo`, `-Tag lsu`, and
+`-Trace -DumpWaves`. See the [regression guide](sim/regress/README.md).
 
-```powershell
-# Show the manifest without compiling.
-.\run_regression.ps1 -List
+### Generate and validate the SoC map
 
-# Run tests from selected areas.
-.\run_regression.ps1 -Tag lsu
-.\run_regression.ps1 -Tag csr,mret
-
-# Trace one test and request waveform output.
-.\run_regression.ps1 -Test ebreak -Trace -DumpWaves
-```
-
-The [regression guide](sim/regress/README.md) explains the manifest, generated
-files, ACT4 import flow, and result checks.
-
-### Generate and check the accepted SoC map
+[`config/soc_map.json`](config/soc_map.json) is the single editable source for
+RTL, firmware, linker, simulation, synthesis, and ACT4 address artifacts.
 
 ```powershell
 python .\tools\gen_soc_map.py
@@ -186,120 +176,84 @@ python .\tools\gen_soc_map.py --check
 python -m unittest tools/test_gen_soc_map.py
 ```
 
-[`config/soc_map.json`](config/soc_map.json) is the sole editable source for the
-accepted split 64 KiB map. It generates SystemVerilog, C, linker, simulation,
-Vivado Tcl, and ACT4-facing artifacts. The lifecycle status is preserved in
-every artifact: `accepted` freezes the ABI but does not mean the decoder or
-software map is implemented.
-See the [configuration guide](config/README.md).
+Do not hand-edit generated map files. An `accepted` map freezes the hardware/
+software ABI; implementation status is recorded separately.
 
-### Check FPGA resource inference and early internal timing
+### Optional Vivado boundary checks
 
-The synthesis scripts use the provisional `xc7z010clg400-1` part unless you
-override it with the documented environment variable.
+From `sim/synth/`:
 
 ```powershell
-Set-Location .\sim\synth
-vivado -mode batch -source .\check_prog_ram_bram.tcl
 vivado -mode batch -source .\check_riscv_soc_ar003.tcl
 vivado -mode batch -source .\check_riscv_soc_configured_ram.tcl
 vivado -mode batch -source .\compare_riscv_soc_ram_utilization.tcl -tclargs ram_16k
 vivado -mode batch -source .\compare_riscv_soc_ram_utilization.tcl -tclargs ram_64k
-vivado -mode batch -source .\report_riscv_soc_ram_timing.tcl -tclargs ram_16k
-vivado -mode batch -source .\report_riscv_soc_ram_timing.tcl -tclargs ram_64k
 ```
 
-These are out-of-context checks. They show that Vivado inferred Block RAM and
-retained the expected CPU, LSU, and RAM hierarchy. They do not prove timing on
-a physical board. The paired capacity result and preserved raw reports are in
-[AR-015](doc/AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md): 16 KiB per bank uses
-8/60 RAMB36 tiles, while 64 KiB per bank uses 32/60 on the provisional part.
-Its historical baseline exposed an 87.102 ns combinational MULDIV path that
-failed both 25 MHz and 50 MHz. [AR-017](doc/AR017_RADIX2_ITERATIVE_DIVIDER.md)
-replaces that path with the verified iterative divider: both profiles now pass
-50 MHz OOC post-synthesis STA with WNS +7.373 ns, and the new worst path is
-12.605 ns multiply-high logic. These checks are not post-route board timing
-closure.
+These are out-of-context checks using the provisional FPGA part. They prove
+synthesizability and resource retention, not post-route timing or correct board
+pins. Physical proof waits for a board-specific top and XDC.
 
 ## Repository map
 
 ```text
 src/
-  core/       CPU pipeline, control, LSU, CSR file, and packet definitions
-  bus/        Active RAM adapter and future bus work
-  generated/  Generated accepted SoC-map constants
+  core/       CPU pipeline, packets, control, LSU, divider, retirement, CSRs
+  bus/        RAM adapter, SoC fabric, and default error target
+  generated/  Generated SoC-map SystemVerilog constants
   mem/        Synchronous program and data RAM
-  periph/     Implemented machine timer and polling UART TX targets
+  periph/     Machine timer, UART MMIO, UART TX, and UART RX
   riscv_soc.sv
 
 sim/
-  generated/  Generated normalized map and Vivado Tcl constants
-  tb/         Directed and protocol testbenches
-  regress/    Regression runner, image tools, ACT4 adapters, and utility tests
+  tb/         Core, SoC, protocol, timer, and UART testbenches
+  regress/    Manifests, runner, image tools, and ACT4 adapters
   synth/      Vivado out-of-context checks
-  filelist.f
-  run.do
+  generated/  Generated normalized map/Tcl data
 
-testdata/     Assembly sources and simulation memory images
-config/       Authoritative accepted SoC map and generation contract
-firmware/     Generated C/linker map consumers; implementation follows later
-tools/        Dependency-free configuration generator and tests
-verif/act4/   RISC-V Architecture Test integration configuration
-doc/          Design decisions, focused problem reports, and study notes
+config/       Authoritative SoC map and generator contract
+firmware/     Generated C/linker map consumers
+testdata/     Directed assembly and readmemh images
+tools/        Map generator and dependency-free tests
+verif/act4/   RISC-V Architecture Test integration
+doc/          Living architecture documents and focused AR reports
+docs/         Phase-oriented implementation guides
 ```
 
-The build scripts include files explicitly. Obsolete alternatives and empty
-placeholder files are not kept in the source tree; planned modules are added
-when their interface and owning phase are ready.
+Build scripts list sources explicitly. Planned modules are added only when a
+phase defines a real interface; empty future placeholders are not kept.
 
-## Where it is going
+## Roadmap and open gates
 
-Phase 0A repaired retirement and pipeline side-effect precision, Phase 1 froze
-the core-to-SoC contract, Phase 2 implemented the external data fabric, Phase 3
-implemented precise timer interrupts/WFI, and Phase 4 now has polling UART TX.
-The next steps are:
+The next practical steps are:
 
-1. keep the Phase 2 SoC-fault and ACT4 RV32I/RV32M baselines continuously green;
-2. finish migrating linker, images, `tohost`, regression, and ACT4 consumers
-   to the accepted split 64 KiB map as one verified change;
-3. keep precise machine-timer/WFI and polling-UART regressions green;
-4. add simple GPIO and complete the combined Phase 4 exit gate;
-5. build startup code, drivers, and bare-metal tests;
-6. integrate the official FreeRTOS RISC-V port;
-7. add board constraints, close timing, and test the design on hardware.
+1. add a simple native-bus GPIO target and complete the Phase 4 combined gate;
+2. create startup code, UART/timer/GPIO headers and small polling drivers;
+3. run bare-metal UART loopback and timer-interrupt programs;
+4. integrate the official FreeRTOS RISC-V port and validate context switching;
+5. add a board-specific top, reset/clock conditioning, XDC pins, and BRAM init;
+6. close post-route timing and test UART/GPIO/timer behavior on the FPGA;
+7. add UART interrupts/PLIC only after the polling baseline is stable on
+   hardware.
 
-[`TODO.md`](TODO.md) is the authoritative checklist. The roadmap is allowed to
-change when simulation, synthesis, or software gives a good reason.
+You do not need to connect the FPGA board to develop or verify the RTL. You do
+need it to close the hardware gate: asynchronous input behavior, oscillator
+accuracy, reset polarity, I/O voltage, physical pins, USB-UART crossover, and
+post-route timing cannot be proven by RTL simulation.
 
-## Reading and design notes
-
-- [Project knowledge base](doc/PROJECT_KNOWLEDGE_BASE.md): a gradual guide to
-  the RTL, timing, traps, memory path, and verification flow
-- [Architecture design and decisions](doc/ARCHITECTURE_DESIGN_AND_DECISIONS.md):
-  design history, tradeoffs, evidence, and open gates
-- [Architecture review and action plan](doc/ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md):
-  review findings and their current status
-- [AR-009 accepted memory map](doc/AR009_ARCHITECTURAL_MEMORY_MAP.md): the
-  frozen Phase 1 hardware/software ABI
-- [AR-016 core-to-SoC environment contract](doc/AR016_CORE_TO_SOC_ENVIRONMENT_CONTRACT.md):
-  ownership, request routing, fault behavior, and the Phase 2 handoff
-- [Memory-map contract guide](doc/MEMORY_MAP_CONTRACT_DESIGN_GUIDE.md): address
-  decoding, bus behavior, faults, and hardware/software consistency
+[`TODO.md`](TODO.md) is the authoritative checklist. Design semantics and
+naming standards are in
+[`doc/SEMANTIC_SIGNAL_SPEC.md`](doc/SEMANTIC_SIGNAL_SPEC.md); accepted choices
+and their history are in
+[`doc/ARCHITECTURE_DESIGN_AND_DECISIONS.md`](doc/ARCHITECTURE_DESIGN_AND_DECISIONS.md).
 
 ## A personal note
 
-This repository is a learning record, not a production-ready processor. Mature
-open-source RISC-V cores are far ahead in features, performance, and
-verification. That is not a reason to hide the unfinished parts. Those parts
-often contain the most useful lessons.
+This is a learning record, not a production-ready processor. Mature open-source
+cores are far ahead in features, performance, and verification. The unfinished
+parts are kept visible because they often contain the most useful lessons.
 
-AI tools have helped with parts of the implementation and documentation. I do
-not treat generated code or explanations as proof. The standard for accepting
-a change is still the same: understand the behavior, reproduce the failure,
-write a focused test, and keep the regression green.
-
-> "If one waveform, failed test, or design note helps someone understand their
-> own CPU, this repository has done something useful."
-
-Bug reports and technical review are welcome. If the project helps you learn or
-saves you time on your own design, starring it helps other learners find it.
+AI tools have helped with implementation and documentation, but generated code
+or prose is not proof. A change is accepted only when its behavior is
+understood, its failure mode is testable, and the focused and full regressions
+remain green.

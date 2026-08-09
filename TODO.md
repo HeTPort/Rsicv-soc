@@ -104,6 +104,8 @@ Still missing:
 - [x] `mtime`/`mtimecmp` machine timer with registered core-bus target.
 - [x] Polling UART TX with native bus target, queued byte, 8N1 shifter, and
   serial-pin firmware scoreboard.
+- [x] Polling UART RX with synchronized 8N1 sampling, parameterized default
+  16-byte FIFO, sticky errors, and pin-to-firmware-to-pin echo scoreboard.
 - [ ] Memory-mapped GPIO peripheral.
 - [ ] Firmware startup code, linker script, drivers, and FreeRTOS application.
 - [ ] FPGA top, XDC constraints, Vivado build script, and physical-board result.
@@ -119,8 +121,8 @@ Current planning position:
   and AR-018 verifies precise data and instruction access faults.
 - AR-008 belongs to Phase 3; AR-010 is continuous verification; AR-011 is an
   early FPGA feasibility gate; and AR-012 is cross-stage cleanup.
-- Phase 3 is complete. Phase 4 UART TX is complete through OOC synthesis;
-  Phase 4 remains open for GPIO and its combined exit gate.
+- Phase 3 is complete. Phase 4 polling UART TX/RX are complete through OOC
+  synthesis; Phase 4 remains open for GPIO and its combined exit gate.
 - AR-014 accepted-map generation infrastructure is complete. AR-019 uses its
   SystemVerilog constants in the implemented data decoder/default target;
   remaining software/tool consumers continue in their owning later phases.
@@ -444,9 +446,11 @@ interrupts and returns correctly, with the complete smoke regression green.
 
 ## Phase 4 — Add minimal peripherals
 
-**Status:** in progress. Polling UART TX is complete through simulation and
-OOC synthesis; GPIO and physical-board UART validation remain open. See
-[`doc/AR020_MINIMAL_POLLING_UART_TX.md`](doc/AR020_MINIMAL_POLLING_UART_TX.md).
+**Status:** in progress. Polling UART TX/RX are complete through simulation and
+OOC synthesis; GPIO, UART interrupts/PLIC, and physical-board UART validation
+remain open. See
+[`doc/AR020_MINIMAL_POLLING_UART_TX.md`](doc/AR020_MINIMAL_POLLING_UART_TX.md)
+and [`doc/AR021_POLLING_UART_RX_FIFO.md`](doc/AR021_POLLING_UART_RX_FIFO.md).
 
 **Purpose:** provide observable hardware behavior and a FreeRTOS console.
 
@@ -456,8 +460,13 @@ OOC synthesis; GPIO and physical-board UART validation remain open. See
   baud divider, start/data/stop bits, and polling operation.
 - [x] Add a loopback or serial decoder testbench that checks the transmitted
   byte stream and baud timing.
-- [ ] Add UART RX later; it is not required for the first FreeRTOS milestone.
-- [ ] Defer UART interrupts and PLIC until polling TX is working on hardware.
+- [x] Add UART RX with two-flop synchronization, midpoint 8N1 sampling, and a
+  parameterized FIFO whose default depth is 16 bytes.
+- [x] Define and test empty-read, full/drop-newest, overrun, framing-error, and
+  write-one-to-clear semantics.
+- [x] Add a serial-input/firmware/serial-output echo regression for a 16-byte
+  stream; separately fill all 16 FIFO entries in the focused target test.
+- [ ] Defer UART interrupts and PLIC until polling TX/RX work on hardware.
 
 ### GPIO
 
@@ -473,6 +482,8 @@ OOC synthesis; GPIO and physical-board UART validation remain open. See
   request simultaneously.
 - [x] Add a SoC-level polling program whose decoded UART output is
   `Hello, UART!\r\n`.
+- [x] Add a SoC-level RX echo program whose decoded output is
+  `RX FIFO 16 OK!\r\n`.
 - [ ] Extend the SoC-level peripheral program/scoreboard with GPIO output.
 
 **Exit gate:** ModelSim decodes the expected UART text and observes the expected
@@ -599,7 +610,7 @@ for the first FreeRTOS FPGA demonstration:
 - [ ] EX/MEM/WB forwarding and reduced RAW stalls.
 - [ ] Further RV32M throughput optimization only if measured software workload
   or routed timing justifies it; AR-017's required divider fix is verified.
-- [ ] UART RX FIFO and external UART interrupt.
+- [x] UART RX FIFO baseline; keep external UART interrupt deferred.
 - [ ] Machine software interrupt (`msip`).
 - [ ] PLIC or a small external interrupt controller.
 - [ ] AXI bridge and access to Zynq PS DDR.
@@ -613,7 +624,7 @@ for the first FreeRTOS FPGA demonstration:
 1. Keep all 47 official ACT4 RV32I/RV32M baseline tests active as continuous
    Track A.
 2. Complete Phase 4 by adding the GPIO target and combined UART/GPIO
-   scoreboard; keep the verified polling UART TX baseline green.
+   scoreboard; keep the verified polling UART TX/RX baseline green.
 3. Continue the accepted-map migration for linker, images, regression/ACT4
    consumers, and peripheral target integration; the SoC RTL defaults and data
    decoder already consume the accepted 64 KiB map.

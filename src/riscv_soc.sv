@@ -10,7 +10,8 @@ module riscv_soc #(
   parameter int DATA_RSP_WAIT_CYCLES = 0,
   parameter int unsigned TIMER_TICK_CYCLES = 1,
   parameter int unsigned UART_CLK_FREQ_HZ = 25_000_000,
-  parameter int unsigned UART_BAUD_RATE = 115_200
+  parameter int unsigned UART_BAUD_RATE = 115_200,
+  parameter int unsigned UART_RX_FIFO_DEPTH = 16
 )(
   input  logic              clk,
   input  logic              rst_n,
@@ -19,6 +20,7 @@ module riscv_soc #(
   input  logic [AW-1:0]     prog_wr_addr,
   input  logic [DW-1:0]     prog_wr_data,
   input  logic              load_done,
+  input  logic              uart_rx_i,
   output logic [DW-1:0]     test_case,
   output logic [DW-1:0]     reg_s10,
   output logic [DW-1:0]     reg_s11,
@@ -41,6 +43,10 @@ module riscv_soc #(
       SOC_UART_TXDATA_ADDR - SOC_UART_BASE;
   localparam logic [AW-1:0] UART_STATUS_LOCAL_OFFSET =
       SOC_UART_STATUS_ADDR - SOC_UART_BASE;
+  localparam logic [AW-1:0] UART_RXDATA_LOCAL_OFFSET =
+      SOC_UART_RXDATA_ADDR - SOC_UART_BASE;
+  localparam logic [AW-1:0] UART_RXERROR_LOCAL_OFFSET =
+      SOC_UART_RXERROR_ADDR - SOC_UART_BASE;
 
   logic          cpu_data_req_valid;
   logic          cpu_data_req_ready;
@@ -145,8 +151,11 @@ module riscv_soc #(
     .DW(DW),
     .CLK_FREQ_HZ(UART_CLK_FREQ_HZ),
     .BAUD_RATE(UART_BAUD_RATE),
+    .RX_FIFO_DEPTH(UART_RX_FIFO_DEPTH),
     .TXDATA_OFFSET(UART_TXDATA_LOCAL_OFFSET),
-    .STATUS_OFFSET(UART_STATUS_LOCAL_OFFSET)
+    .STATUS_OFFSET(UART_STATUS_LOCAL_OFFSET),
+    .RXDATA_OFFSET(UART_RXDATA_LOCAL_OFFSET),
+    .RXERROR_OFFSET(UART_RXERROR_LOCAL_OFFSET)
   ) u_uart_target (
     .clk_i       (clk),
     .rst_ni      (cpu_rst_n),
@@ -155,6 +164,7 @@ module riscv_soc #(
     .req_i       (uart_req),
     .rsp_valid_o (uart_rsp_valid),
     .rsp_o       (uart_rsp),
+    .uart_rx_i   (uart_rx_i),
     .uart_tx_o   (uart_tx_o),
     .tx_ready_o  (uart_tx_ready),
     .tx_busy_o   (uart_tx_busy)

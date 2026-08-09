@@ -15,6 +15,7 @@ module tb_core_bus_uart;
   logic rsp_valid;
   core_bus_rsp_t rsp;
   logic uart_tx;
+  logic uart_rx;
   logic uart_ready;
   logic uart_busy;
 
@@ -34,6 +35,7 @@ module tb_core_bus_uart;
     .req_i        (req),
     .rsp_valid_o  (rsp_valid),
     .rsp_o        (rsp),
+    .uart_rx_i    (uart_rx),
     .uart_tx_o    (uart_tx),
     .tx_ready_o   (uart_ready),
     .tx_busy_o    (uart_busy)
@@ -110,6 +112,7 @@ module tb_core_bus_uart;
     rst_n          = 1'b0;
     req_valid      = 1'b0;
     req            = '0;
+    uart_rx        = 1'b1;
     received_count = 0;
 
     fork
@@ -131,7 +134,7 @@ module tb_core_bus_uart;
 
     transact(32'h0, 1'b0, MEM_SIZE_WORD, '0, '0, 1'b1, read_data);
     transact(32'h4, 1'b1, MEM_SIZE_WORD, '0, 4'b1111, 1'b1, read_data);
-    transact(32'h8, 1'b0, MEM_SIZE_WORD, '0, '0, 1'b1, read_data);
+    transact(32'h10, 1'b0, MEM_SIZE_WORD, '0, '0, 1'b1, read_data);
     transact(32'h0, 1'b1, MEM_SIZE_BYTE, 32'h41, 4'b0001, 1'b1, read_data);
 
     transact(32'h0, 1'b1, MEM_SIZE_WORD, 32'h0000_0041,

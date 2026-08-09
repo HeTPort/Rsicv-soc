@@ -6,9 +6,10 @@
 
 **Last updated:** 2026-08-09
 
-**Current milestone:** Phases 1–3 are complete. AR-020 implements and verifies
-the Phase 4 polling-UART TX vertical slice using the accepted
-`freertos_split_64k_v1` map and registered fabric contract. GPIO, the broader
+**Current milestone:** Phases 1–3 are complete. AR-020/AR-021 implement and
+verify the Phase 4 polling-UART TX/RX vertical slices using the accepted
+`freertos_split_64k_v1` map and registered fabric contract. RX uses a
+parameterized default 16-byte FIFO. GPIO, UART interrupts/PLIC, the broader
 firmware stack, FreeRTOS, and exact-board validation remain open.
 
 > This is the consolidated record of what the architecture is, why it evolved
@@ -92,8 +93,9 @@ flowchart LR
     ADAPTER["Core-bus to RAM adapter"]
     DBRAM["Synchronous data RAM"]
     TIMER["Registered mtime/mtimecmp target"]
-    UART["UART target + holding byte"]
+    UART["UART MMIO + TX holding + RX FIFO"]
     TX["8N1 UART shifter"]
+    RX["2-flop sync + 8N1 RX sampler"]
     FABRIC["Timer/UART/RAM/default fabric"]
 
     subgraph CPU["riscv"]
@@ -118,6 +120,7 @@ flowchart LR
   LSU -->|"request valid/ready"| FABRIC
   FABRIC --> TIMER
   FABRIC --> UART --> TX -->|"uart_tx_o"| PIN["Serial pin"]
+  RXPIN["uart_rx_i"] --> RX --> UART
   FABRIC --> ADAPTER --> DBRAM
   TIMER -->|"response + MTIP"| FABRIC
   UART -->|"registered response"| FABRIC
@@ -150,8 +153,9 @@ Key boundary facts:
   state updates.
 - The fabric registers timer, UART, RAM, or default ownership from request acceptance
   through response.
-- `core_bus_uart` owns MMIO legality, one queued byte, and its registered
-  response; `uart_tx` owns only the active frame and bit timing.
+- `core_bus_uart` owns MMIO legality, one queued TX byte, the parameterized RX
+  FIFO/sticky errors, and its registered response. `uart_tx` owns only the
+  active output frame; `uart_rx` owns synchronization and input-frame timing.
 
 ## 4. Governing architecture principles
 
@@ -402,9 +406,31 @@ write presented while full is backpressured and never dropped.
 
 The stage is verified by focused shifter/target/fabric tests, polling firmware
 whose actual serial pin decodes as `Hello, UART!\r\n`, 2/2 Phase 3 regressions,
-22/22 smoke, and Vivado OOC synthesis retaining 72 UART-hierarchy cells.
+22/22 smoke, and Vivado OOC synthesis retaining the UART hierarchy.
 Physical pins, baud accuracy against the real clock, and terminal behavior
 remain Phase 7 evidence.
+
+### Stage J — Polling UART RX with parameterized FIFO
+
+**Period:** 2026-08-09
+
+**State:** RX slice complete; Phase 4 remains open for GPIO and board evidence
+
+AR-021 adds a two-flop asynchronous-input synchronizer and midpoint-sampling
+8N1 receiver, then converts its byte events into software-visible ordered state
+using an `RX_FIFO_DEPTH` parameter whose default is 16. The native UART target
+adds `RXDATA +0x08`, `RXERROR +0x0C`, RX status/count fields, sticky overrun and
+framing errors, and word write-one-to-clear semantics.
+
+Full policy is drop-newest/preserve-oldest; malformed frames are not enqueued;
+empty RXDATA reads complete with zero rather than blocking the single CPU bus.
+Hardware error events win over simultaneous software clears. Explicit pointer
+wrapping keeps non-power-of-two depths legal.
+
+Focused RX/framing and bus/FIFO tests pass. End-to-end firmware receives 16
+serial bytes and echoes `RX FIFO 16 OK!\r\n`; Phase 4 is 2/2, Phase 3 is 2/2,
+smoke is 22/22, and Vivado OOC synthesis retains RX/TX hierarchy with 0 errors
+and 0 critical warnings. Interrupt service remains deferred until a PLIC phase.
 
 ## 6. Resolved problem decisions
 
@@ -1069,9 +1095,35 @@ base-subtracts the UART window and registers `TARGET_UART` until response.
 **Consequences/evidence:** CPU and serial timing are decoupled with effective
 two-byte capacity. Focused timing, target, and fabric suites pass; serial-pin
 scoreboarding confirms `Hello, UART!\r\n`; Phase 3 remains 2/2 and smoke 22/22.
-Vivado retains 72 UART cells with 0 errors and 0 critical warnings. Exact-board
+Vivado retains the UART hierarchy with 0 errors and 0 critical warnings. Exact-board
 clock/pin/voltage and terminal evidence remain Phase 7. Full details are in
 [`AR020_MINIMAL_POLLING_UART_TX.md`](AR020_MINIMAL_POLLING_UART_TX.md).
+
+### AR-021 — Polling UART RX with parameterized FIFO
+
+**State:** Implemented and verified through OOC synthesis; hardware validation deferred
+
+**Problem/root cause:** RX frames arrive independently of CPU bus transactions.
+A one-cycle byte pulse cannot tolerate polling latency, and an asynchronous pin
+cannot safely drive a synchronous state machine without synchronization.
+
+**Options:** Use a single overwrite register, make empty reads block, import an
+APB/packet UART, or add a native byte FIFO. The native FIFO was selected to
+preserve the existing bus and to make buffering and overload policy explicit.
+
+**Decision:** `uart_rx` owns two-flop synchronization and midpoint 8N1 sampling.
+`core_bus_uart` owns a parameterized FIFO (default 16), RX status/count,
+`RXDATA +0x08`, and W1C `RXERROR +0x0C`. Full drops the newest arrival while
+preserving queued order and setting overrun. Bad-stop frames are discarded and
+set framing error. Empty reads return zero. Hardware error events win over a
+same-cycle clear.
+
+**Consequences/evidence:** The FIFO provides bounded polling-latency tolerance,
+not flow control. Focused framing and 16-byte ordering/full/error tests pass;
+firmware echoes 16 pin-driven bytes as `RX FIFO 16 OK!\r\n`; Phase 4 is 2/2,
+Phase 3 is 2/2, smoke is 22/22, and OOC synthesis retains RX/TX hierarchy.
+UART IRQ/PLIC and exact-board evidence remain deferred. Full details are in
+[`AR021_POLLING_UART_RX_FIFO.md`](AR021_POLLING_UART_RX_FIFO.md).
 
 ## 9. Future stage architecture gates
 
@@ -1080,7 +1132,7 @@ clock/pin/voltage and terminal evidence remain Phase 7. Full details are in
 | Phase 1: contract freeze | Complete: AR-009/AR-016 accept topology, byte map, faults, timer atomicity, and bus lifecycle | Accepted contract answers every address/access/error case |
 | Phase 2: external data bus | Complete: data decode/default, EX/WB response packet, precise data/instruction access faults, LSU FSM/backpressure | 4/4 SoC fault runs, data-fabric protocol suite, 22/22 smoke |
 | Phase 3: timer interrupt | Complete: MTIP ownership, effective eligibility, retirement boundary, MRET exclusion, logical WFI, timer target | Precise firmware plus 10,000 repeated interrupts, focused assertions, 22/22 smoke, OOC synthesis |
-| Phase 4: UART/GPIO | UART TX complete: native registers, buffering, reset, decode/owner exclusivity; GPIO still open | UART focused tests and serial-pin firmware scoreboard PASS; GPIO scoreboard pending |
+| Phase 4: UART/GPIO | UART TX/RX complete: native registers, TX buffering, synchronized RX, default 16-byte FIFO, errors, decode/owner exclusivity; GPIO still open | UART focused tests, TX text, and RX echo scoreboards PASS; GPIO scoreboard pending |
 | Phase 5: firmware | Startup ABI, linker map, image split, drivers | Same bare-metal programs in simulation and FPGA |
 | Phase 6: FreeRTOS | Official port boundary, tick source, heap/stack policy | Context sentinels, preemption, queues, long run |
 | Phase 7: FPGA | Board part, clock/reset, XDC, BRAM init, frequency | Timing closure, utilization, UART/LED evidence |
@@ -1188,5 +1240,6 @@ An architecture-changing task is incomplete until this document is updated.
 - [AR-018 SoC fabric RED tests](AR018_SOC_FABRIC_RED_TESTS.md)
 - [AR-019 centralized data fabric](AR019_CENTRALIZED_DATA_FABRIC.md)
 - [AR-020 minimal polling UART TX](AR020_MINIMAL_POLLING_UART_TX.md)
+- [AR-021 polling UART RX and parameterized FIFO](AR021_POLLING_UART_RX_FIFO.md)
 - [ACT4 integration handoff](ACT4_RV32I_INTEGRATION_HANDOFF_2026-07-27.md)
 - [ACT4 integration guide](../verif/act4/README.md)

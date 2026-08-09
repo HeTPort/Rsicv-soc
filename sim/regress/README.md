@@ -114,11 +114,14 @@ Run the Phase 4 polling-UART vertical slice with:
 
 ```powershell
 ./run_regression.ps1 -Manifest .\phase4_tests.json -Test soc_uart_hello
+./run_regression.ps1 -Manifest .\phase4_tests.json -Test soc_uart_echo
 ```
 
-The UART run enables the `tb_riscv_soc` serial-pin decoder. It passes only
+The hello run enables the `tb_riscv_soc` serial-pin decoder. It passes only
 after `uart_tx_o` decodes as `Hello, UART!\r\n` and firmware commits
-`tohost=1`.
+`tohost=1`. The echo run drives 16 real 8N1 frames into `uart_rx_i`; polling
+firmware drains the default 16-byte FIFO, echoes them, and passes only after
+`uart_tx_o` decodes as `RX FIFO 16 OK!\r\n` with `tohost=1`.
 
 Success produces process exit code `0`. Manifest, tool, compile, assertion,
 timeout, simulator, or architectural failures produce a nonzero exit code. The

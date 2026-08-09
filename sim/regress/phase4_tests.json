@@ -13,6 +13,13 @@
       "timeout_cycles": 20000,
       "uart_check_enable": true,
       "tags": ["phase4", "soc", "uart", "polling", "serial"]
+    },
+    {
+      "name": "soc_uart_echo",
+      "image": "testdata/soc_uart_echo_test.hex",
+      "timeout_cycles": 30000,
+      "uart_rx_echo_enable": true,
+      "tags": ["phase4", "soc", "uart", "rx", "fifo", "echo", "serial"]
     }
   ]
 }

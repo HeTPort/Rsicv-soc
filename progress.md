@@ -1,5 +1,40 @@
 # Progress
 
+## 2026-08-09 — Phase 4 UART RX
+
+- Started the user-requested polling RX extension from the pushed TX checkpoint.
+- Accepted a parameterized FIFO with default depth 16, separate synchronized
+  receiver/sampler ownership, explicit overflow/framing policy, polling MMIO,
+  end-to-end echo verification, and comprehensive README refresh.
+- The first map-generation command was sandbox-blocked while writing generated
+  files in this worktree, leaving the stale-file check and one unit test RED.
+  Re-run the same canonical generator with explicit workspace write approval;
+  the failure is environmental, not a map-contract error.
+- Added canonical RXDATA/RXERROR definitions, regenerated all consumers, and
+  passed the freshness check plus 9/9 generator tests after approved rerun.
+- Added receiver timing/false-start/framing RED tests and native-bus 16-byte
+  FIFO/MMIO RED tests. Both fail for the intended reason: `uart_rx.sv` is not
+  implemented yet. Phase 1 is complete and Phase 2 implementation begins.
+- Implemented `uart_rx.sv` with an attributed two-flop synchronizer, midpoint
+  start confirmation, LSB-first data sampling, valid-byte events, and separate
+  framing-error events. Its focused test passes with zero warnings/errors.
+- Extended `core_bus_uart.sv` with a parameterized default-16 FIFO, explicit
+  pointer wrap, nonblocking RXDATA pop, occupancy/status, drop-newest overrun,
+  bad-frame rejection, and event-wins W1C sticky errors. The 16-byte FIFO/MMIO
+  test passes, including fill/order/overrun/empty/error-clear behavior.
+- Exposed `uart_rx_i` and the default-16 FIFO parameter at `riscv_soc`, added
+  generated RX register offsets, and updated simulation/Vivado source lists.
+- Added 16-byte polling echo firmware plus asynchronous pin stimulus and
+  independent TX pin decoding. Both Phase 4 SoC tests pass: the original
+  `Hello, UART!\r\n` TX case and `RX FIFO 16 OK!\r\n` RX-to-TX echo case.
+- Preservation verification is GREEN: TX shifter, TX bus target, RX receiver,
+  16-byte RX FIFO/MMIO, and fabric focused tests; 2/2 Phase 4 SoC UART tests;
+  2/2 Phase 3 timer/WFI tests; and 22/22 general smoke tests.
+- Vivado AR-003 OOC synthesis passes with 0 errors and 0 critical warnings,
+  retaining 32 BRAMs, 2 LSU-state cells, and 398 UART-hierarchy objects. The
+  report shows `core_bus_uart` 390 cells, nested `uart_rx` 71, and nested
+  `uart_tx` 89. Phase 4 verification/synthesis closure is complete.
+
 ## 2026-08-09
 
 - Started the Phase 3 staged implementation task.
@@ -144,3 +179,21 @@
   architecture diagrams/risks/roadmap, and refreshed README/AGENTS/regression
   instructions. Phases 1–5 of the active UART plan are complete; exact-board
   validation remains deferred pending board facts.
+
+## Phase 4 UART RX completion
+
+- Extended the canonical map with RXDATA/RXERROR and regenerated RTL, C,
+  linker, simulation, synthesis, and ACT4 consumers; generator check and 9/9
+  unit tests pass.
+- Added `uart_rx.sv`, a synchronized midpoint-sampling 8N1 receiver, plus its
+  focused false-start/data/framing test.
+- Extended `core_bus_uart.sv` with a parameterized default 16-byte RX FIFO,
+  status/count, nonblocking RXDATA, drop-newest overrun, framing error, and W1C
+  error state. The focused bus suite proves ordering and fills all 16 entries.
+- Exposed `uart_rx_i` through `riscv_soc`, updated all simulation/synthesis
+  source lists, and added a 16-byte polling echo firmware regression.
+- Verification is GREEN: focused RX/TX/fabric, Phase 4 2/2, Phase 3 2/2,
+  smoke 22/22, and Vivado OOC with 0 errors/critical warnings and retained
+  UART RX/TX hierarchy.
+- Added AR-021 and updated the semantic specification, both consolidated living
+  documents, TODO, Phase 4 guide, AGENTS, regression instructions, and README.

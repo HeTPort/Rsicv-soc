@@ -1,4 +1,82 @@
-# Active Plan — Phase 4 Minimal UART TX
+# Active Plan — Phase 4 Polling UART RX with 16-byte FIFO
+
+## Goal
+
+Extend the verified UART TX checkpoint with a project-native polling RX path:
+synchronize and sample the asynchronous 8N1 input, preserve received bytes in
+a parameterized FIFO whose default depth is exactly 16 bytes, expose explicit
+MMIO data/status/error semantics, verify receive and echo behavior end to end,
+and comprehensively refresh README/living documentation for the current SoC.
+
+## Accepted decisions
+
+- Keep RX polling-only. UART interrupts and PLIC remain deferred.
+- Add `uart_rx.sv`; do not combine RX sampling state with `uart_tx.sv`.
+- Place the two-flop asynchronous-input synchronizer and 8N1 sampler in
+  `uart_rx.sv`; place FIFO/MMIO ownership in `core_bus_uart.sv`.
+- Parameterize `RX_FIFO_DEPTH`, defaulting to 16 bytes and supporting explicit
+  pointer wrap rather than assuming power-of-two depth.
+- Preserve existing registers and status bits. Add `RXDATA=+0x08` and
+  `RXERROR=+0x0c`; extend STATUS with RX valid/full/sticky errors and count.
+- An empty RXDATA read is legal, returns zero, and does not stall or pop.
+- A good received byte pushes when space exists. On full-without-simultaneous
+  pop, drop the newest byte and set sticky overrun, preserving older order.
+- A bad stop bit sets sticky framing error and does not enqueue the byte.
+- RXERROR supports aligned word read and full-strobe word write-one-to-clear.
+- Hardware is not required through focused simulation, echo firmware, and OOC
+  synthesis; physical RX validation remains board-dependent.
+
+## Phases
+
+1. **Complete — Freeze executable RX contracts**
+   - Extend the canonical map and generate all consumers.
+   - Add RED receiver and 16-byte FIFO/MMIO tests.
+2. **Complete — Implement receiver and FIFO/MMIO behavior**
+   - Implement synchronized midpoint 8N1 sampling and error events.
+   - Integrate the parameterized 16-byte FIFO and W1C error state.
+3. **Complete — Integrate the SoC and end-to-end echo**
+   - Expose `uart_rx_i`, add source lists, and retain TX behavior.
+   - Add polling RX-to-TX echo firmware and physical-waveform stimulus/checking.
+4. **Complete — Regression and synthesis closure**
+   - Run focused RX/TX/fabric tests, Phase 4 echo, Phase 3, and smoke suites.
+   - Prove UART RX/TX hierarchy survives Vivado OOC synthesis.
+5. **Complete — Documentation closure**
+   - Add AR-021 and update semantic spec, architecture records, TODO, guides,
+     AGENTS, regression instructions, and a comprehensive current README.
+
+## Guiding principles
+
+- An asynchronous producer cannot be backpressured; storage and explicit
+  overrun policy are therefore part of the architectural contract.
+- Synchronization reduces metastability propagation; midpoint sampling handles
+  phase alignment. These solve different problems.
+- Events (`rx_byte_valid`, framing error) and persistent software-visible state
+  (FIFO occupancy, sticky errors) must remain semantically distinct.
+- Preserve established MMIO addresses and bits when extending a hardware ABI.
+- Test at the pin, protocol, FIFO, firmware, regression, and synthesis layers.
+
+## Errors encountered
+
+| Error | Attempt | Resolution |
+|---|---:|---|
+| Sandbox denied canonical generator writes; stale-file/unit checks were RED | 1 | Re-ran generator with explicit worktree-write approval; generation/check and 9/9 tests passed |
+| Focused RX tests fail to compile because `uart_rx.sv` does not exist | Expected RED | Implement the receiver and extend the UART target before rerunning |
+
+## Completion evidence
+
+- Focused `uart_rx`, UART target RX/FIFO, TX target, TX shifter, and fabric
+  suites pass.
+- Phase 4 passes 2/2, including a 16-byte pin-to-firmware-to-pin echo.
+- Phase 3 passes 2/2 and smoke passes 22/22.
+- Canonical map check and its 9/9 unit tests pass.
+- Vivado 2019.2 OOC synthesis passes with 0 errors and 0 critical warnings;
+  RAM, LSU state, and UART RX/TX hierarchy are retained.
+- AR-021, the semantic spec, architecture/knowledge-base records, TODO, Phase 4
+  guide, AGENTS, regression guide, and comprehensive README are updated.
+
+---
+
+# Completed Plan — Phase 4 Minimal UART TX
 
 ## Goal
 

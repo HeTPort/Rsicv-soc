@@ -7,6 +7,7 @@ vmap work work_core_bus_uart
 vlog -sv -work work_core_bus_uart \
   ../src/core/riscv_pkg.sv \
   ../src/periph/uart_tx.sv \
+  ../src/periph/uart_rx.sv \
   ../src/periph/core_bus_uart.sv \
   ./tb/tb_core_bus_uart.sv
 vsim -c -voptargs=+acc work_core_bus_uart.tb_core_bus_uart

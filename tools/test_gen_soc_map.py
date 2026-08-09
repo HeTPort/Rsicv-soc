@@ -46,6 +46,8 @@ class SocMapGeneratorTests(unittest.TestCase):
                 "mtime": 0x0200_BFF8,
                 "uart_txdata": 0x1000_0000,
                 "uart_status": 0x1000_0004,
+                "uart_rxdata": 0x1000_0008,
+                "uart_rxerror": 0x1000_000C,
             },
         )
 

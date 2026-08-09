@@ -18,6 +18,7 @@
 ./../src/bus/core_bus_default_target.sv
 ./../src/periph/mtime_timer.sv
 ./../src/periph/uart_tx.sv
+./../src/periph/uart_rx.sv
 ./../src/periph/core_bus_uart.sv
 ./../src/bus/soc_data_fabric.sv
 ./../src/core/riscv.sv

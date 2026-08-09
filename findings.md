@@ -1,5 +1,32 @@
 # Findings
 
+## Phase 4 UART RX start — 2026-08-09
+
+- The pushed TX checkpoint is clean at commit `a2250eb`; RX can evolve as a
+  separate reviewable change without rewriting the verified shifter.
+- RX cannot use TX-style backpressure at the pin. The receiver must convert an
+  asynchronous stream into byte/error events, while a separate FIFO converts
+  those events into persistent software-owned data.
+- A 16-byte FIFO needs a five-bit occupancy counter (0..16). Explicit pointer
+  wrap keeps the parameter contract correct for non-power-of-two depths too.
+- Preserving TXDATA `+0x00`, STATUS `+0x04`, and STATUS bits 0/1 avoids an ABI
+  break. New RX registers and higher status bits can extend the interface.
+- Existing `tb_core_bus_uart` treats local `+0x08` as invalid; that assertion
+  must move to a still-unimplemented offset when RXDATA becomes legal.
+- `tb_riscv_soc` already owns accelerated UART timing and an independent TX
+  pin decoder. It can add an optional RX stimulus/echo mode without creating a
+  duplicate SoC testbench or weakening the existing TX-only test.
+- `riscv_soc` needs only a new asynchronous `uart_rx_i` top port, local offsets,
+  and `RX_FIFO_DEPTH=16` parameter forwarding; the CPU and fabric protocols do
+  not change because RX is state inside the existing UART target.
+- README is still TX-era and underspecifies Phase 3, WFI, timer, UART tests,
+  register semantics, firmware image generation, and exact board boundaries.
+  The requested refresh should reorganize it around current architecture,
+  executable commands, implemented MMIO, verified evidence, and open gates.
+- Final OOC synthesis retains 390 cells in `core_bus_uart`, including a 71-cell
+  `uart_rx` and 89-cell `uart_tx`; the broad UART hierarchy query matches 398
+  objects. The SoC still retains 32 `RAMB36E1` cells and two LSU-state cells.
+
 ## Baseline
 
 - The current synchronous trap decision is constructed directly in `riscv.sv` from `ex2wb_pkt_out`.
@@ -148,3 +175,28 @@
 - The regression runner compiles all sources from `sim/filelist.f` and permits
   a dedicated top per manifest test, so focused UART tests can be added without
   changing the runner.
+
+## Phase 4 UART RX findings
+
+- UART RX is an unsolicited producer: the sender cannot observe CPU
+  backpressure, so a FIFO and a specified overrun policy are architectural
+  behavior, not optional implementation detail.
+- The receiver boundary is split deliberately. `uart_rx.sv` contains the
+  two-flop synchronizer and midpoint 8N1 sampler; `core_bus_uart.sv` contains
+  the software-visible FIFO, status, sticky errors, and MMIO side effects.
+- `RX_FIFO_DEPTH` defaults to 16 and explicit pointer wrapping supports
+  non-power-of-two depths. RTL constrains the exposed count to depths 1..255.
+- A full FIFO drops the newest arrival and preserves older ordered data. A bad
+  stop bit is not enqueued. Both conditions leave sticky software evidence.
+- Empty RXDATA reads are legal and nonblocking. Returning zero avoids
+  deadlocking the single-outstanding bus, while RX_VALID disambiguates empty
+  from a received zero byte.
+- Hardware error events take priority over same-cycle W1C. Otherwise software
+  could erase an error it never had an opportunity to observe.
+- Phase 4 echo verifies more than a register test: a 16-byte stream of real
+  8N1 input waveforms traverses synchronization, sampling, the FIFO, polling
+  firmware, TX buffering/shifting, and an independent output decoder. The
+  focused target test separately fills all 16 FIFO entries.
+- Physical-board proof is a later and distinct obligation: exact clock error,
+  XDC pins, I/O voltage, reset polarity, and USB-UART crossover are not proven
+  by simulation or OOC synthesis.

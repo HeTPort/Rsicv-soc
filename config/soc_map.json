@@ -65,6 +65,18 @@
       "region": "uart",
       "offset": "0x00000004",
       "width_bits": 32
+    },
+    {
+      "name": "uart_rxdata",
+      "region": "uart",
+      "offset": "0x00000008",
+      "width_bits": 32
+    },
+    {
+      "name": "uart_rxerror",
+      "region": "uart",
+      "offset": "0x0000000c",
+      "width_bits": 32
     }
   ],
   "simulation": {

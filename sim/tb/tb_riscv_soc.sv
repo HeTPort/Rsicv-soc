@@ -20,6 +20,7 @@ module tb_riscv_soc #(
   parameter int DATA_REQ_WAIT_CYCLES = 0,
   parameter int DATA_RSP_WAIT_CYCLES = 0,
   parameter bit UART_CHECK_ENABLE = 1'b0,
+  parameter bit UART_RX_ECHO_ENABLE = 1'b0,
   parameter bit DATA_FORCE_ERROR = 1'b0,
   parameter bit DATA_ERROR_ADDR_ENABLE = 1'b0,
   parameter logic [31:0] DATA_ERROR_ADDR = '0
@@ -31,7 +32,7 @@ module tb_riscv_soc #(
   localparam int UART_BAUD_RATE = 4;
   localparam int UART_CLKS_PER_BIT =
       (UART_CLK_FREQ_HZ + (UART_BAUD_RATE / 2)) / UART_BAUD_RATE;
-  localparam int UART_EXPECTED_BYTES = 14;
+  localparam int UART_EXPECTED_BYTES = UART_RX_ECHO_ENABLE ? 16 : 14;
 
   logic clk;
   logic rst_n;
@@ -46,6 +47,7 @@ module tb_riscv_soc #(
   trap_entry_t trap_entry;
   logic cpu_rst_n;
   logic uart_tx;
+  logic uart_rx;
 
   logic [DW-1:0] tohost_val;
   logic tohost_seen;
@@ -86,7 +88,8 @@ module tb_riscv_soc #(
     .DATA_REQ_WAIT_CYCLES(DATA_REQ_WAIT_CYCLES),
     .DATA_RSP_WAIT_CYCLES(DATA_RSP_WAIT_CYCLES),
     .UART_CLK_FREQ_HZ(UART_CLK_FREQ_HZ),
-    .UART_BAUD_RATE(UART_BAUD_RATE)
+    .UART_BAUD_RATE(UART_BAUD_RATE),
+    .UART_RX_FIFO_DEPTH(16)
   ) u_dut (
     .clk         (clk),
     .rst_n       (rst_n),
@@ -94,6 +97,7 @@ module tb_riscv_soc #(
     .prog_wr_addr(prog_wr_addr),
     .prog_wr_data(prog_wr_data),
     .load_done   (load_done),
+    .uart_rx_i   (uart_rx),
     .test_case   (test_case),
     .reg_s10     (reg_s10),
     .reg_s11     (reg_s11),
@@ -104,23 +108,45 @@ module tb_riscv_soc #(
 
   function automatic logic [7:0] expected_uart_byte(input integer index);
     begin
-      unique case (index)
-        0:  expected_uart_byte = 8'h48; // H
-        1:  expected_uart_byte = 8'h65; // e
-        2:  expected_uart_byte = 8'h6c; // l
-        3:  expected_uart_byte = 8'h6c; // l
-        4:  expected_uart_byte = 8'h6f; // o
-        5:  expected_uart_byte = 8'h2c; // ,
-        6:  expected_uart_byte = 8'h20; // space
-        7:  expected_uart_byte = 8'h55; // U
-        8:  expected_uart_byte = 8'h41; // A
-        9:  expected_uart_byte = 8'h52; // R
-        10: expected_uart_byte = 8'h54; // T
-        11: expected_uart_byte = 8'h21; // !
-        12: expected_uart_byte = 8'h0d;
-        13: expected_uart_byte = 8'h0a;
-        default: expected_uart_byte = 8'hxx;
-      endcase
+      if (UART_RX_ECHO_ENABLE) begin
+        unique case (index)
+          0:  expected_uart_byte = 8'h52; // R
+          1:  expected_uart_byte = 8'h58; // X
+          2:  expected_uart_byte = 8'h20;
+          3:  expected_uart_byte = 8'h46; // F
+          4:  expected_uart_byte = 8'h49; // I
+          5:  expected_uart_byte = 8'h46; // F
+          6:  expected_uart_byte = 8'h4f; // O
+          7:  expected_uart_byte = 8'h20;
+          8:  expected_uart_byte = 8'h31; // 1
+          9:  expected_uart_byte = 8'h36; // 6
+          10: expected_uart_byte = 8'h20;
+          11: expected_uart_byte = 8'h4f; // O
+          12: expected_uart_byte = 8'h4b; // K
+          13: expected_uart_byte = 8'h21; // !
+          14: expected_uart_byte = 8'h0d;
+          15: expected_uart_byte = 8'h0a;
+          default: expected_uart_byte = 8'hxx;
+        endcase
+      end else begin
+        unique case (index)
+          0:  expected_uart_byte = 8'h48; // H
+          1:  expected_uart_byte = 8'h65; // e
+          2:  expected_uart_byte = 8'h6c; // l
+          3:  expected_uart_byte = 8'h6c; // l
+          4:  expected_uart_byte = 8'h6f; // o
+          5:  expected_uart_byte = 8'h2c; // ,
+          6:  expected_uart_byte = 8'h20;
+          7:  expected_uart_byte = 8'h55; // U
+          8:  expected_uart_byte = 8'h41; // A
+          9:  expected_uart_byte = 8'h52; // R
+          10: expected_uart_byte = 8'h54; // T
+          11: expected_uart_byte = 8'h21; // !
+          12: expected_uart_byte = 8'h0d;
+          13: expected_uart_byte = 8'h0a;
+          default: expected_uart_byte = 8'hxx;
+        endcase
+      end
     end
   endfunction
 
@@ -155,11 +181,42 @@ module tb_riscv_soc #(
     end
   endtask
 
+  task automatic drive_uart_rx_bit(input logic value);
+    begin
+      @(negedge clk);
+      uart_rx = value;
+      repeat (UART_CLKS_PER_BIT) @(posedge clk);
+    end
+  endtask
+
+  task automatic drive_uart_rx_byte(input logic [7:0] value);
+    integer bit_index;
+    begin
+      drive_uart_rx_bit(1'b0);
+      for (bit_index = 0; bit_index < 8; bit_index = bit_index + 1)
+        drive_uart_rx_bit(value[bit_index]);
+      drive_uart_rx_bit(1'b1);
+      @(negedge clk);
+      uart_rx = 1'b1;
+    end
+  endtask
+
   initial begin
     uart_byte_count = 0;
-    if (UART_CHECK_ENABLE) begin
+    if (UART_CHECK_ENABLE || UART_RX_ECHO_ENABLE) begin
       wait (cpu_rst_n == 1'b1);
       forever decode_uart_byte();
+    end
+  end
+
+  initial begin
+    uart_rx = 1'b1;
+    if (UART_RX_ECHO_ENABLE) begin
+      wait (cpu_rst_n == 1'b1);
+      repeat (20) @(posedge clk);
+      for (integer rx_index = 0; rx_index < UART_EXPECTED_BYTES;
+           rx_index = rx_index + 1)
+        drive_uart_rx_byte(expected_uart_byte(rx_index));
     end
   end
 
@@ -232,7 +289,7 @@ module tb_riscv_soc #(
     $display("[SOC-TB] x10    = 0x%08h", reg_s10);
     $display("[SOC-TB] x11    = 0x%08h", reg_s11);
     if (tohost_val == 32'd1) begin
-      if (UART_CHECK_ENABLE) begin
+      if (UART_CHECK_ENABLE || UART_RX_ECHO_ENABLE) begin
         assert (uart_byte_count == UART_EXPECTED_BYTES)
           else $fatal(1, "UART byte count mismatch: got %0d expected %0d",
                       uart_byte_count, UART_EXPECTED_BYTES);
