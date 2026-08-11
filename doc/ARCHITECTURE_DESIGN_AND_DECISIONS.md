@@ -1184,7 +1184,7 @@ the stimulus preserved the assertion. Full details are in
 | Phase 2: external data bus | Complete: data decode/default, EX/WB response packet, precise data/instruction access faults, LSU FSM/backpressure | 4/4 SoC fault runs, data-fabric protocol suite, 22/22 smoke |
 | Phase 3: timer interrupt | Complete: MTIP ownership, effective eligibility, retirement boundary, MRET exclusion, logical WFI, timer target | Precise firmware plus 10,000 repeated interrupts, focused assertions, 22/22 smoke, OOC synthesis |
 | Phase 4: UART/GPIO | Complete: native UART TX/RX plus parameterized output GPIO, registered target responses, and five-owner fabric exclusivity | UART focused tests, TX text, RX echo, GPIO target/fabric, readback, and pin waveform PASS |
-| Phase 5: firmware | Startup ABI, linker map, image split, drivers | Same bare-metal programs in simulation and FPGA |
+| Phase 5: firmware | [Startup ABI, linker map, split-image/data-BRAM preload, and driver plan](../docs/phase5-startup-runtime-guide.md) | Same bare-metal programs and ELF-derived images in simulation and FPGA |
 | Phase 6: FreeRTOS | Official port boundary, tick source, heap/stack policy | Context sentinels, preemption, queues, long run |
 | Phase 7: FPGA | Board part, clock/reset, XDC, BRAM init, frequency | Timing closure, utilization, UART/LED evidence |
 | Phase 8: release | Applicable ACT4 set and unified regression | Reproducible clean release evidence |
@@ -1293,5 +1293,6 @@ An architecture-changing task is incomplete until this document is updated.
 - [AR-020 minimal polling UART TX](AR020_MINIMAL_POLLING_UART_TX.md)
 - [AR-021 polling UART RX and parameterized FIFO](AR021_POLLING_UART_RX_FIFO.md)
 - [AR-022 memory-mapped GPIO output](AR022_MEMORY_MAPPED_GPIO_OUTPUT.md)
+- [Phase 5 startup/runtime implementation guide](../docs/phase5-startup-runtime-guide.md)
 - [ACT4 integration handoff](ACT4_RV32I_INTEGRATION_HANDOFF_2026-07-27.md)
 - [ACT4 integration guide](../verif/act4/README.md)

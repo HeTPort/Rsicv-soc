@@ -18,3 +18,8 @@ vivado*.log
 # Python cache files
 __pycache__/
 *.pyc
+
+# Agent-local planning scratchpads (never commit)
+/task_plan.md
+/findings.md
+/progress.md

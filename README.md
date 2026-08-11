@@ -241,12 +241,15 @@ phase defines a real interface; empty future placeholders are not kept.
 
 The next practical steps are:
 
-1. create startup code, UART/timer/GPIO headers and small polling drivers;
-2. run bare-metal UART loopback and timer-interrupt programs;
-3. integrate the official FreeRTOS RISC-V port and validate context switching;
-4. add a board-specific top, reset/clock conditioning, XDC pins, and BRAM init;
-5. close post-route timing and test UART/GPIO/timer behavior on the FPGA;
-6. add UART interrupts/PLIC only after the polling baseline is stable on
+1. follow the
+   [Phase 5 startup/runtime guide](docs/phase5-startup-runtime-guide.md) to add
+   the split-image path, startup code, linker script, and first C UART program;
+2. create UART/timer/GPIO headers and small polling drivers;
+3. run bare-metal UART loopback and timer-interrupt programs;
+4. integrate the official FreeRTOS RISC-V port and validate context switching;
+5. add a board-specific top, reset/clock conditioning, XDC pins, and BRAM init;
+6. close post-route timing and test UART/GPIO/timer behavior on the FPGA;
+7. add UART interrupts/PLIC only after the polling baseline is stable on
    hardware.
 
 You do not need to connect the FPGA board to develop or verify the RTL. You do

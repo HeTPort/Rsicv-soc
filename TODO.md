@@ -106,7 +106,8 @@ Still missing:
   serial-pin firmware scoreboard.
 - [x] Polling UART RX with synchronized 8N1 sampling, parameterized default
   16-byte FIFO, sticky errors, and pin-to-firmware-to-pin echo scoreboard.
-- [ ] Memory-mapped GPIO peripheral.
+- [x] Memory-mapped output GPIO peripheral with readback, partial writes,
+  fabric ownership, firmware waveform checking, and OOC synthesis evidence.
 - [ ] Firmware startup code, linker script, drivers, and FreeRTOS application.
 - [ ] FPGA top, XDC constraints, Vivado build script, and physical-board result.
 
@@ -121,8 +122,9 @@ Current planning position:
   and AR-018 verifies precise data and instruction access faults.
 - AR-008 belongs to Phase 3; AR-010 is continuous verification; AR-011 is an
   early FPGA feasibility gate; and AR-012 is cross-stage cleanup.
-- Phase 3 is complete. Phase 4 polling UART TX/RX are complete through OOC
-  synthesis; Phase 4 remains open for GPIO and its combined exit gate.
+- Phase 3 is complete. Phase 4 is complete in RTL simulation and OOC
+  synthesis: polling UART TX/RX and output GPIO satisfy its combined exit
+  gate. Physical pin validation remains Phase 7 work.
 - AR-014 accepted-map generation infrastructure is complete. AR-019 uses its
   SystemVerilog constants in the implemented data decoder/default target;
   remaining software/tool consumers continue in their owning later phases.
@@ -467,7 +469,8 @@ interrupts/PLIC and physical-board validation remain deliberately deferred. See
   write-one-to-clear semantics.
 - [x] Add a serial-input/firmware/serial-output echo regression for a 16-byte
   stream; separately fill all 16 FIFO entries in the focused target test.
-- [ ] Defer UART interrupts and PLIC until polling TX/RX work on hardware.
+- [x] Keep UART interrupts and PLIC deferred until polling TX/RX work on
+  physical hardware.
 
 ### GPIO
 
@@ -494,8 +497,20 @@ the `01 -> 02 -> 04 -> 08 -> A5` GPIO waveform from bare-metal programs.
 
 ## Phase 5 — Establish bare-metal firmware and FPGA sanity tests
 
+**Status:** implementation not started. The reset/runtime contract and ordered
+implementation/verification gates are defined in
+[`docs/phase5-startup-runtime-guide.md`](docs/phase5-startup-runtime-guide.md).
+
 **Purpose:** separate CPU/peripheral/board failures from FreeRTOS port failures.
 
+- [x] Define the repository-specific reset-to-C contract, including the split
+  BRAM `.data` preload policy, `.bss` clear, ABI-safe `sp`/`gp`, direct-mode
+  `mtvec`, linker assertions, and verification ladder.
+- [ ] Extend `sim/regress/elf_to_mem.py` for ELF load segments split across the
+  accepted program- and data-RAM regions, with positive and rejection tests.
+- [ ] Make `tb_riscv_soc.DATA_FILE` initialize data RAM before reset release and
+  forward reproducible program/data initialization parameters through the SoC
+  synthesis boundary.
 - [ ] Add `sw/common/startup.S`: initialize `sp`/`gp`, set `mtvec`, initialize
   memory as required, and call `main`.
 - [ ] Add `sw/common/linker.ld` matching the final BRAM memory map.

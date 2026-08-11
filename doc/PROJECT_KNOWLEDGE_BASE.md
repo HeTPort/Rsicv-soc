@@ -104,6 +104,10 @@ the minimal architecture needed for the first working system.
 - FreeRTOS port integration.
 - Board top, constraints, timing closure, and physical FPGA result.
 
+The implementation contract and ordered verification gates for the first item
+are defined in the
+[Phase 5 startup/runtime guide](../docs/phase5-startup-runtime-guide.md).
+
 ### Phase numbers and AR numbers are different axes
 
 Phases are ordered execution gates; AR numbers are stable review-finding IDs.
@@ -935,6 +939,8 @@ compare RAM data, `load_offset`, extracted value, and committed result.
 - [AR-020 minimal polling UART TX](AR020_MINIMAL_POLLING_UART_TX.md)
 - [AR-021 polling UART RX and parameterized FIFO](AR021_POLLING_UART_RX_FIFO.md)
 - [Phase 4 UART implementation guide](../docs/phase4-uart-guide.md)
+- [Phase 4 GPIO implementation guide](../docs/phase4-gpio-guide.md)
+- [Phase 5 startup/runtime implementation guide](../docs/phase5-startup-runtime-guide.md)
 - [ACT4 integration](../verif/act4/README.md)
 - [Project roadmap](../TODO.md)
 
