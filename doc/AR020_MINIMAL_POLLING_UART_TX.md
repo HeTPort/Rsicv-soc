@@ -4,7 +4,8 @@
 
 **State:** Verified in RTL simulation and out-of-context synthesis
 
-**Stage:** Phase 4 UART vertical slice; GPIO and physical-board validation remain open
+**Stage:** Phase 4 UART vertical slice; GPIO was completed later by AR-022 and
+physical-board validation remains open
 
 ## Problem
 

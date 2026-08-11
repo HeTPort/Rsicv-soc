@@ -372,7 +372,27 @@ sticky overrun flag is set. A bad stop bit sets the sticky framing flag and
 does not enqueue the byte. If software clears an error in the same cycle that
 hardware reports a new occurrence, the hardware event wins.
 
-## 12. Assertions required for new semantic contracts
+## 12. GPIO signal semantics
+
+| Signal/value | Semantic definition |
+|---|---|
+| `gpio_out_o` | Persistent external output level; equals the low `GPIO_WIDTH` bits of the GPIO output register. |
+| `gpio_write` | Event: an accepted, legal write to `GPIO_OUT`; the only non-reset event allowed to change GPIO state. |
+| `GPIO_OUT` local `0x00` | 32-bit software-visible R/W register. Reads return the containing word; writes merge only valid selected byte lanes. |
+| `TARGET_GPIO` | Registered fabric response owner captured when a GPIO request is accepted. |
+
+The fabric owns full-address decode and translates `0x1000_1000` to local
+offset `0x00`. `core_bus_gpio` owns access legality, persistent state, partial
+write merging, and its registered response. `riscv_soc` owns only composition
+and the external port. Unsupported offsets, misaligned transfers,
+size/strobe contradictions, or read strobes return an error without changing
+state.
+
+`GPIO_WIDTH` changes the physical output width, not the 32-bit software ABI.
+Bits above `GPIO_WIDTH-1` read as zero and are not stored. This permits one
+firmware register definition across boards with different LED counts.
+
+## 13. Assertions required for new semantic contracts
 
 - Invalid pipeline packets equal their canonical bubble.
 - Invalid commands have all side-effect enables clear.
@@ -403,8 +423,13 @@ hardware reports a new occurrence, the hardware event wins.
   accepted.
 - A same-cycle receive error takes priority over software W1C so the new event
   remains observable.
+- GPIO state changes only after an accepted legal write.
+- Invalid GPIO reads/writes produce one registered error and no pin change.
+- A GPIO request uses a local address within its configured region.
+- While `TARGET_GPIO` owns an outstanding transaction, no other response may
+  be routed and the live request address must not select the return path.
 
-## 13. Review checklist for future signals
+## 14. Review checklist for future signals
 
 Before adding a signal or struct, answer:
 

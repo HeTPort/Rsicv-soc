@@ -40,6 +40,7 @@ set rtl_files [list \
   [file join $repo_root src periph uart_tx.sv] \
   [file join $repo_root src periph uart_rx.sv] \
   [file join $repo_root src periph core_bus_uart.sv] \
+  [file join $repo_root src periph core_bus_gpio.sv] \
   [file join $repo_root src bus soc_data_fabric.sv] \
   [file join $repo_root src core riscv.sv] \
   [file join $repo_root src riscv_soc.sv] \
@@ -55,6 +56,7 @@ set lsu_state_cells [get_cells -hier -regexp {
   .*u_riscv/u_lsu/state_q_reg.*
 }]
 set uart_cells [get_cells -hier -regexp {.*u_uart_target.*}]
+set gpio_cells [get_cells -hier -regexp {.*u_gpio_target.*}]
 
 report_utilization -file [file join $output_dir riscv_soc_utilization.rpt]
 write_checkpoint -force [file join $output_dir riscv_soc_synth.dcp]
@@ -63,6 +65,7 @@ puts "AR003_PART=$part_name"
 puts "AR003_BRAM_COUNT=[llength $bram_cells]"
 puts "AR003_LSU_STATE_CELL_COUNT=[llength $lsu_state_cells]"
 puts "AR003_UART_CELL_COUNT=[llength $uart_cells]"
+puts "AR003_GPIO_CELL_COUNT=[llength $gpio_cells]"
 
 if {[llength $bram_cells] == 0} {
   error "AR-003 failed: riscv_soc did not retain Block RAM cells"
@@ -73,5 +76,8 @@ if {[llength $lsu_state_cells] == 0} {
 if {[llength $uart_cells] == 0} {
   error "AR-003 failed: UART target/output logic was not synthesized"
 }
+if {[llength $gpio_cells] == 0} {
+  error "AR-003 failed: GPIO target/output logic was not synthesized"
+}
 
-puts "AR-003 PASS: SoC bus/LSU/RAM/UART hierarchy synthesized"
+puts "AR-003 PASS: SoC bus/LSU/RAM/UART/GPIO hierarchy synthesized"

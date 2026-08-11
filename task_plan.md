@@ -1,4 +1,71 @@
-# Active Plan — Phase 4 Polling UART RX with 16-byte FIFO
+# Completed Plan — Phase 4 Memory-Mapped GPIO Output
+
+## Goal
+
+Complete the accepted GPIO window as a parameterized output-only native
+core-bus peripheral, route it through the registered-owner fabric, expose its
+logical pins at the SoC boundary, verify target/fabric/firmware behavior, retain
+the hierarchy through OOC synthesis, and close the Phase 4 documentation gate.
+
+## Current decisions
+
+- `GPIO_OUT` is an architectural 32-bit R/W register at local offset `0x00`;
+  `GPIO_WIDTH` selects the implemented low output bits.
+- Reset state is parameterized and deterministic; board-specific LED polarity
+  remains in the later FPGA wrapper.
+- Byte/half/word writes must have address/size-consistent strobes and merge only
+  selected lanes. Invalid accesses return one registered error with no effect.
+- GPIO state changes only on an accepted legal write.
+- The fabric performs full-address decode/base subtraction and records GPIO as
+  a fifth response owner, requiring a 3-bit owner enum.
+- The first milestone remains output-only. Inputs, synchronization, direction,
+  SET/CLEAR aliases, debounce, and interrupts are deferred.
+
+## Phases
+
+1. **Complete — Canonical register contract**
+   - Added `gpio_out` to `config/soc_map.json`, regenerated consumers, and
+     passed map freshness plus 9/9 generator tests.
+2. **Complete — Focused GPIO target**
+   - Added `core_bus_gpio.sv`, focused protocol/register tests, and the source
+     list entry. The focused test passes at 210 ns with zero errors.
+3. **Complete — Fabric routing and ownership**
+   - Added full-address/local-offset coverage, widened the owner enum to three
+     bits, and verified registered `TARGET_GPIO` response routing.
+4. **Complete — SoC integration**
+   - Instantiated the target in `riscv_soc` and exposed parameterized
+     `gpio_out_o`.
+5. **Complete — Firmware and waveform scoreboard**
+   - Added firmware readback and ordered `01,02,04,08,A5` transition checks.
+6. **Complete — Regression and synthesis closure**
+   - Focused GPIO/fabric, Phase 4 3/3, Phase 3 2/2, smoke 22/22, map 9/9, and
+     Vivado OOC gates pass.
+7. **Complete — Living documentation closure**
+   - Added AR-022 and updated semantic spec, knowledge base, ADR, TODO, README,
+     AGENTS, diagrams, risk/gate tables, regression guide, and GPIO guide.
+
+## Errors encountered
+
+| Error | Attempt | Resolution |
+|---|---:|---|
+| Map commands were invoked from `sim/`, so `sim/tools/...` was not found | 1 | Re-ran from repository root; freshness and 9/9 tests pass |
+| Fabric elaboration reports missing GPIO parameters | Expected RED | Implemented the GPIO target interface and registered owner in `soc_data_fabric.sv` |
+| Fabric assertion reported request changed under back-pressure | 1 | Testbench changed the payload while valid remained high and ready was low; deasserted valid for observational address changes without weakening the RTL assertion |
+
+## Completion evidence
+
+- Canonical map freshness and 9/9 generator unit tests pass.
+- Focused GPIO target passes at 210 ns; focused five-owner fabric passes at
+  176 ns, both with zero ModelSim errors.
+- Phase 4 passes 3/3; Phase 3 passes 2/2; smoke passes 22/22.
+- Vivado 2019.2 OOC passes with 0 errors/critical warnings and retains 20 GPIO
+  hierarchy objects, 389 UART objects, two LSU-state cells, and 32 BRAMs.
+- Phase 4 is closed for simulation/OOC evidence. Board top, XDC, electrical
+  constraints, and physical LED observation remain Phase 7 work.
+
+---
+
+# Completed Plan — Phase 4 Polling UART RX with 16-byte FIFO
 
 ## Goal
 

@@ -12,6 +12,8 @@ module soc_data_fabric #(
   parameter logic [AW-1:0] TIMER_END  = 32'h0200_ffff,
   parameter logic [AW-1:0] UART_BASE = 32'h1000_0000,
   parameter logic [AW-1:0] UART_END  = 32'h1000_0fff,
+  parameter logic [AW-1:0] GPIO_BASE = 32'h1000_1000,
+  parameter logic [AW-1:0] GPIO_END  = 32'h1000_1fff,
   parameter logic [AW-1:0] DATA_RAM_BASE = 32'h8000_0000,
   parameter logic [AW-1:0] DATA_RAM_END  = 32'h8000_ffff,
   parameter logic [DW-1:0] DEFAULT_RDATA = '0,
@@ -38,15 +40,22 @@ module soc_data_fabric #(
   input  logic          uart_rsp_valid_i,
   input  core_bus_rsp_t uart_rsp_i,
 
+  output logic          gpio_req_valid_o,
+  input  logic          gpio_req_ready_i,
+  output core_bus_req_t gpio_req_o,
+  input  logic          gpio_rsp_valid_i,
+  input  core_bus_rsp_t gpio_rsp_i,
+
   output logic          data_req_valid_o,
   input  logic          data_req_ready_i,
   output core_bus_req_t data_req_o,
   input  logic          data_rsp_valid_i,
   input  core_bus_rsp_t data_rsp_i
 );
-  typedef enum logic [1:0] {
+  typedef enum logic [2:0] {
     TARGET_TIMER,
     TARGET_UART,
+    TARGET_GPIO,
     TARGET_DATA_RAM,
     TARGET_DEFAULT
   } target_e;
@@ -54,6 +63,7 @@ module soc_data_fabric #(
   logic timer_selected;
   logic uart_selected;
   logic data_selected;
+  logic gpio_selected;
   logic default_req_valid;
   logic default_req_ready;
   logic default_rsp_valid;
@@ -69,18 +79,23 @@ module soc_data_fabric #(
                          (cpu_req_i.addr <= UART_END);
   assign data_selected = (cpu_req_i.addr >= DATA_RAM_BASE) &&
                          (cpu_req_i.addr <= DATA_RAM_END);
+  assign gpio_selected = (cpu_req_i.addr >= GPIO_BASE) &&
+                         (cpu_req_i.addr <= GPIO_END);
 
   always_comb begin
     timer_req_o      = cpu_req_i;
     timer_req_o.addr = cpu_req_i.addr - TIMER_BASE;
     uart_req_o      = cpu_req_i;
     uart_req_o.addr = cpu_req_i.addr - UART_BASE;
+    gpio_req_o      = cpu_req_i;
+    gpio_req_o.addr = cpu_req_i.addr - GPIO_BASE;
     data_req_o      = cpu_req_i;
     data_req_o.addr = cpu_req_i.addr - DATA_RAM_BASE;
 
     timer_req_valid_o = 1'b0;
     uart_req_valid_o = 1'b0;
     data_req_valid_o = 1'b0;
+    gpio_req_valid_o = 1'b0;
     default_req_valid = 1'b0;
     cpu_req_ready_o = 1'b0;
 
@@ -91,6 +106,9 @@ module soc_data_fabric #(
       end else if (uart_selected) begin
         uart_req_valid_o = cpu_req_valid_i;
         cpu_req_ready_o  = uart_req_ready_i;
+      end else if (gpio_selected) begin
+        gpio_req_valid_o = cpu_req_valid_i;
+        cpu_req_ready_o  = gpio_req_ready_i;
       end else if (data_selected) begin
         data_req_valid_o = cpu_req_valid_i;
         cpu_req_ready_o  = data_req_ready_i;
@@ -117,6 +135,11 @@ module soc_data_fabric #(
         TARGET_UART: begin
           cpu_rsp_valid_o = uart_rsp_valid_i;
           cpu_rsp_o       = uart_rsp_i;
+        end
+
+        TARGET_GPIO: begin
+          cpu_rsp_valid_o = gpio_rsp_valid_i;
+          cpu_rsp_o       = gpio_rsp_i;
         end
 
         TARGET_DATA_RAM: begin
@@ -163,6 +186,8 @@ module soc_data_fabric #(
           owner_q <= TARGET_TIMER;
         else if (uart_selected)
           owner_q <= TARGET_UART;
+        else if (gpio_selected)
+          owner_q <= TARGET_GPIO;
         else if (data_selected)
           owner_q <= TARGET_DATA_RAM;
         else
@@ -186,6 +211,15 @@ module soc_data_fabric #(
       $fatal(1, "soc_data_fabric parameter error: timer and UART overlap");
     if (!((UART_END < DATA_RAM_BASE) || (DATA_RAM_END < UART_BASE)))
       $fatal(1, "soc_data_fabric parameter error: UART and RAM overlap");
+    if (GPIO_END < GPIO_BASE)
+      $fatal(1, "soc_data_fabric parameter error: GPIO end precedes base");
+    if (!((GPIO_END < TIMER_BASE) || (TIMER_END < GPIO_BASE)))
+      $fatal(1, "soc_data_fabric parameter error: GPIO and timer overlap");
+    if (!((GPIO_END < UART_BASE) || (UART_END < GPIO_BASE)))
+      $fatal(1, "soc_data_fabric parameter error: GPIO and UART overlap");
+    if (!((GPIO_END < DATA_RAM_BASE) ||
+            (DATA_RAM_END < GPIO_BASE)))
+      $fatal(1, "soc_data_fabric parameter error: GPIO and RAM overlap");
     if (DW <= 0 || (DW % 8) != 0)
       $fatal(1, "soc_data_fabric parameter error: DW must be byte aligned");
   end
@@ -200,10 +234,14 @@ module soc_data_fabric #(
       stalled_q     <= 1'b0;
     end else begin
       assert (!((timer_req_valid_o && uart_req_valid_o) ||
+                (timer_req_valid_o && gpio_req_valid_o) ||
                 (timer_req_valid_o && data_req_valid_o) ||
                 (timer_req_valid_o && default_req_valid) ||
+                (uart_req_valid_o && gpio_req_valid_o) ||
                 (uart_req_valid_o && data_req_valid_o) ||
                 (uart_req_valid_o && default_req_valid) ||
+                (gpio_req_valid_o && data_req_valid_o) ||
+                (gpio_req_valid_o && default_req_valid) ||
                 (data_req_valid_o && default_req_valid)))
         else $error("data fabric selected more than one target");
       assert (!(accept && outstanding_q))
@@ -211,10 +249,14 @@ module soc_data_fabric #(
       assert (!(cpu_rsp_valid_o && !outstanding_q))
         else $error("data fabric returned a response without an owner");
       assert (!((timer_rsp_valid_i && uart_rsp_valid_i) ||
+                (timer_rsp_valid_i && gpio_rsp_valid_i) ||
                 (timer_rsp_valid_i && data_rsp_valid_i) ||
                 (timer_rsp_valid_i && default_rsp_valid) ||
+                (uart_rsp_valid_i && gpio_rsp_valid_i) ||
                 (uart_rsp_valid_i && data_rsp_valid_i) ||
                 (uart_rsp_valid_i && default_rsp_valid) ||
+                (gpio_rsp_valid_i && data_rsp_valid_i) ||
+                (gpio_rsp_valid_i && default_rsp_valid) ||
                 (data_rsp_valid_i && default_rsp_valid)))
         else $error("data fabric observed simultaneous target responses");
 
@@ -233,12 +275,17 @@ module soc_data_fabric #(
         assert (data_req_o.addr <= DATA_RAM_END - DATA_RAM_BASE)
           else $error("data fabric emitted an out-of-range local RAM address");
       end
-
+      if (gpio_req_valid_o) begin
+        assert (gpio_req_o.addr <= GPIO_END - GPIO_BASE)
+          else $error("data fabric emitted an out-of-range local GPIO address");
+      end
       if (outstanding_q && owner_q == TARGET_DATA_RAM) begin
         assert (!timer_rsp_valid_i)
           else $error("timer responded while RAM owned the request");
         assert (!uart_rsp_valid_i)
           else $error("UART responded while RAM owned the request");
+        assert (!gpio_rsp_valid_i)
+          else $error("GPIO responded while RAM owned the request");
         assert (!default_rsp_valid)
           else $error("default target responded while RAM owned the request");
       end
@@ -247,18 +294,28 @@ module soc_data_fabric #(
           else $error("timer responded while default target owned the request");
         assert (!uart_rsp_valid_i)
           else $error("UART responded while default target owned the request");
+        assert (!gpio_rsp_valid_i)
+          else $error("GPIO responded while default target owned the request");
         assert (!data_rsp_valid_i)
           else $error("RAM responded while default target owned the request");
       end
       if (outstanding_q && owner_q == TARGET_TIMER) begin
-        assert (!(uart_rsp_valid_i || data_rsp_valid_i || default_rsp_valid))
+        assert (!(uart_rsp_valid_i || gpio_rsp_valid_i ||
+                  data_rsp_valid_i || default_rsp_valid))
           else $error("non-timer target responded while timer owned the request");
       end
       if (outstanding_q && owner_q == TARGET_UART) begin
-        assert (!(timer_rsp_valid_i || data_rsp_valid_i || default_rsp_valid))
+        assert (!(timer_rsp_valid_i || gpio_rsp_valid_i ||
+                  data_rsp_valid_i || default_rsp_valid))
           else $error("non-UART target responded while UART owned the request");
       end
-
+      if (outstanding_q && owner_q == TARGET_GPIO) begin
+        assert (!(timer_rsp_valid_i ||
+                  uart_rsp_valid_i ||
+                  data_rsp_valid_i ||
+                  default_rsp_valid))
+          else $error("non-GPIO target responded while GPIO owned request");
+      end
       if (stalled_q && cpu_req_valid_i) begin
         assert (cpu_req_i === stalled_req_q)
           else $error("data fabric request changed under back-pressure");

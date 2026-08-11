@@ -77,6 +77,12 @@
       "region": "uart",
       "offset": "0x0000000c",
       "width_bits": 32
+    },
+    {
+      "name": "gpio_out",
+      "region": "gpio",
+      "offset": "0x00000000",
+      "width_bits": 32
     }
   ],
   "simulation": {

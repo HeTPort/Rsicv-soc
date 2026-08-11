@@ -110,11 +110,12 @@ Run the Phase 3 architectural and long-duration timer tests from
 ./run_regression.ps1 -Manifest .\phase3_tests.json -Test soc_timer_10k
 ```
 
-Run the Phase 4 polling-UART vertical slice with:
+Run the Phase 4 peripheral vertical slices with:
 
 ```powershell
 ./run_regression.ps1 -Manifest .\phase4_tests.json -Test soc_uart_hello
 ./run_regression.ps1 -Manifest .\phase4_tests.json -Test soc_uart_echo
+./run_regression.ps1 -Manifest .\phase4_tests.json -Test soc_gpio_out
 ```
 
 The hello run enables the `tb_riscv_soc` serial-pin decoder. It passes only
@@ -122,6 +123,9 @@ after `uart_tx_o` decodes as `Hello, UART!\r\n` and firmware commits
 `tohost=1`. The echo run drives 16 real 8N1 frames into `uart_rx_i`; polling
 firmware drains the default 16-byte FIFO, echoes them, and passes only after
 `uart_tx_o` decodes as `RX FIFO 16 OK!\r\n` with `tohost=1`.
+The GPIO run writes and reads back five MMIO values while an independent
+scoreboard observes `gpio_out_o = 01, 02, 04, 08, A5`. This catches both target
+state errors and a missing SoC output connection.
 
 Success produces process exit code `0`. Manifest, tool, compile, assertion,
 timeout, simulator, or architectural failures produce a nonzero exit code. The

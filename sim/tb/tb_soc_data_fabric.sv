@@ -7,6 +7,8 @@ module tb_soc_data_fabric;
   localparam logic [31:0] TIMER_END  = 32'h0200_ffff;
   localparam logic [31:0] UART_BASE = 32'h1000_0000;
   localparam logic [31:0] UART_END  = 32'h1000_0fff;
+  localparam logic [31:0] GPIO_BASE = 32'h1000_1000;
+  localparam logic [31:0] GPIO_END  = 32'h1000_1fff;
   localparam logic [31:0] DATA_BASE = 32'h8000_0000;
   localparam logic [31:0] DATA_END  = 32'h8000_ffff;
 
@@ -31,6 +33,12 @@ module tb_soc_data_fabric;
   logic uart_rsp_valid;
   core_bus_rsp_t uart_rsp;
 
+  logic gpio_req_valid;
+  logic gpio_req_ready;
+  core_bus_req_t gpio_req;
+  logic gpio_rsp_valid;
+  core_bus_rsp_t gpio_rsp;
+
   logic data_req_valid;
   logic data_req_ready;
   core_bus_req_t data_req;
@@ -40,6 +48,7 @@ module tb_soc_data_fabric;
   int cpu_accept_count;
   int timer_accept_count;
   int uart_accept_count;
+  int gpio_accept_count;
   int data_accept_count;
   int cpu_response_count;
 
@@ -50,6 +59,8 @@ module tb_soc_data_fabric;
     .TIMER_END(TIMER_END),
     .UART_BASE(UART_BASE),
     .UART_END(UART_END),
+    .GPIO_BASE(GPIO_BASE),
+    .GPIO_END(GPIO_END),
     .DATA_RAM_BASE(DATA_BASE),
     .DATA_RAM_END(DATA_END),
     .DEFAULT_RDATA(32'h0000_0000),
@@ -72,6 +83,11 @@ module tb_soc_data_fabric;
     .uart_req_o       (uart_req),
     .uart_rsp_valid_i (uart_rsp_valid),
     .uart_rsp_i       (uart_rsp),
+    .gpio_req_valid_o (gpio_req_valid),
+    .gpio_req_ready_i (gpio_req_ready),
+    .gpio_req_o       (gpio_req),
+    .gpio_rsp_valid_i (gpio_rsp_valid),
+    .gpio_rsp_i       (gpio_rsp),
     .data_req_valid_o (data_req_valid),
     .data_req_ready_i (data_req_ready),
     .data_req_o       (data_req),
@@ -86,6 +102,7 @@ module tb_soc_data_fabric;
       cpu_accept_count   <= 0;
       timer_accept_count <= 0;
       uart_accept_count  <= 0;
+      gpio_accept_count  <= 0;
       data_accept_count  <= 0;
       cpu_response_count <= 0;
     end else begin
@@ -95,6 +112,8 @@ module tb_soc_data_fabric;
         timer_accept_count <= timer_accept_count + 1;
       if (uart_req_valid && uart_req_ready)
         uart_accept_count <= uart_accept_count + 1;
+      if (gpio_req_valid && gpio_req_ready)
+        gpio_accept_count <= gpio_accept_count + 1;
       if (data_req_valid && data_req_ready)
         data_accept_count <= data_accept_count + 1;
       if (cpu_rsp_valid)
@@ -133,6 +152,9 @@ module tb_soc_data_fabric;
     uart_req_ready  = 1'b1;
     uart_rsp_valid  = 1'b0;
     uart_rsp        = '0;
+    gpio_req_ready  = 1'b1;
+    gpio_rsp_valid  = 1'b0;
+    gpio_rsp        = '0;
 
     repeat (3) @(posedge clk);
     @(negedge clk);
@@ -185,6 +207,115 @@ module tb_soc_data_fabric;
     @(negedge clk);
     uart_rsp_valid = 1'b0;
 
+
+    // GPIO uses a full architectural address at the CPU boundary, but the target
+// must receive only the base-subtracted local byte offset.
+set_request(
+  GPIO_BASE + 32'h0000_0000,
+  1'b1,
+  MEM_SIZE_WORD,
+  32'hdead_beef,
+  4'b1111
+);
+
+cpu_req_valid = 1'b1;
+
+#1;
+
+assert (
+  cpu_req_ready &&
+  gpio_req_valid &&
+  !timer_req_valid &&
+  !uart_req_valid &&
+  !data_req_valid
+)
+  else $fatal(
+    1,
+    "GPIO full-address decode or target selection is wrong"
+  );
+
+assert (
+  gpio_req.addr  == 32'h0000_0000 &&
+  gpio_req.write == 1'b1 &&
+  gpio_req.size  == MEM_SIZE_WORD &&
+  gpio_req.wdata == 32'hdead_beef &&
+  gpio_req.wstrb == 4'b1111
+)
+  else $fatal(
+    1,
+    "GPIO local-address translation or request payload is wrong"
+  );
+
+// This edge transfers ownership of the request to GPIO.
+@(posedge clk);
+@(negedge clk);
+
+/*
+ * Change the observational payload to a UART address while valid is low and
+ * GPIO is still outstanding. The response must follow the registered owner,
+ * not the live address bits on the CPU request bus.
+ */
+set_request(
+  UART_BASE + 32'h0000_0004,
+  1'b0,
+  MEM_SIZE_WORD,
+  '0,
+  '0
+);
+
+cpu_req_valid = 1'b0;
+
+gpio_rsp.rdata = 32'h4750_494f; // ASCII-like "GPIO" sentinel
+gpio_rsp.error = 1'b0;
+gpio_rsp_valid = 1'b1;
+
+#1;
+
+assert (
+  !cpu_req_ready &&
+  !timer_req_valid &&
+  !uart_req_valid &&
+  !gpio_req_valid &&
+  !data_req_valid
+)
+  else $fatal(
+    1,
+    "fabric redecoded a live request while GPIO owned a transaction"
+  );
+
+assert (
+  cpu_rsp_valid &&
+  cpu_rsp.rdata == 32'h4750_494f &&
+  !cpu_rsp.error
+)
+  else $fatal(
+    1,
+    "registered GPIO owner did not route the GPIO response"
+  );
+
+/*
+ * The GPIO response retires on this edge. With no next request asserted, the
+ * fabric must become ready without forwarding the observational UART payload.
+ */
+@(posedge clk);
+#1;
+
+gpio_rsp_valid = 1'b0;
+
+assert (
+  cpu_req_ready &&
+  !timer_req_valid &&
+  !uart_req_valid &&
+  !data_req_valid &&
+  !gpio_req_valid
+)
+  else $fatal(
+    1,
+    "fabric did not return to the idle ready state after the GPIO response"
+  );
+
+// Present the next request only after the previous response has retired.
+@(negedge clk);
     // An unmapped store must select only the registered default target.
     set_request(32'h4000_0000, 1'b1, MEM_SIZE_WORD,
                 32'hdead_beef, 4'b1111);
@@ -282,15 +413,17 @@ module tb_soc_data_fabric;
     #1;
     data_rsp_valid = 1'b0;
 
-    assert (cpu_accept_count == 6)
+    assert (cpu_accept_count == 7)
       else $fatal(1, "CPU acceptance count mismatch: %0d", cpu_accept_count);
     assert (timer_accept_count == 1)
       else $fatal(1, "timer acceptance count mismatch: %0d", timer_accept_count);
     assert (uart_accept_count == 1)
       else $fatal(1, "UART acceptance count mismatch: %0d", uart_accept_count);
+    assert (gpio_accept_count == 1)
+      else $fatal(1, "GPIO acceptance count mismatch: %0d", gpio_accept_count);
     assert (data_accept_count == 2)
       else $fatal(1, "RAM acceptance count mismatch: %0d", data_accept_count);
-    assert (cpu_response_count == 6)
+    assert (cpu_response_count == 7)
       else $fatal(1, "response count mismatch: %0d", cpu_response_count);
 
     $display("[SOC-DATA-FABRIC-TB] RESULT: PASS");

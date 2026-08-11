@@ -40,7 +40,10 @@ The active core also includes `src/core/radix2_divider.sv`, a kill-safe
   RX errors.
 - `src/periph/uart_tx.sv` — parameterized valid/ready 8N1 TX shifter.
 - `src/periph/uart_rx.sv` — synchronized midpoint-sampling 8N1 RX engine.
-- `src/riscv_soc.sv` — SoC wrapper that connects the CPU to program RAM and routes its data bus through the fabric to timer/UART/RAM/default targets.
+- `src/periph/core_bus_gpio.sv` — registered output-only GPIO MMIO target with
+  parameterized pin width, partial-write merge, readback, and invalid-access
+  errors.
+- `src/riscv_soc.sv` — SoC wrapper that connects the CPU to program RAM and routes its data bus through the fabric to timer/UART/GPIO/RAM/default targets.
 - `src/mem/prog_ram.sv` — synchronous instruction/program RAM.
 - `src/mem/data_ram.sv` — synchronous data RAM, now written as a pure BRAM template.
 - `sim/tb/tb_riscv_core.sv` — main testbench that loads `testdata/prog.hex` and checks the CPU.
@@ -109,6 +112,13 @@ vsim -c -do run_core_bus_uart.do
 vsim -c -do run_core_bus_uart_rx.do
 ```
 
+### Run the focused GPIO test
+
+```bash
+cd sim
+vsim -c -do run_core_bus_gpio.do
+```
+
 ### Run the focused Phase 3 tests
 
 ```bash
@@ -122,10 +132,11 @@ The two end-to-end timer tests are selected from
 `sim/regress/phase3_tests.json`; one checks precise WFI/interrupt behavior and
 the other checks 10,000 repeated timer interrupts.
 
-The Phase 4 UART vertical slices are selected from
+The Phase 4 peripheral vertical slices are selected from
 `sim/regress/phase4_tests.json`. One runs TX polling firmware and decodes
 `Hello, UART!\r\n`; the other drives 16 serial bytes into `uart_rx_i`, has
 firmware poll/echo them, and decodes `RX FIFO 16 OK!\r\n` from `uart_tx_o`.
+The GPIO run writes/reads five values and independently checks `gpio_out_o`.
 
 `run.do` does the following:
 
@@ -148,7 +159,8 @@ configured `tohost` address:
 ### Current filelist notes
 
 - `sim/filelist.f` includes `regfile.sv`, `lsu.sv`, `core_ctrl.sv`,
-  `retire_stage.sv`, `mtime_timer.sv`, `core_bus_uart.sv`, and `uart_tx.sv`.
+  `retire_stage.sv`, `mtime_timer.sv`, `core_bus_uart.sv`, `uart_tx.sv`,
+  `uart_rx.sv`, and `core_bus_gpio.sv`.
 - `tb_riscv_core.sv` uses parameterized relative test-image paths.
 - `tb_riscv_soc.sv` is the Phase 2 SoC integration environment. The
   separate `sim/regress/soc_red_tests.json` manifest selects it for unmapped

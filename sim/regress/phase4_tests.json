@@ -20,6 +20,13 @@
       "timeout_cycles": 30000,
       "uart_rx_echo_enable": true,
       "tags": ["phase4", "soc", "uart", "rx", "fifo", "echo", "serial"]
+    },
+    {
+      "name": "soc_gpio_out",
+      "image": "testdata/soc_gpio_out_test.hex",
+      "timeout_cycles": 5000,
+      "gpio_check_enable": true,
+      "tags": ["phase4", "soc", "gpio", "mmio", "waveform"]
     }
   ]
 }

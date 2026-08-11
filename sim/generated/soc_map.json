@@ -93,6 +93,13 @@
       "offset": 12,
       "region": "uart",
       "width_bits": 32
+    },
+    {
+      "address": 268439552,
+      "name": "gpio_out",
+      "offset": 0,
+      "region": "gpio",
+      "width_bits": 32
     }
   ],
   "schema_version": 1,

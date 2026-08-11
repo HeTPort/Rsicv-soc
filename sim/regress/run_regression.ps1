@@ -260,6 +260,9 @@ try {
         if ($null -ne $testCase.PSObject.Properties["uart_rx_echo_enable"]) {
             $vsimArgs += "-gUART_RX_ECHO_ENABLE=$([int][bool]$testCase.uart_rx_echo_enable)"
         }
+        if ($null -ne $testCase.PSObject.Properties["gpio_check_enable"]) {
+            $vsimArgs += "-gGPIO_CHECK_ENABLE=$([int][bool]$testCase.gpio_check_enable)"
+        }
         if (-not [string]::IsNullOrWhiteSpace($dataImagePath)) {
             $modelSimDataImagePath = $dataImagePath.Replace("\", "/")
             $vsimArgs += "-gDATA_FILE=$modelSimDataImagePath"

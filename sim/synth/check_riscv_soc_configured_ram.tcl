@@ -44,6 +44,7 @@ set rtl_files [list \
   [file join $repo_root src periph uart_tx.sv] \
   [file join $repo_root src periph uart_rx.sv] \
   [file join $repo_root src periph core_bus_uart.sv] \
+  [file join $repo_root src periph core_bus_gpio.sv] \
   [file join $repo_root src bus soc_data_fabric.sv] \
   [file join $repo_root src core riscv.sv] \
   [file join $repo_root src riscv_soc.sv] \

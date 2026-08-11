@@ -21,6 +21,7 @@ module tb_riscv_soc #(
   parameter int DATA_RSP_WAIT_CYCLES = 0,
   parameter bit UART_CHECK_ENABLE = 1'b0,
   parameter bit UART_RX_ECHO_ENABLE = 1'b0,
+  parameter bit GPIO_CHECK_ENABLE = 1'b0,
   parameter bit DATA_FORCE_ERROR = 1'b0,
   parameter bit DATA_ERROR_ADDR_ENABLE = 1'b0,
   parameter logic [31:0] DATA_ERROR_ADDR = '0
@@ -33,6 +34,7 @@ module tb_riscv_soc #(
   localparam int UART_CLKS_PER_BIT =
       (UART_CLK_FREQ_HZ + (UART_BAUD_RATE / 2)) / UART_BAUD_RATE;
   localparam int UART_EXPECTED_BYTES = UART_RX_ECHO_ENABLE ? 16 : 14;
+  localparam int GPIO_EXPECTED_TRANSITIONS = 5;
 
   logic clk;
   logic rst_n;
@@ -48,12 +50,14 @@ module tb_riscv_soc #(
   logic cpu_rst_n;
   logic uart_tx;
   logic uart_rx;
+  logic [7:0] gpio_out;
 
   logic [DW-1:0] tohost_val;
   logic tohost_seen;
   logic [63:0] expected_commit_order;
   integer cycle_count;
   integer uart_byte_count;
+  integer gpio_transition_count;
 
   assign cpu_rst_n = rst_n && load_done;
 
@@ -103,8 +107,22 @@ module tb_riscv_soc #(
     .reg_s11     (reg_s11),
     .commit_o    (commit),
     .trap_entry_o(trap_entry),
-    .uart_tx_o  (uart_tx)
+    .uart_tx_o  (uart_tx),
+    .gpio_out_o (gpio_out)
   );
+
+  function automatic logic [7:0] expected_gpio_value(input integer index);
+    begin
+      unique case (index)
+        0: expected_gpio_value = 8'h01;
+        1: expected_gpio_value = 8'h02;
+        2: expected_gpio_value = 8'h04;
+        3: expected_gpio_value = 8'h08;
+        4: expected_gpio_value = 8'ha5;
+        default: expected_gpio_value = 8'hxx;
+      endcase
+    end
+  endfunction
 
   function automatic logic [7:0] expected_uart_byte(input integer index);
     begin
@@ -221,6 +239,28 @@ module tb_riscv_soc #(
   end
 
   initial begin
+    gpio_transition_count = 0;
+    if (GPIO_CHECK_ENABLE) begin
+      wait (cpu_rst_n == 1'b1);
+      assert (gpio_out == 8'h00)
+        else $fatal(1, "GPIO reset value mismatch: got 0x%02h", gpio_out);
+      forever begin
+        @(gpio_out);
+        if (cpu_rst_n) begin
+          assert (gpio_transition_count < GPIO_EXPECTED_TRANSITIONS)
+            else $fatal(1, "GPIO produced more transitions than expected");
+          assert (gpio_out == expected_gpio_value(gpio_transition_count))
+            else $fatal(1,
+              "GPIO transition %0d mismatch: got 0x%02h expected 0x%02h",
+              gpio_transition_count, gpio_out,
+              expected_gpio_value(gpio_transition_count));
+          gpio_transition_count = gpio_transition_count + 1;
+        end
+      end
+    end
+  end
+
+  initial begin
     if (DUMP_WAVES) begin
       $dumpfile("tb_riscv_soc.vcd");
       $dumpvars(0, tb_riscv_soc);
@@ -293,6 +333,12 @@ module tb_riscv_soc #(
         assert (uart_byte_count == UART_EXPECTED_BYTES)
           else $fatal(1, "UART byte count mismatch: got %0d expected %0d",
                       uart_byte_count, UART_EXPECTED_BYTES);
+      end
+      if (GPIO_CHECK_ENABLE) begin
+        assert (gpio_transition_count == GPIO_EXPECTED_TRANSITIONS)
+          else $fatal(1,
+            "GPIO transition count mismatch: got %0d expected %0d",
+            gpio_transition_count, GPIO_EXPECTED_TRANSITIONS);
       end
       $display("[TB] RESULT: PASS");
       $display("============================================================");

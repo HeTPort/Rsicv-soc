@@ -2,9 +2,9 @@
 
 [`soc_map.json`](soc_map.json) is the authoritative machine-readable source for
 the accepted first FreeRTOS SoC map. It describes
-`freertos_split_64k_v1`; `status: accepted` freezes the hardware/software ABI
-for Phase 2 implementation but does not claim that current RTL or software has
-implemented it.
+`freertos_split_64k_v1`; `status: accepted` freezes the hardware/software ABI.
+Implementation status is tracked separately because a map definition alone
+does not create decoder or peripheral behavior.
 
 ## Generate and check
 
@@ -27,10 +27,10 @@ review the complete diff, and run `--check`.
 |---|---|---|
 | `config/soc_map.json` | Sole editable definition and lifecycle status | Input to the generator |
 | `tools/gen_soc_map.py` | Schema/semantic validation and deterministic rendering | Developer and CI command |
-| `src/generated/soc_mem_map_pkg.sv` | RTL bases, bounds, byte sizes, word depths, timer registers, and default-target policy | Accepted RTL contract; Phase 2 decoder integration pending |
-| `firmware/include/soc_memory_map.h` | C-visible addresses and sizes | Accepted firmware contract; startup/drivers pending |
+| `src/generated/soc_mem_map_pkg.sv` | RTL bases, bounds, byte sizes, word depths, peripheral registers, and default-target policy | Consumed by the implemented SoC decoder/targets |
+| `firmware/include/soc_memory_map.h` | C-visible addresses, sizes, and registers including `SOC_GPIO_OUT_ADDR` | Generated firmware contract; reusable driver stack pending |
 | `firmware/linker/soc_memory.ldh` | GNU linker `MEMORY` regions and reserved `tohost` symbol | Accepted linker fragment; complete firmware linker pending |
-| `sim/generated/soc_map.json` | Normalized numeric data for Python/PowerShell/test consumers | Future address-aware regression integration |
+| `sim/generated/soc_map.json` | Normalized numeric data for Python/PowerShell/test consumers | Generated simulation contract |
 | `sim/generated/soc_map.tcl` | Vivado-safe scalar values | Used by `check_riscv_soc_configured_ram.tcl` |
 | `sim/generated/soc_ram_utilization_profiles.tcl` | Named candidate bank capacities and derived word depths | Used by the paired 16 KiB/64 KiB synthesis comparison |
 | `verif/act4/generated_memory_map.yaml` | Accepted map fragment | Future ACT4/UDB integration; not a complete UDB file |
@@ -46,10 +46,12 @@ automatically.
 
 ## Boundary between acceptance and implementation
 
-Current directed tests still use the implemented legacy map and their existing
-`tohost` values. The accepted generated contract must replace those values only
-when the decoder, base subtraction, instruction error path, linker, images, and
-tests change together in Phase 2.
+The implemented decoder now consumes the accepted timer, UART, GPIO, data-RAM,
+default-target, and `tohost` definitions. `gpio_out` at region-local `0x00`
+generates `SOC_GPIO_OUT_ADDR=0x10001000` for SystemVerilog and C plus the
+corresponding normalized simulation definition. The register's R/W behavior,
+strobes, response timing, and side effects remain the responsibility of
+`core_bus_gpio.sv`; `permissions: "rw"` is a region-level contract, not RTL.
 
 The generated capacity profiles drive a paired physical-resource experiment:
 

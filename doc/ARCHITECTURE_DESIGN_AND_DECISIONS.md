@@ -4,13 +4,13 @@
 
 **Audience:** Designers, reviewers, learners, and future maintainers
 
-**Last updated:** 2026-08-09
+**Last updated:** 2026-08-11
 
-**Current milestone:** Phases 1–3 are complete. AR-020/AR-021 implement and
-verify the Phase 4 polling-UART TX/RX vertical slices using the accepted
-`freertos_split_64k_v1` map and registered fabric contract. RX uses a
-parameterized default 16-byte FIFO. GPIO, UART interrupts/PLIC, the broader
-firmware stack, FreeRTOS, and exact-board validation remain open.
+**Current milestone:** Phases 1–4 are complete in RTL simulation and OOC
+synthesis. AR-020/AR-021 implement polling UART TX/RX; AR-022 implements a
+parameterized output GPIO using the accepted `freertos_split_64k_v1` map and
+registered fabric contract. UART interrupts/PLIC, the broader firmware stack,
+FreeRTOS, and exact-board validation remain open.
 
 > This is the consolidated record of what the architecture is, why it evolved
 > this way, what was learned while fixing problems, and which decisions remain
@@ -94,9 +94,10 @@ flowchart LR
     DBRAM["Synchronous data RAM"]
     TIMER["Registered mtime/mtimecmp target"]
     UART["UART MMIO + TX holding + RX FIFO"]
+    GPIO["GPIO_OUT MMIO register"]
     TX["8N1 UART shifter"]
     RX["2-flop sync + 8N1 RX sampler"]
-    FABRIC["Timer/UART/RAM/default fabric"]
+    FABRIC["Timer/UART/GPIO/RAM/default fabric"]
 
     subgraph CPU["riscv"]
       FETCH["PC + accepted-request tag"]
@@ -120,10 +121,12 @@ flowchart LR
   LSU -->|"request valid/ready"| FABRIC
   FABRIC --> TIMER
   FABRIC --> UART --> TX -->|"uart_tx_o"| PIN["Serial pin"]
+  FABRIC --> GPIO -->|"gpio_out_o"| GPIOPIN["Output pins"]
   RXPIN["uart_rx_i"] --> RX --> UART
   FABRIC --> ADAPTER --> DBRAM
   TIMER -->|"response + MTIP"| FABRIC
   UART -->|"registered response"| FABRIC
+  GPIO -->|"registered response"| FABRIC
   DBRAM --> ADAPTER -->|"response"| FABRIC --> LSU
   LSU -->|"one completed memory-result packet"| EXWB
   RETIRE -->|"GPR write-first path"| DECODE
@@ -151,11 +154,13 @@ Key boundary facts:
 - `retire_stage.sv` owns RF/CSR/trap/MRET/WFI/commit decisions;
   `csr_regfile.sv` owns storage, WARL preview, MTIP composition, and ordered
   state updates.
-- The fabric registers timer, UART, RAM, or default ownership from request acceptance
+- The fabric registers timer, UART, GPIO, RAM, or default ownership from request acceptance
   through response.
 - `core_bus_uart` owns MMIO legality, one queued TX byte, the parameterized RX
   FIFO/sticky errors, and its registered response. `uart_tx` owns only the
   active output frame; `uart_rx` owns synchronization and input-frame timing.
+- `core_bus_gpio` owns GPIO access legality, persistent output state, partial
+  write merging, and its registered response; `riscv_soc` exports the pins.
 
 ## 4. Governing architecture principles
 
@@ -428,9 +433,29 @@ Hardware error events win over simultaneous software clears. Explicit pointer
 wrapping keeps non-power-of-two depths legal.
 
 Focused RX/framing and bus/FIFO tests pass. End-to-end firmware receives 16
-serial bytes and echoes `RX FIFO 16 OK!\r\n`; Phase 4 is 2/2, Phase 3 is 2/2,
+serial bytes and echoes `RX FIFO 16 OK!\r\n`; at AR-021 closure Phase 4 was 2/2,
+Phase 3 was 2/2,
 smoke is 22/22, and Vivado OOC synthesis retains RX/TX hierarchy with 0 errors
 and 0 critical warnings. Interrupt service remains deferred until a PLIC phase.
+
+### Stage K — Memory-mapped output GPIO
+
+**Period:** 2026-08-11
+
+**State:** Complete through simulation and OOC synthesis; board pins deferred
+
+AR-022 adds a native `core_bus_gpio` target with a 32-bit R/W `GPIO_OUT`
+register, parameterized low-bit pin width/reset value, partial-write merge,
+readback, and side-effect-free invalid-access errors. The fabric translates
+`0x1000_1000` to local `0x00`, widens its owner enum to three bits, and retains
+`TARGET_GPIO` until the registered response.
+
+Focused target/fabric tests pass, including the corrected valid/ready
+back-pressure contract. Firmware writes and reads back five patterns while an
+independent scoreboard observes `gpio_out_o = 01, 02, 04, 08, A5`. Phase 4 is
+3/3, Phase 3 is 2/2, smoke is 22/22, and Vivado retains 20 GPIO-hierarchy
+objects with 0 errors and 0 critical warnings. Board top/XDC/electrical proof
+remains Phase 7.
 
 ## 6. Resolved problem decisions
 
@@ -1120,10 +1145,36 @@ same-cycle clear.
 
 **Consequences/evidence:** The FIFO provides bounded polling-latency tolerance,
 not flow control. Focused framing and 16-byte ordering/full/error tests pass;
-firmware echoes 16 pin-driven bytes as `RX FIFO 16 OK!\r\n`; Phase 4 is 2/2,
-Phase 3 is 2/2, smoke is 22/22, and OOC synthesis retains RX/TX hierarchy.
+firmware echoes 16 pin-driven bytes as `RX FIFO 16 OK!\r\n`; at AR-021 closure
+Phase 4 was 2/2, Phase 3 was 2/2, smoke was 22/22, and OOC synthesis retained
+RX/TX hierarchy.
 UART IRQ/PLIC and exact-board evidence remain deferred. Full details are in
 [`AR021_POLLING_UART_RX_FIFO.md`](AR021_POLLING_UART_RX_FIFO.md).
+
+### AR-022 — Memory-mapped GPIO output
+
+**State:** Implemented and verified through OOC synthesis; hardware validation deferred
+
+**Problem/root cause:** Reserving a GPIO region in the canonical map did not
+create register state, bus behavior, or an external pin connection. Adding the
+fifth target also exceeded the four encodings of the existing 2-bit owner enum.
+
+**Options:** Put the register in `riscv_soc`, bridge another peripheral bus, or
+add a native target. The native target was selected to preserve existing bus
+and ownership boundaries.
+
+**Decision:** `core_bus_gpio` owns a 32-bit R/W register at local `0x00`, with
+parameterized low-bit output width/reset value, legal byte/half/word merges,
+readback, registered responses, and no invalid side effects. The fabric owns
+full-address decode/local translation and a widened 3-bit `TARGET_GPIO` owner.
+
+**Consequences/evidence:** Focused target and fabric tests pass with zero
+errors; firmware readback and an independent five-transition pin scoreboard
+pass; Phase 4 is 3/3, Phase 3 is 2/2, smoke is 22/22, and Vivado retains 20
+GPIO-hierarchy objects. The original fabric error was traced to a testbench
+payload change while valid remained asserted under back-pressure; correcting
+the stimulus preserved the assertion. Full details are in
+[`AR022_MEMORY_MAPPED_GPIO_OUTPUT.md`](AR022_MEMORY_MAPPED_GPIO_OUTPUT.md).
 
 ## 9. Future stage architecture gates
 
@@ -1132,7 +1183,7 @@ UART IRQ/PLIC and exact-board evidence remain deferred. Full details are in
 | Phase 1: contract freeze | Complete: AR-009/AR-016 accept topology, byte map, faults, timer atomicity, and bus lifecycle | Accepted contract answers every address/access/error case |
 | Phase 2: external data bus | Complete: data decode/default, EX/WB response packet, precise data/instruction access faults, LSU FSM/backpressure | 4/4 SoC fault runs, data-fabric protocol suite, 22/22 smoke |
 | Phase 3: timer interrupt | Complete: MTIP ownership, effective eligibility, retirement boundary, MRET exclusion, logical WFI, timer target | Precise firmware plus 10,000 repeated interrupts, focused assertions, 22/22 smoke, OOC synthesis |
-| Phase 4: UART/GPIO | UART TX/RX complete: native registers, TX buffering, synchronized RX, default 16-byte FIFO, errors, decode/owner exclusivity; GPIO still open | UART focused tests, TX text, and RX echo scoreboards PASS; GPIO scoreboard pending |
+| Phase 4: UART/GPIO | Complete: native UART TX/RX plus parameterized output GPIO, registered target responses, and five-owner fabric exclusivity | UART focused tests, TX text, RX echo, GPIO target/fabric, readback, and pin waveform PASS |
 | Phase 5: firmware | Startup ABI, linker map, image split, drivers | Same bare-metal programs in simulation and FPGA |
 | Phase 6: FreeRTOS | Official port boundary, tick source, heap/stack policy | Context sentinels, preemption, queues, long run |
 | Phase 7: FPGA | Board part, clock/reset, XDC, BRAM init, frequency | Timing closure, utilization, UART/LED evidence |
@@ -1241,5 +1292,6 @@ An architecture-changing task is incomplete until this document is updated.
 - [AR-019 centralized data fabric](AR019_CENTRALIZED_DATA_FABRIC.md)
 - [AR-020 minimal polling UART TX](AR020_MINIMAL_POLLING_UART_TX.md)
 - [AR-021 polling UART RX and parameterized FIFO](AR021_POLLING_UART_RX_FIFO.md)
+- [AR-022 memory-mapped GPIO output](AR022_MEMORY_MAPPED_GPIO_OUTPUT.md)
 - [ACT4 integration handoff](ACT4_RV32I_INTEGRATION_HANDOFF_2026-07-27.md)
 - [ACT4 integration guide](../verif/act4/README.md)

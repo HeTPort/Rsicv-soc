@@ -16,9 +16,9 @@ introduction.
 
 ## Current development status
 
-Phases 1–3 are complete. Phase 4 now has a bidirectional polling UART: a queued
-TX path and a parameterized RX FIFO with a default depth of 16 bytes. GPIO and
-physical-board validation remain open, so Phase 4 is not yet closed.
+Phases 1–4 are complete in RTL simulation and out-of-context synthesis. Phase
+4 provides a bidirectional polling UART and a parameterized output GPIO.
+Physical-board validation remains a later gate.
 
 | Area | Implemented now |
 |---|---|
@@ -28,10 +28,11 @@ physical-board validation remain open, so Phase 4 is not yet closed.
 | Privilege | Machine CSRs, legality/WARL behavior, precise synchronous exceptions and timer interrupts |
 | WFI | Retires once, then enters a logical wait state until an eligible interrupt |
 | Memory | Synchronous program/data RAM, one-outstanding LSU, byte lanes, alignment, wait states, and access faults |
-| Fabric | Registered response-owner mux for timer, UART, RAM, and default error target |
+| Fabric | Registered response-owner mux for timer, UART, GPIO, RAM, and default error target |
 | Timer | 64-bit `mtime`/`mtimecmp`, MTIP level, local offsets `0xBFF8`/`0x4000` |
 | UART | Polling 8N1 TX and RX, default 16-byte RX FIFO, sticky overrun/framing errors |
-| Verification | Focused protocol tests, 22/22 smoke, 47/47 applicable ACT4 I/M, Phase 3 2/2, Phase 4 2/2 |
+| GPIO | 32-bit R/W MMIO register driving parameterized low output bits; default width 8 |
+| Verification | Focused protocol tests, 22/22 smoke, 47/47 applicable ACT4 I/M, Phase 3 2/2, Phase 4 3/3 |
 | FPGA | BRAM and complete SoC hierarchy synthesize OOC; board constraints and hardware testing remain open |
 | Software | Directed assembly firmware exists; startup/runtime drivers and FreeRTOS integration remain open |
 
@@ -48,6 +49,7 @@ flowchart LR
   EX --> LSU["LSU: one outstanding request"] --> FABRIC["SoC data fabric"]
   FABRIC --> TIMER["mtime / mtimecmp"]
   FABRIC --> UART["UART MMIO"]
+  FABRIC --> GPIO["GPIO_OUT MMIO"] --> GPIOPIN["gpio_out_o"]
   FABRIC --> DRAM["Synchronous data RAM"]
   FABRIC --> ERR["Default error target"]
   LSU --> RETIRE["EX-WB / retire_stage"]
@@ -97,6 +99,17 @@ See the [Phase 4 UART guide](docs/phase4-uart-guide.md),
 [AR-020 TX](doc/AR020_MINIMAL_POLLING_UART_TX.md), and
 [AR-021 RX FIFO](doc/AR021_POLLING_UART_RX_FIFO.md).
 
+## GPIO: the current LED/output path
+
+`GPIO_OUT` is a 32-bit R/W register at `0x1000_1000`. Its low
+`GPIO_WIDTH` bits drive `gpio_out_o`; the default width is eight and the
+default reset value is zero. Legal byte, aligned halfword, and aligned word
+writes merge only their selected lanes. Invalid offsets, alignment, or strobes
+return a registered error and cannot change the output.
+
+See the [Phase 4 GPIO guide](docs/phase4-gpio-guide.md) and
+[AR-022](doc/AR022_MEMORY_MAPPED_GPIO_OUTPUT.md).
+
 ## Verification evidence
 
 Tests report completion through a committed store to `tohost`: value 1 is
@@ -109,10 +122,10 @@ marker, and zero ModelSim errors, preventing PASS-looking false positives.
 | Smoke regression | 22/22 PASS | Directed CPU, CSR, trap, LSU, and bus behavior |
 | Applicable ACT4 | 47/47 PASS | 39 RV32I and 8 RV32M architectural cases |
 | Phase 3 | 2/2 PASS | Precise timer/WFI behavior and long-duration timer run |
-| Phase 4 | 2/2 PASS | Serial `Hello, UART!` plus 16-byte RX-to-TX firmware echo |
+| Phase 4 | 3/3 PASS | UART text, 16-byte RX-to-TX echo, and GPIO pin waveform/readback |
 | SoC-map generator unit tests | 9/9 PASS | Canonical map validation and generated addresses |
 | UART focused tests | PASS | TX/RX framing, FIFO order/full/error/W1C, and bus semantics |
-| Vivado 2019.2 OOC SoC check | PASS | 0 errors/critical warnings; BRAM, LSU, UART RX/TX hierarchy retained |
+| Vivado 2019.2 OOC SoC check | PASS | 0 errors/critical warnings; BRAM, LSU, UART RX/TX, and GPIO hierarchy retained |
 
 The Phase 4 echo test drives actual 8N1 waveforms into `uart_rx_i`. Firmware
 polls and drains a 16-byte stream, writes each byte to TX, and an independent
@@ -137,7 +150,7 @@ Set-Location .\sim
 vsim -do run.do
 ```
 
-### Focused UART and fabric tests
+### Focused peripheral and fabric tests
 
 From `sim/`:
 
@@ -146,6 +159,7 @@ vsim -c -do run_uart_tx.do
 vsim -c -do run_uart_rx.do
 vsim -c -do run_core_bus_uart.do
 vsim -c -do run_core_bus_uart_rx.do
+vsim -c -do run_core_bus_gpio.do
 vsim -c -do run_soc_data_fabric.do
 ```
 
@@ -202,7 +216,7 @@ src/
   bus/        RAM adapter, SoC fabric, and default error target
   generated/  Generated SoC-map SystemVerilog constants
   mem/        Synchronous program and data RAM
-  periph/     Machine timer, UART MMIO, UART TX, and UART RX
+  periph/     Machine timer, UART MMIO/TX/RX, and GPIO MMIO
   riscv_soc.sv
 
 sim/
@@ -227,13 +241,12 @@ phase defines a real interface; empty future placeholders are not kept.
 
 The next practical steps are:
 
-1. add a simple native-bus GPIO target and complete the Phase 4 combined gate;
-2. create startup code, UART/timer/GPIO headers and small polling drivers;
-3. run bare-metal UART loopback and timer-interrupt programs;
-4. integrate the official FreeRTOS RISC-V port and validate context switching;
-5. add a board-specific top, reset/clock conditioning, XDC pins, and BRAM init;
-6. close post-route timing and test UART/GPIO/timer behavior on the FPGA;
-7. add UART interrupts/PLIC only after the polling baseline is stable on
+1. create startup code, UART/timer/GPIO headers and small polling drivers;
+2. run bare-metal UART loopback and timer-interrupt programs;
+3. integrate the official FreeRTOS RISC-V port and validate context switching;
+4. add a board-specific top, reset/clock conditioning, XDC pins, and BRAM init;
+5. close post-route timing and test UART/GPIO/timer behavior on the FPGA;
+6. add UART interrupts/PLIC only after the polling baseline is stable on
    hardware.
 
 You do not need to connect the FPGA board to develop or verify the RTL. You do

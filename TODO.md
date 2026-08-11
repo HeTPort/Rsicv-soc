@@ -446,11 +446,12 @@ interrupts and returns correctly, with the complete smoke regression green.
 
 ## Phase 4 — Add minimal peripherals
 
-**Status:** in progress. Polling UART TX/RX are complete through simulation and
-OOC synthesis; GPIO, UART interrupts/PLIC, and physical-board UART validation
-remain open. See
+**Status:** complete in RTL simulation and OOC synthesis (2026-08-11).
+Polling UART TX/RX and output GPIO satisfy the Phase 4 exit gate. UART
+interrupts/PLIC and physical-board validation remain deliberately deferred. See
 [`doc/AR020_MINIMAL_POLLING_UART_TX.md`](doc/AR020_MINIMAL_POLLING_UART_TX.md)
-and [`doc/AR021_POLLING_UART_RX_FIFO.md`](doc/AR021_POLLING_UART_RX_FIFO.md).
+[`doc/AR021_POLLING_UART_RX_FIFO.md`](doc/AR021_POLLING_UART_RX_FIFO.md), and
+[`doc/AR022_MEMORY_MAPPED_GPIO_OUTPUT.md`](doc/AR022_MEMORY_MAPPED_GPIO_OUTPUT.md).
 
 **Purpose:** provide observable hardware behavior and a FreeRTOS console.
 
@@ -470,24 +471,24 @@ and [`doc/AR021_POLLING_UART_RX_FIFO.md`](doc/AR021_POLLING_UART_RX_FIFO.md).
 
 ### GPIO
 
-- [ ] Implement a memory-mapped output register for LEDs.
-- [ ] Parameterize output width and define reset value.
-- [ ] Add byte-strobe and readback tests.
+- [x] Implement a memory-mapped output register for LEDs.
+- [x] Parameterize output width and define reset value.
+- [x] Add byte-strobe and readback tests.
 
 ### Integration
 
 - [x] Add UART address decode and registered response ownership to the SoC bus.
-- [ ] Add GPIO address decode when its target contract is implemented.
-- [x] Verify RAM, timer, UART, and default targets cannot accept/respond to one
+- [x] Add GPIO address decode and registered response ownership.
+- [x] Verify RAM, timer, UART, GPIO, and default targets cannot accept/respond to one
   request simultaneously.
 - [x] Add a SoC-level polling program whose decoded UART output is
   `Hello, UART!\r\n`.
 - [x] Add a SoC-level RX echo program whose decoded output is
   `RX FIFO 16 OK!\r\n`.
-- [ ] Extend the SoC-level peripheral program/scoreboard with GPIO output.
+- [x] Extend the SoC-level peripheral program/scoreboard with GPIO output.
 
-**Exit gate:** ModelSim decodes the expected UART text and observes the expected
-GPIO waveform from a bare-metal program.
+**Exit gate:** satisfied. ModelSim decodes the expected UART text and observes
+the `01 -> 02 -> 04 -> 08 -> A5` GPIO waveform from bare-metal programs.
 
 ---
 

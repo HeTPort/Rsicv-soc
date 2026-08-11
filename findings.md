@@ -200,3 +200,27 @@
 - Physical-board proof is a later and distinct obligation: exact clock error,
   XDC pins, I/O voltage, reset polarity, and USB-UART crossover are not proven
   by simulation or OOC synthesis.
+
+## Phase 4 GPIO completion
+
+- The canonical `gpio_out` register and all content-changing generated
+  consumers are current; generator freshness and 9/9 unit tests pass.
+- The standalone `core_bus_gpio` target is GREEN at 210 ns. It proves reset,
+  width masking, readback, byte-lane merge, malformed-access errors, no invalid
+  side effects, and a one-cycle registered response.
+- The initial fabric test reached RED at elaboration because the fabric had no
+  GPIO parameters or ports. The implemented fabric now decodes the full GPIO
+  window, translates to local offsets, and registers `TARGET_GPIO`.
+- The fabric test must use a fake GPIO responder. Target register behavior and
+  full-address routing are separate ownership boundaries and should not be
+  coupled in one focused test.
+- GPIO becomes the fifth target (timer, UART, GPIO, RAM, default), so the 2-bit
+  registered-owner enum widened to 3 bits.
+- A fabric stability error was caused by invalid testbench stimulus: it changed
+  a request payload while `valid=1` and `ready=0`. Keeping valid low while
+  changing observational address bits proves registered response ownership
+  without violating the upstream protocol.
+- GPIO integration is GREEN through firmware and pins. Firmware reads back five
+  writes, and the testbench independently observes `01,02,04,08,A5`.
+- OOC synthesis retains the GPIO hierarchy. Physical pin binding remains a
+  board-top/XDC responsibility rather than a GPIO-target responsibility.

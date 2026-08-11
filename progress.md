@@ -197,3 +197,36 @@
   UART RX/TX hierarchy.
 - Added AR-021 and updated the semantic specification, both consolidated living
   documents, TODO, Phase 4 guide, AGENTS, regression instructions, and README.
+
+## Phase 4 GPIO audit — 2026-08-10
+
+- Confirmed the user-authored canonical register propagation and passed map
+  freshness plus 9/9 generator tests.
+- Ran `run_core_bus_gpio.do`: PASS at 210 ns, zero errors.
+- Ran the extended fabric contract: expected RED at elaboration because
+  `soc_data_fabric` does not yet expose `GPIO_BASE`, `GPIO_END`, or GPIO target
+  ports.
+- Recorded the remaining ordered work in `task_plan.md`; no GPIO integration
+  RTL, firmware, synthesis, or living architecture documents were changed by
+  this audit.
+
+## Phase 4 GPIO completion — 2026-08-11
+
+- Extended `soc_data_fabric` with GPIO decode/local translation, a 3-bit
+  five-target owner enum, response routing, overlap checks, and symmetric
+  mutual-exclusion/owner assertions.
+- Corrected the fabric testbench handshake violation that changed request
+  payload under back-pressure; focused fabric passes at 176 ns with zero
+  errors, and the standalone GPIO target remains GREEN at 210 ns.
+- Instantiated `core_bus_gpio` in `riscv_soc`, exposed parameterized
+  `gpio_out_o`, and added GPIO to every simulation/Vivado source boundary.
+- Added `soc_gpio_out_test.S/.hex`, a Phase 4 manifest entry, firmware readback,
+  and an independent pin scoreboard for `01,02,04,08,A5`.
+- Verification is GREEN: Phase 4 3/3, Phase 3 2/2 including 10,000 interrupts,
+  smoke 22/22, canonical map freshness, and 9/9 generator tests.
+- Vivado 2019.2 OOC passes with 0 errors/critical warnings, retaining 32 BRAMs,
+  two LSU-state cells, 389 UART objects, and 20 GPIO objects.
+- Added AR-022 and the Phase 4 GPIO guide; updated semantic definitions,
+  consolidated living documents, TODO, README, AGENTS, regression instructions,
+  diagrams, gates, risks, and this persistent plan. Phase 4 is complete in
+  simulation/OOC; exact-board validation remains deferred.
