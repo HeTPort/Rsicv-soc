@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "defaults": {
+    "top": "work.tb_riscv_soc",
+    "tohost_addr": 2147549180,
+    "prog_ram_depth": 16384,
+    "data_ram_depth": 16384
+  },
+  "tests": [
+    {
+      "name": "soc_data_image",
+      "image": "testdata/soc_data_image_test.hex",
+      "data_image": "testdata/soc_data_image_test_data.hex",
+      "timeout_cycles": 2000,
+      "tags": ["phase5", "soc", "startup", "data-image", "plumbing"]
+    },
+    {
+      "name": "firmware_hello",
+      "image": "testdata/firmware_hello.imem.hex",
+      "data_image": "testdata/firmware_hello.dmem.hex",
+      "timeout_cycles": 30000,
+      "uart_check_enable": true,
+      "tags": ["phase5", "soc", "startup", "c", "uart", "serial"]
+    },
+    {
+      "name": "firmware_timer_gpio",
+      "image": "testdata/firmware_timer_gpio.imem.hex",
+      "data_image": "testdata/firmware_timer_gpio.dmem.hex",
+      "timeout_cycles": 10000,
+      "gpio_check_enable": true,
+      "tags": ["phase5", "soc", "c", "timer", "polling", "gpio"]
+    },
+    {
+      "name": "firmware_timer_irq",
+      "image": "testdata/firmware_timer_irq.imem.hex",
+      "data_image": "testdata/firmware_timer_irq.dmem.hex",
+      "timeout_cycles": 30000,
+      "timer_irq_check_enable": true,
+      "timer_irq_expected_count": 10,
+      "tags": ["phase5", "soc", "c", "timer", "interrupt", "mret"]
+    }
+  ]
+}

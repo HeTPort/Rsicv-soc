@@ -96,7 +96,8 @@ Implemented:
 - [x] Centralized full-address SoC data decoder and one-cycle registered default
   error target, plus registered instruction-access-fault reporting.
 - [x] Existing directed regression last verified at 22/22 passing, with
-  converter tests at 4/4 and the regression-result negative test passing.
+  converter/importer tests at 12/12 and the regression-result negative test
+  passing.
 
 Still missing:
 
@@ -108,7 +109,9 @@ Still missing:
   16-byte FIFO, sticky errors, and pin-to-firmware-to-pin echo scoreboard.
 - [x] Memory-mapped output GPIO peripheral with readback, partial writes,
   fabric ownership, firmware waveform checking, and OOC synthesis evidence.
-- [ ] Firmware startup code, linker script, drivers, and FreeRTOS application.
+- [x] Bare-metal startup code, linker script, split images, peripheral drivers,
+  and three C sanity applications.
+- [ ] FreeRTOS application.
 - [ ] FPGA top, XDC constraints, Vivado build script, and physical-board result.
 
 Current planning position:
@@ -125,6 +128,10 @@ Current planning position:
 - Phase 3 is complete. Phase 4 is complete in RTL simulation and OOC
   synthesis: polling UART TX/RX and output GPIO satisfy its combined exit
   gate. Physical pin validation remains Phase 7 work.
+- Phase 5 is complete in ModelSim and Vivado OOC synthesis: four firmware
+  slices pass and both ELF-derived BRAM images retain nonzero initialization.
+  Its physical-board exit evidence remains open and joins the Phase 7 board
+  work.
 - AR-014 accepted-map generation infrastructure is complete. AR-019 uses its
   SystemVerilog constants in the implemented data decoder/default target;
   remaining software/tool consumers continue in their owning later phases.
@@ -497,28 +504,30 @@ the `01 -> 02 -> 04 -> 08 -> A5` GPIO waveform from bare-metal programs.
 
 ## Phase 5 — Establish bare-metal firmware and FPGA sanity tests
 
-**Status:** implementation not started. The reset/runtime contract and ordered
-implementation/verification gates are defined in
-[`docs/phase5-startup-runtime-guide.md`](docs/phase5-startup-runtime-guide.md).
+**Status:** complete in ModelSim and Vivado OOC synthesis (2026-08-14);
+physical-board execution remains open. The reset/runtime contract, decisions,
+and verification evidence are recorded in
+[`docs/phase5-startup-runtime-guide.md`](docs/phase5-startup-runtime-guide.md)
+and [`doc/AR023_PHASE5_BARE_METAL_RUNTIME.md`](doc/AR023_PHASE5_BARE_METAL_RUNTIME.md).
 
 **Purpose:** separate CPU/peripheral/board failures from FreeRTOS port failures.
 
 - [x] Define the repository-specific reset-to-C contract, including the split
   BRAM `.data` preload policy, `.bss` clear, ABI-safe `sp`/`gp`, direct-mode
   `mtvec`, linker assertions, and verification ladder.
-- [ ] Extend `sim/regress/elf_to_mem.py` for ELF load segments split across the
+- [x] Extend `sim/regress/elf_to_mem.py` for ELF load segments split across the
   accepted program- and data-RAM regions, with positive and rejection tests.
-- [ ] Make `tb_riscv_soc.DATA_FILE` initialize data RAM before reset release and
+- [x] Make `tb_riscv_soc.DATA_FILE` initialize data RAM before reset release and
   forward reproducible program/data initialization parameters through the SoC
   synthesis boundary.
-- [ ] Add `sw/common/startup.S`: initialize `sp`/`gp`, set `mtvec`, initialize
+- [x] Add `sw/common/startup.S`: initialize `sp`/`gp`, set `mtvec`, initialize
   memory as required, and call `main`.
-- [ ] Add `sw/common/linker.ld` matching the final BRAM memory map.
-- [ ] Add minimal UART, GPIO, timer, and CSR headers/drivers.
-- [ ] Add a reproducible WSL build script using
+- [x] Add `sw/common/linker.ld` matching the final BRAM memory map.
+- [x] Add minimal UART, GPIO, timer, and CSR headers/drivers.
+- [x] Add a reproducible WSL build script using
   `riscv64-unknown-elf-gcc -march=rv32im_zicsr -mabi=ilp32`.
-- [ ] Produce ELF, disassembly, size report, instruction image, and data image.
-- [ ] Run three separate programs in simulation:
+- [x] Produce ELF, disassembly, size report, instruction image, and data image.
+- [x] Run three separate programs in simulation:
   1. UART `hello`;
   2. timer-polled LED toggle;
   3. timer-interrupt counter with `mret`.

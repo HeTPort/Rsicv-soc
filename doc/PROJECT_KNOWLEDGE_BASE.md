@@ -4,16 +4,14 @@
 
 **Audience:** New contributors and learners
 
-**Last updated:** 2026-08-11
+**Last updated:** 2026-08-14
 
-**Current reference:** `codex/phase2-act4-cleanup`. Phases 1–4 are complete in
-RTL simulation and out-of-context synthesis. The Phase 4 polling-UART TX/RX
-and memory-mapped output-GPIO vertical slices are implemented and verified.
-AR-020 adds queued 8N1 transmit; AR-021 adds a synchronized receiver, a
-parameterized default 16-byte FIFO, sticky errors, and an end-to-end echo
-scoreboard. AR-022 adds a parameterized output register and pin waveform
-scoreboard. UART interrupts/PLIC, the general firmware stack, FreeRTOS,
-physical clock gating, and exact-board validation remain open.
+**Current reference:** `codex/phase2-act4-cleanup`. Phases 1–4 are complete.
+Phase 5 is complete in ModelSim and Vivado OOC synthesis: AR-023 adds the split
+ELF/image path, reset-to-C runtime, linker, minimal drivers, three bare-metal
+programs, and FPGA-equivalent BRAM initialization evidence. Physical-board
+execution, FreeRTOS, physical clock/reset integration, and exact-board
+validation remain open.
 
 > Update this document whenever a change alters a module boundary, pipeline
 > timing, packet field, architectural behavior, memory map, verification
@@ -94,13 +92,22 @@ the minimal architecture needed for the first working system.
 - Separate AR-018 `tb_riscv_soc` contract manifest: all three data-path runs and
   the instruction-access-fault run are GREEN.
 - Official ACT4 baseline: 39/39 RV32I and 8/8 RV32M tests passing.
+- Split-region ELF conversion with generated map geometry, independent local
+  images, rejection tests, and optional ELF-tail `.bss` poison.
+- Reset-to-C startup with ABI-safe `sp`/`gp`, direct `mtvec`, active `.bss`
+  clearing, a split linker policy, and explicit failure paths.
+- Minimal CSR, UART, GPIO, timer, and `tohost` firmware drivers plus C UART,
+  timer-polled GPIO, and full-context timer-interrupt applications.
+- Phase 5 regression: 4/4 passing, including ten independently observed
+  timer interrupts and exact serial/GPIO scoreboards.
+- Vivado firmware INIT gate: 32 RAMB36E1 cells split 16 program/16 data, with
+  nonzero INIT properties in both image-loaded banks.
 
 ### Not implemented yet
 
 - GPIO input/direction/interrupt registers and other additional peripherals;
   polling UART TX/RX and output GPIO are implemented, while UART interrupts/
   PLIC are deferred.
-- Firmware startup/linker/driver stack.
 - FreeRTOS port integration.
 - Board top, constraints, timing closure, and physical FPGA result.
 
@@ -124,6 +131,7 @@ The current mapping is:
 | AR-011 | Early FPGA feasibility plus later timing closure |
 | AR-012 | Retirement owner/control-port cleanup implemented; `halt_o`/README cleanup remains |
 | AR-013 | Regression infrastructure fix, implemented and verified |
+| AR-023 | Phase 5 split-image runtime and bare-metal applications, verified in simulation/OOC; physical board pending |
 | AR-014 | Accepted-map generation infrastructure, implemented and verified |
 | AR-015 | Paired 16 KiB/64 KiB utilization/timing evidence, implemented and verified |
 | AR-016 | Core-to-SoC environment contract accepted; Phase 1 complete |
@@ -758,6 +766,7 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 ./run_regression.ps1 -Manifest ./phase4_tests.json -Test soc_uart_hello
 ./run_regression.ps1 -Manifest ./phase4_tests.json -Test soc_uart_echo
 ./run_regression.ps1 -Manifest ./phase4_tests.json -Test soc_gpio_out
+./run_regression.ps1 -Manifest ./phase5_tests.json -Tag phase5
 ./test_regression_result.ps1
 python -m unittest test_elf_to_mem.py test_import_act4.py
 ```
@@ -798,6 +807,21 @@ The verified result is 0 errors, 0 critical warnings, 32 retained BRAM cells,
 2 synthesized LSU-state cells, 389 UART-hierarchy objects, and 20
 GPIO-hierarchy objects. This is an OOC structural result, not exact-board
 timing closure.
+
+Phase 5 also has a dedicated initialization check using the exact firmware
+images produced by the bare-metal build:
+
+```powershell
+Set-Location D:\Rsicv-soc-worktrees\phase2-act4-cleanup\sim\synth
+& 'D:\vivado\Vivado\2019.2\bin\vivado.bat' `
+  -mode batch -source .\check_phase5_firmware_init.tcl
+```
+
+That check retains 16 program and 16 data `RAMB36E1` cells and finds nonzero
+initialization properties in both banks. It proves that Vivado consumes both
+images through the synthesizable top-level parameters; it does not prove the
+provisional part matches the final board or replace implementation/timing and
+pin-level testing.
 
 ### 13.2 Result reporting
 
@@ -870,10 +894,10 @@ Recommended waveform groups:
 | Memory-map implementation | Timer/UART/GPIO/RAM/default decode, 64 KiB RTL defaults, and fetch errors are implemented; future consumers must continue using generated constants | Continuous / AR-009/AR-014/AR-019/AR-022 |
 | Unmapped access faults | Data load/store and out-of-range instruction fetches trap precisely; redirect/stall edge cases need broader directed coverage | Continuous verification / AR-018 |
 | Interrupt boundary | Implemented and verified; broader randomized boundary coverage remains useful | Continuous verification / AR-008/AR-010 |
-| Timer | Implemented word-access timer; frequency calibration and firmware driver ABI remain | Phases 5-7 |
+| Timer | Implemented word-access timer and polling/interrupt firmware APIs; actual clock-frequency calibration remains | Phase 7 |
 | RV32M timing | Iterative divider passes 25/50 MHz OOC post-synthesis checks; exact-board routed closure and multiply-high margin remain | Phase 7 / AR-011/AR-017 |
 | Retirement ownership | `retire_stage` is the owner; obsolete `halt_o` and broader README cleanup remain | Cleanup / AR-012 |
-| Peripherals | Timer, polling UART TX/RX, and output GPIO are implemented; UART interrupts/PLIC and hardware validation remain open | Phases 5-7 |
+| Peripherals | Timer, polling UART TX/RX, output GPIO, and their Phase 5 drivers are implemented; UART interrupts/PLIC and hardware validation remain open | Phases 6-7 |
 | UART RX capacity | The 16-byte default FIFO tolerates bounded polling latency but sustained traffic can still overrun | Firmware must monitor errors; revisit interrupts/DMA only after board baseline |
 | Clock gating | Logical WFI is verified, but no safe FPGA clock gating is implemented | Phase 7 after board clock design |
 

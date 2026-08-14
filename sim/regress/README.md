@@ -11,6 +11,8 @@ logs, and returns a nonzero process status if any test fails.
 - `soc_red_tests.json` - isolated Phase 2 SoC contract cases for data and
   instruction access faults.
 - `phase3_tests.json` - precise timer/WFI and 10,000-interrupt Phase 3 cases.
+- `phase4_tests.json` - polling UART TX/RX and GPIO Phase 4 cases.
+- `phase5_tests.json` - split-image and reset-to-C Phase 5 firmware cases.
 - `run_regression.ps1` - Windows PowerShell orchestration and result checking.
 - `regression_result.ps1` - shared simulator result-classification policy.
 - `test_regression_result.ps1` - dependency-free positive/negative classifier
@@ -126,6 +128,26 @@ firmware drains the default 16-byte FIFO, echoes them, and passes only after
 The GPIO run writes and reads back five MMIO values while an independent
 scoreboard observes `gpio_out_o = 01, 02, 04, 08, A5`. This catches both target
 state errors and a missing SoC output connection.
+
+Build the Phase 5 C firmware from WSL with:
+
+```bash
+bash sw/build_firmware_wsl.sh --install hello timer_gpio timer_irq
+```
+
+The build emits ELF, map, readelf, disassembly, size, and independent local
+program/data images. It consumes `sim/generated/soc_map.json` rather than a
+second handwritten map. Run all Phase 5 slices with:
+
+```powershell
+./run_regression.ps1 -Manifest .\phase5_tests.json -Tag phase5
+```
+
+The hello case checks ABI/runtime invariants before decoding
+`Hello, UART!\r\n`. Its ELF-derived `.bss` tail is poisoned in the input data
+image, so observing zero proves startup cleared it. The timer/GPIO case checks
+timer-polled output/readback. The interrupt case independently requires ten
+machine-timer trap entries, full-context `mret` return, and final GPIO `0x0A`.
 
 Success produces process exit code `0`. Manifest, tool, compile, assertion,
 timeout, simulator, or architectural failures produce a nonzero exit code. The

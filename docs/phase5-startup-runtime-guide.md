@@ -17,9 +17,12 @@ reset
   -> never fall through into arbitrary memory
 ```
 
-This is an implementation guide, not a claim that the runtime already exists.
-The proposed `startup.S`, full linker script, split-image conversion, and SoC
-data-image load path remain Phase 5 work.
+As of 2026-08-14, the runtime described here is implemented and verified by
+the 4/4 Phase 5 ModelSim manifest and an exact-image Vivado OOC initialization
+check. The physical-board run remains open because the final part, clock/reset,
+XDC, and pin assignments have not been supplied. Detailed implementation and
+evidence are recorded in
+[`AR023_PHASE5_BARE_METAL_RUNTIME.md`](../doc/AR023_PHASE5_BARE_METAL_RUNTIME.md).
 
 The immediate goal is a small freestanding C program that:
 
@@ -759,19 +762,21 @@ Keep each step independently reviewable:
 
 ## 15. Completion checklist
 
-- [ ] `_start` is linked and loaded at `0x0000_0000`.
-- [ ] `sp` is linker-defined, inside data RAM, below `tohost`, and 16-byte aligned.
-- [ ] `gp` is initialized with the relaxation-safe psABI sequence.
-- [ ] `mtvec` points to an aligned direct-mode assembly entry before interrupts.
-- [ ] `.rodata` and `.data` are directly preloaded into data BRAM.
-- [ ] `.bss` is actively cleared and verified from a poisoned initial state.
-- [ ] Returning from `main` and unexpected traps report failure and loop.
-- [ ] Split ELF conversion has positive, boundary, and rejection tests.
-- [ ] `tb_riscv_soc.DATA_FILE` changes actual data-RAM contents.
-- [ ] Vivado uses the intended instruction and data BRAM initial contents.
-- [ ] ELF/map/disassembly/size artifacts are reproducible.
-- [ ] UART hello passes at the physical serial pin model and through `tohost`.
-- [ ] Existing focused, phase, smoke, map, and synthesis gates remain green.
+- [x] `_start` is linked and loaded at `0x0000_0000`.
+- [x] `sp` is linker-defined, inside data RAM, below `tohost`, and 16-byte aligned.
+- [x] `gp` is initialized with the relaxation-safe psABI sequence.
+- [x] `mtvec` points to an aligned direct-mode assembly entry before interrupts.
+- [x] `.rodata` and `.data` are directly preloaded into data BRAM.
+- [x] `.bss` is actively cleared and verified from a poisoned initial state.
+- [x] Returning from `main` and unexpected traps report failure and loop.
+- [x] Split ELF conversion has positive, boundary, and rejection tests.
+- [x] `tb_riscv_soc.DATA_FILE` changes actual data-RAM contents.
+- [x] Vivado uses the intended instruction and data BRAM initial contents.
+- [x] ELF/map/disassembly/size artifacts are reproducible.
+- [x] UART hello passes at the physical serial pin model and through `tohost`.
+- [x] Existing focused, phase, smoke, map, and synthesis gates remain green,
+      except the separately modified data-fabric test whose failure predates
+      Phase 5 work.
 
 ## 16. References
 

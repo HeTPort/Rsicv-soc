@@ -22,6 +22,8 @@ module tb_riscv_soc #(
   parameter bit UART_CHECK_ENABLE = 1'b0,
   parameter bit UART_RX_ECHO_ENABLE = 1'b0,
   parameter bit GPIO_CHECK_ENABLE = 1'b0,
+  parameter bit TIMER_IRQ_CHECK_ENABLE = 1'b0,
+  parameter int TIMER_IRQ_EXPECTED_COUNT = 10,
   parameter bit DATA_FORCE_ERROR = 1'b0,
   parameter bit DATA_ERROR_ADDR_ENABLE = 1'b0,
   parameter logic [31:0] DATA_ERROR_ADDR = '0
@@ -58,6 +60,7 @@ module tb_riscv_soc #(
   integer cycle_count;
   integer uart_byte_count;
   integer gpio_transition_count;
+  integer timer_irq_count;
 
   assign cpu_rst_n = rst_n && load_done;
 
@@ -78,6 +81,10 @@ module tb_riscv_soc #(
     #1ns;
     $display("[SOC-TB] Loading program image: %s", PROGRAM_FILE);
     $readmemh(PROGRAM_FILE, u_dut.u_prog_ram.mem);
+    if (DATA_FILE != "") begin
+      $display("[SOC-TB] Loading data image: %s", DATA_FILE);
+      $readmemh(DATA_FILE, u_dut.u_data_target.u_data_ram.mem);
+    end
     repeat (10) @(posedge clk);
     rst_n = 1'b1;
     repeat (2) @(posedge clk);
@@ -298,10 +305,13 @@ module tb_riscv_soc #(
   end
 
   always_ff @(posedge clk) begin
-    if (cpu_rst_n && trap_entry.valid) begin
+    if (!cpu_rst_n) begin
+      timer_irq_count <= 0;
+    end else if (trap_entry.valid) begin
       if (trap_entry.interrupt) begin
         assert (trap_entry.cause == MCAUSE_IRQ_M_TIMER && trap_entry.tval == '0)
           else $fatal(1, "Malformed machine-timer trap entry observation");
+        timer_irq_count <= timer_irq_count + 1;
       end
     end
   end
@@ -328,6 +338,8 @@ module tb_riscv_soc #(
     $display("[SOC-TB] tohost = 0x%08h", tohost_val);
     $display("[SOC-TB] x10    = 0x%08h", reg_s10);
     $display("[SOC-TB] x11    = 0x%08h", reg_s11);
+    $display("[SOC-TB] timer IRQs = %0d", timer_irq_count);
+    $display("[SOC-TB] GPIO pins  = 0x%02h", gpio_out);
     if (tohost_val == 32'd1) begin
       if (UART_CHECK_ENABLE || UART_RX_ECHO_ENABLE) begin
         assert (uart_byte_count == UART_EXPECTED_BYTES)
@@ -339,6 +351,12 @@ module tb_riscv_soc #(
           else $fatal(1,
             "GPIO transition count mismatch: got %0d expected %0d",
             gpio_transition_count, GPIO_EXPECTED_TRANSITIONS);
+      end
+      if (TIMER_IRQ_CHECK_ENABLE) begin
+        assert (timer_irq_count == TIMER_IRQ_EXPECTED_COUNT)
+          else $fatal(1,
+            "Timer interrupt count mismatch: got %0d expected %0d",
+            timer_irq_count, TIMER_IRQ_EXPECTED_COUNT);
       end
       $display("[TB] RESULT: PASS");
       $display("============================================================");

@@ -263,6 +263,12 @@ try {
         if ($null -ne $testCase.PSObject.Properties["gpio_check_enable"]) {
             $vsimArgs += "-gGPIO_CHECK_ENABLE=$([int][bool]$testCase.gpio_check_enable)"
         }
+        if ($null -ne $testCase.PSObject.Properties["timer_irq_check_enable"]) {
+            $vsimArgs += "-gTIMER_IRQ_CHECK_ENABLE=$([int][bool]$testCase.timer_irq_check_enable)"
+        }
+        if ($null -ne $testCase.PSObject.Properties["timer_irq_expected_count"]) {
+            $vsimArgs += "-gTIMER_IRQ_EXPECTED_COUNT=$([int]$testCase.timer_irq_expected_count)"
+        }
         if (-not [string]::IsNullOrWhiteSpace($dataImagePath)) {
             $modelSimDataImagePath = $dataImagePath.Replace("\", "/")
             $vsimArgs += "-gDATA_FILE=$modelSimDataImagePath"

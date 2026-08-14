@@ -4,13 +4,13 @@
 
 **Audience:** Designers, reviewers, learners, and future maintainers
 
-**Last updated:** 2026-08-11
+**Last updated:** 2026-08-14
 
-**Current milestone:** Phases 1–4 are complete in RTL simulation and OOC
-synthesis. AR-020/AR-021 implement polling UART TX/RX; AR-022 implements a
-parameterized output GPIO using the accepted `freertos_split_64k_v1` map and
-registered fabric contract. UART interrupts/PLIC, the broader firmware stack,
-FreeRTOS, and exact-board validation remain open.
+**Current milestone:** Phase 5 is complete in RTL simulation and Vivado OOC
+synthesis. AR-023 adds a split-image ELF flow, linker/startup runtime, MMIO
+drivers, and four bare-metal sanity applications on the accepted
+`freertos_split_64k_v1` map. Physical FPGA validation, UART interrupts/PLIC,
+and FreeRTOS remain open.
 
 > This is the consolidated record of what the architecture is, why it evolved
 > this way, what was learned while fixing problems, and which decisions remain
@@ -1176,6 +1176,40 @@ payload change while valid remained asserted under back-pressure; correcting
 the stimulus preserved the assertion. Full details are in
 [`AR022_MEMORY_MAPPED_GPIO_OUTPUT.md`](AR022_MEMORY_MAPPED_GPIO_OUTPUT.md).
 
+### AR-023 — Phase 5 split-image firmware runtime
+
+**State:** Implemented and verified in simulation and OOC synthesis; physical hardware validation deferred
+
+**Problem/root cause:** The original ELF conversion path flattened loadable
+segments into instruction memory and therefore could not represent writable
+data at `0x2000_0000`. The SoC also lacked a startup ABI, linker policy,
+firmware drivers, and a synthesizable data-memory initialization path.
+
+**Options:** Keep hand-authored assembly images, copy initialized data from
+program RAM at startup, or emit independent program/data images directly from
+the ELF. Direct split images were selected because the architectural map
+already exposes physically separate RAMs and the same artifacts can initialize
+simulation and FPGA memories.
+
+**Decision:** The linker places executable content in program RAM and
+read-only/writable runtime objects in data RAM. `elf_to_mem.py --split-map`
+validates every loadable byte against the generated map, rejects MMIO and
+cross-region segments, and emits local program/data images. Startup initializes
+`sp`, `gp`, `mtvec`, and `.bss` before calling C. The SoC exposes independent
+program/data initialization parameters, while the simulation testbench loads
+the same two files dynamically for ModelSim compatibility. Thin drivers own
+UART polling, GPIO, timer/interrupt, CSR, and `tohost` policy.
+
+**Consequences/evidence:** The Phase 5 manifest passes 4/4: split data-image,
+hello/runtime, timer/GPIO polling, and ten timer interrupts. The input data
+image deliberately poisons the `.bss` tail, so the hello test proves startup
+clears it. Phase 3 remains 2/2, Phase 4 remains 3/3, smoke remains 22/22, and
+the Vivado check retains 16 program plus 16 data BRAMs with nonzero
+initialization properties in both banks. The exact board part, clock, reset,
+constraints, bitstream, UART pins, and GPIO pins remain a separate Phase 7
+gate. Full details are in
+[`AR023_PHASE5_BARE_METAL_RUNTIME.md`](AR023_PHASE5_BARE_METAL_RUNTIME.md).
+
 ## 9. Future stage architecture gates
 
 | Stage | Architecture decisions required before implementation | Exit evidence |
@@ -1184,7 +1218,7 @@ the stimulus preserved the assertion. Full details are in
 | Phase 2: external data bus | Complete: data decode/default, EX/WB response packet, precise data/instruction access faults, LSU FSM/backpressure | 4/4 SoC fault runs, data-fabric protocol suite, 22/22 smoke |
 | Phase 3: timer interrupt | Complete: MTIP ownership, effective eligibility, retirement boundary, MRET exclusion, logical WFI, timer target | Precise firmware plus 10,000 repeated interrupts, focused assertions, 22/22 smoke, OOC synthesis |
 | Phase 4: UART/GPIO | Complete: native UART TX/RX plus parameterized output GPIO, registered target responses, and five-owner fabric exclusivity | UART focused tests, TX text, RX echo, GPIO target/fabric, readback, and pin waveform PASS |
-| Phase 5: firmware | [Startup ABI, linker map, split-image/data-BRAM preload, and driver plan](../docs/phase5-startup-runtime-guide.md) | Same bare-metal programs and ELF-derived images in simulation and FPGA |
+| Phase 5: firmware | Complete locally: split-image ELF conversion, startup/linker ABI, drivers, and four sanity applications | 4/4 ModelSim, preservation regressions, and exact-image Vivado OOC initialization; physical board execution deferred to Phase 7 |
 | Phase 6: FreeRTOS | Official port boundary, tick source, heap/stack policy | Context sentinels, preemption, queues, long run |
 | Phase 7: FPGA | Board part, clock/reset, XDC, BRAM init, frequency | Timing closure, utilization, UART/LED evidence |
 | Phase 8: release | Applicable ACT4 set and unified regression | Reproducible clean release evidence |
@@ -1293,6 +1327,7 @@ An architecture-changing task is incomplete until this document is updated.
 - [AR-020 minimal polling UART TX](AR020_MINIMAL_POLLING_UART_TX.md)
 - [AR-021 polling UART RX and parameterized FIFO](AR021_POLLING_UART_RX_FIFO.md)
 - [AR-022 memory-mapped GPIO output](AR022_MEMORY_MAPPED_GPIO_OUTPUT.md)
+- [AR-023 Phase 5 bare-metal runtime](AR023_PHASE5_BARE_METAL_RUNTIME.md)
 - [Phase 5 startup/runtime implementation guide](../docs/phase5-startup-runtime-guide.md)
 - [ACT4 integration handoff](ACT4_RV32I_INTEGRATION_HANDOFF_2026-07-27.md)
 - [ACT4 integration guide](../verif/act4/README.md)

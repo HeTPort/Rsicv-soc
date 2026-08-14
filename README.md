@@ -16,9 +16,9 @@ introduction.
 
 ## Current development status
 
-Phases 1–4 are complete in RTL simulation and out-of-context synthesis. Phase
-4 provides a bidirectional polling UART and a parameterized output GPIO.
-Physical-board validation remains a later gate.
+Phases 1–4 are complete. Phase 5 now provides a split-image C runtime, minimal
+drivers, and three bare-metal programs verified in ModelSim and Vivado
+out-of-context synthesis. Physical-board validation remains open.
 
 | Area | Implemented now |
 |---|---|
@@ -32,9 +32,9 @@ Physical-board validation remains a later gate.
 | Timer | 64-bit `mtime`/`mtimecmp`, MTIP level, local offsets `0xBFF8`/`0x4000` |
 | UART | Polling 8N1 TX and RX, default 16-byte RX FIFO, sticky overrun/framing errors |
 | GPIO | 32-bit R/W MMIO register driving parameterized low output bits; default width 8 |
-| Verification | Focused protocol tests, 22/22 smoke, 47/47 applicable ACT4 I/M, Phase 3 2/2, Phase 4 3/3 |
-| FPGA | BRAM and complete SoC hierarchy synthesize OOC; board constraints and hardware testing remain open |
-| Software | Directed assembly firmware exists; startup/runtime drivers and FreeRTOS integration remain open |
+| Verification | Focused protocol tests, 22/22 smoke, 47/47 applicable ACT4 I/M, Phase 3 2/2, Phase 4 3/3, Phase 5 4/4 |
+| FPGA | Both ELF-derived images produce nonzero INIT in 16 program + 16 data RAMB36E1 cells; board constraints/hardware remain open |
+| Software | Reset-to-C runtime, split linker, UART/GPIO/timer/CSR drivers, and three bare-metal apps; FreeRTOS remains open |
 
 This is a verified development baseline, not a complete ISA-compliance or
 production-readiness claim. There is no cache, MMU, S-mode, PLIC, AXI fabric,
@@ -123,6 +123,7 @@ marker, and zero ModelSim errors, preventing PASS-looking false positives.
 | Applicable ACT4 | 47/47 PASS | 39 RV32I and 8 RV32M architectural cases |
 | Phase 3 | 2/2 PASS | Precise timer/WFI behavior and long-duration timer run |
 | Phase 4 | 3/3 PASS | UART text, 16-byte RX-to-TX echo, and GPIO pin waveform/readback |
+| Phase 5 | 4/4 PASS | Split data image, C startup/UART, timer-polled GPIO, and ten full-context timer interrupts |
 | SoC-map generator unit tests | 9/9 PASS | Canonical map validation and generated addresses |
 | UART focused tests | PASS | TX/RX framing, FIFO order/full/error/W1C, and bus semantics |
 | Vivado 2019.2 OOC SoC check | PASS | 0 errors/critical warnings; BRAM, LSU, UART RX/TX, and GPIO hierarchy retained |
@@ -172,6 +173,7 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 .\run_regression.ps1 -Tag smoke
 .\run_regression.ps1 -Manifest .\phase3_tests.json
 .\run_regression.ps1 -Manifest .\phase4_tests.json -Tag phase4
+.\run_regression.ps1 -Manifest .\phase5_tests.json -Tag phase5
 .\test_regression_result.ps1
 python -m unittest test_elf_to_mem.py test_import_act4.py
 ```
@@ -200,6 +202,7 @@ From `sim/synth/`:
 ```powershell
 vivado -mode batch -source .\check_riscv_soc_ar003.tcl
 vivado -mode batch -source .\check_riscv_soc_configured_ram.tcl
+vivado -mode batch -source .\check_phase5_firmware_init.tcl
 vivado -mode batch -source .\compare_riscv_soc_ram_utilization.tcl -tclargs ram_16k
 vivado -mode batch -source .\compare_riscv_soc_ram_utilization.tcl -tclargs ram_64k
 ```
@@ -227,6 +230,7 @@ sim/
 
 config/       Authoritative SoC map and generator contract
 firmware/     Generated C/linker map consumers
+sw/           Reset runtime, linker, minimal drivers, and bare-metal apps
 testdata/     Directed assembly and readmemh images
 tools/        Map generator and dependency-free tests
 verif/act4/   RISC-V Architecture Test integration
@@ -241,15 +245,14 @@ phase defines a real interface; empty future placeholders are not kept.
 
 The next practical steps are:
 
-1. follow the
-   [Phase 5 startup/runtime guide](docs/phase5-startup-runtime-guide.md) to add
-   the split-image path, startup code, linker script, and first C UART program;
-2. create UART/timer/GPIO headers and small polling drivers;
-3. run bare-metal UART loopback and timer-interrupt programs;
+1. record the exact board, part/package/speed grade, clock/reset, UART/LED pins,
+   schematic, and vendor XDC;
+2. add a board-specific top, reset/clock conditioning, constraints, and
+   non-interactive implementation/bitstream flow;
+3. run the same three Phase 5 images on the FPGA;
 4. integrate the official FreeRTOS RISC-V port and validate context switching;
-5. add a board-specific top, reset/clock conditioning, XDC pins, and BRAM init;
-6. close post-route timing and test UART/GPIO/timer behavior on the FPGA;
-7. add UART interrupts/PLIC only after the polling baseline is stable on
+5. close post-route timing and test the FreeRTOS demonstration on the FPGA;
+6. add UART interrupts/PLIC only after the polling baseline is stable on
    hardware.
 
 You do not need to connect the FPGA board to develop or verify the RTL. You do

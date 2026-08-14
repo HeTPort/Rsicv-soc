@@ -13,7 +13,13 @@ module riscv_soc #(
   parameter int unsigned UART_BAUD_RATE = 115_200,
   parameter int unsigned UART_RX_FIFO_DEPTH = 16,
   parameter int unsigned GPIO_WIDTH = 8,
-  parameter logic [GPIO_WIDTH-1:0] GPIO_RESET_VALUE = '0
+  parameter logic [GPIO_WIDTH-1:0] GPIO_RESET_VALUE = '0,
+  // These parameters are part of the synthesis boundary: Vivado can turn the
+  // same local-word $readmemh files used by simulation into BRAM INIT data.
+  // Untyped string-literal parameters are intentional: Vivado 2019.2 rejects
+  // SystemVerilog `parameter string` during synthesis.
+  parameter PROGRAM_INIT_FILE = "",
+  parameter DATA_INIT_FILE = ""
 )(
   input  logic              clk,
   input  logic              rst_n,
@@ -83,7 +89,10 @@ module riscv_soc #(
   core_bus_rsp_t gpio_rsp;
   assign cpu_rst_n = rst_n & load_done;
   prog_ram #(
-    .AW(AW), .DW(DW), .DEPTH(PROG_RAM_DEPTH)
+    .AW(AW),
+    .DW(DW),
+    .DEPTH(PROG_RAM_DEPTH),
+    .FILE(PROGRAM_INIT_FILE)
   ) u_prog_ram (
     .clk_i        (clk),
     .ren_i        (instr_ren),
@@ -225,6 +234,7 @@ module riscv_soc #(
     .AW(AW),
     .DW(DW),
     .DEPTH(DATA_RAM_DEPTH),
+    .INIT_FILE(DATA_INIT_FILE),
     .REQ_WAIT_CYCLES(DATA_REQ_WAIT_CYCLES),
     .RSP_WAIT_CYCLES(DATA_RSP_WAIT_CYCLES)
   ) u_data_target (
