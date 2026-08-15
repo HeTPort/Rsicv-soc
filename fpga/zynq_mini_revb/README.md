@@ -14,6 +14,12 @@ No physical board is needed to build the bitstreams. A connected board is
 needed only to verify JTAG discovery, program the device, and observe the real
 clock/reset, LEDs, and UART.
 
+Physical status on 2026-08-15: onboard FT232HL JTAG works after installing the
+bundled Digilent Adept runtime; `timer_gpio` and `timer_irq` pass on the exact
+board. External-UART `hello`, repeated PL K2 reset, and speed-grade
+identification remain open. The detailed recovery evidence is in the
+[JTAG bring-up log](../../doc/ZYNQ_MINI_REVB_JTAG_BRINGUP_LOG.md).
+
 ## Interfaces
 
 | Function | FPGA pin | Board location | Direction/polarity |
@@ -87,18 +93,53 @@ These are the steps that require the board:
    `timer_gpio`, confirm the PL LEDs step through the firmware sequence. For
    `timer_irq`, confirm the ten timer-interrupt completion behavior.
 
-Programming is volatile: after power is removed, reload the bitstream. QSPI/SD
-boot-image generation is intentionally deferred until JTAG operation is proven.
+Observed on 2026-08-15:
+
+- `timer_gpio`: PASS, `0001 -> 0010 -> 0100 -> 1000 -> 0101`, approximately
+  one update per second;
+- `timer_irq`: PASS, binary interrupt count `0001` through `1010`,
+  approximately one update per second, with final D2/D4 on;
+- `hello`: not yet physically observed because the required external 3.3 V
+  USB-TTL adapter is not connected.
+
+Programming is volatile: after power is removed, reload the bitstream. JTAG
+operation is proven; QSPI/SD boot-image generation remains deferred until the
+UART and repeated-reset baseline is complete.
+
+## JTAG cable recovery
+
+If Hardware Manager connects to `hw_server` but shows `localhost (0)`, the
+server is alive but has enumerated zero hardware cables. On this machine,
+Windows already saw the FT232HL as `VID_0403:PID_6014` / `Digilent USB Device`,
+which ruled out a power-only Type-C cable and moved the investigation to the
+Vivado cable runtime.
+
+Close Vivado, open an elevated PowerShell, and install the support bundled with
+the same Vivado release:
+
+```powershell
+Set-Location -LiteralPath `
+  'D:\vivado\Vivado\2019.2\data\xicom\cable_drivers\nt64'
+.\install_drivers_wrapper.bat
+```
+
+The successful log installed Xilinx PC USB support, Digilent Adept Runtime
+2.18.2/USB support, and SmartLynq support. After restarting/re-enumerating the
+device, Vivado could program the board. Do not rewrite the FTDI EEPROM as a
+first repair: this unit already reports a Digilent identity. Commands,
+evidence, source links, rejected paths, and the reusable layer-by-layer
+decision tree are in the
+[JTAG bring-up log](../../doc/ZYNQ_MINI_REVB_JTAG_BRINGUP_LOG.md).
 
 ## What still needs manual review
 
-- Confirm JTAG compatibility of the board's onboard FT232HL circuit with the
-  installed Vivado cable drivers.
 - Confirm the physical package's speed grade with a vendor record or readable
   device-identification source. The `-1` build is deliberately conservative.
-- If clock, reset, LED polarity, or EXT IO UART behavior differs from the
-  schematic, stop and recheck continuity/vendor documentation before changing
-  package pins.
+- Confirm `Hello, UART!` through an external 3.3 V USB-TTL adapter on U15/W15.
+- The 50 MHz clock, active-high LED mapping, BRAM boot, timer progression, and
+  interrupt-driven execution now have physical evidence. If EXT IO UART or
+  reset behavior differs from the schematic, stop and recheck continuity or
+  vendor documentation before changing package pins.
 - Vivado currently warns that asynchronously reset control registers feed data
   BRAM address/control logic (`REQP-1839`). Reset deassertion is synchronized,
   but repeated button-reset robustness is not yet physical evidence; reprogram

@@ -1,7 +1,7 @@
 # AR-023 — Phase 5 Bare-Metal Runtime and FPGA-Equivalent Images
 
 **Date:** 2026-08-14
-**State:** Implemented and verified in ModelSim and Vivado OOC synthesis; physical-board verification pending
+**State:** Implemented and verified in ModelSim/Vivado; timer/GPIO and timer-IRQ verified on hardware, UART pending
 **Stage:** Phase 5
 
 ## Problem
@@ -142,9 +142,10 @@ timing, pin constraints, serial electrical behavior, or execution on a board.
 
 ## Remaining gate
 
-AR-024 now supplies the exact board/revision, package, clock/reset/UART/LED
-pins, XDC, board top, routed timing, and all three bitstreams. The speed grade
-is still unreadable and physical completion still requires JTAG discovery plus
-programmed-hardware UART/LED/timer/reset evidence for the same three
-applications. See
+AR-024 supplies the exact board/revision, package, clock/reset/UART/LED pins,
+XDC, board top, routed timing, and all three bitstreams. JTAG discovery was
+recovered by installing the bundled Digilent runtime; `timer_gpio` and
+`timer_irq` then passed on the physical board. The speed grade is still
+unreadable, and physical completion still requires external-UART `hello` plus
+repeated-reset evidence. See
 [`AR024_ZYNQ_MINI_REVB_FPGA_INTEGRATION.md`](AR024_ZYNQ_MINI_REVB_FPGA_INTEGRATION.md).

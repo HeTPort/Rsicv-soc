@@ -182,8 +182,9 @@ The larger checkpoints, journals, and complete logs remain ignored under
   this internal-path experiment and prevents treating it as interface closure.
 - The current RTL does not yet include the accepted address decoder, default
   error target, timer, UART, GPIO, or final board wrapper. Their cost is absent.
-- The exact board package and speed grade still require confirmation. Changing
-  the part requires rerunning both profiles before using the numbers as a gate.
+- The board marking confirms XC7Z010 in the CLG400 package; only the speed
+  grade still requires authoritative confirmation. Changing the selected part
+  requires rerunning both profiles before using the numbers as a gate.
 - Vivado emitted an environment-level local Tcl-store permission warning and
   fell back to its installation area. Both synthesis runs still completed with
   zero design critical warnings and zero errors.

@@ -1,7 +1,7 @@
 # AR-024 — ZYNQ MINI REVB FPGA Integration
 
-**Date:** 2026-08-15  
-**State:** Implemented and verified through routed bitstream generation; physical-board execution pending  
+**Date:** 2026-08-15
+**State:** Implemented; routed builds and two LED-visible hardware applications verified, UART/reset pending
 **Stage:** Phase 7
 
 ## Problem
@@ -116,12 +116,33 @@ RAMB36E1 cells. The utilization envelope is 3,978-3,984 LUTs
 (22.60-22.64%), 2,852-2,873 registers (8.10-8.16%), 32/60 BRAM tiles
 (53.33%), 12/80 DSPs (15%), two BUFGs, and one MMCM.
 
+Physical-board results on 2026-08-15:
+
+| Image/path | Result | Observation |
+|---|---|---|
+| FT232HL JTAG | PASS after runtime repair | Vivado programmed the XC7Z010 |
+| `timer_gpio` | PASS | `0001 -> 0010 -> 0100 -> 1000 -> 0101` on D1-D4 |
+| `timer_irq` | PASS | binary interrupt count 1 through 10; final `1010` |
+| `hello` | OPEN | external 3.3 V USB-TTL on U15/W15 not yet observed |
+
+The initial Hardware Manager symptom was `localhost (0)`: local servers were
+connected, but no cable target was enumerated. Windows nevertheless saw
+FT232H `VID_0403:PID_6014` with the bus description `Digilent USB Device`.
+Inspection found the Vivado-bundled Digilent installer but no installed Adept
+runtime. `install_drivers_wrapper.bat` installed Xilinx PC USB support,
+Digilent Adept Runtime 2.18.2/USB support, and SmartLynq support; the log ended
+successfully, and board programming then worked. The full evidence trail,
+commands, source research, and reusable diagnostic decision tree are recorded
+in [`ZYNQ_MINI_REVB_JTAG_BRINGUP_LOG.md`](ZYNQ_MINI_REVB_JTAG_BRINGUP_LOG.md).
+
 ## Consequences and open risks
 
 - No board connection is needed for RTL, constraints, synthesis,
   implementation, timing reports, BRAM checks, or bitstream generation.
-- A physical board is required for JTAG/cable discovery, oscillator and reset
-  behavior, LED polarity, UART voltage/crossover/baud, and application output.
+- JTAG/cable discovery, oscillator/BRAM boot, LED polarity, GPIO, timer
+  progression, and timer interrupts now have physical evidence.
+- External UART voltage/crossover/baud and repeated PL reset remain physical
+  gates.
 - The real speed grade remains unidentified. `-1` is the conservative build
   assumption and must not be rewritten as a confirmed package property.
 - Vivado warns that asynchronously reset registers feed data-BRAM
@@ -135,13 +156,13 @@ RAMB36E1 cells. The utilization envelope is 3,978-3,984 LUTs
 
 ## Physical completion checklist
 
-1. Set board BOOT to JTAG `00` with power off.
-2. Connect the board's documented 5 V Type-C power and JTAG cable.
-3. Confirm Vivado Hardware Manager detects XC7Z010.
-4. Connect a 3.3 V TTL adapter: TX->U15, RX<-W15, GND->GND, no VCC.
-5. Program and observe `hello`, `timer_gpio`, and `timer_irq` in that order.
-6. Record actual UART text, LED sequence/timing, reset behavior, and any JTAG
-   cable-driver issue before beginning FreeRTOS hardware debugging.
+1. [x] Set board BOOT to JTAG `00`, discover the cable/device, and program it.
+2. [x] Observe the expected `timer_gpio` LED sequence.
+3. [x] Observe ten `timer_irq` counts and the final `1010` state.
+4. [ ] Connect a 3.3 V TTL adapter: TX->U15, RX<-W15, GND->GND, no VCC.
+5. [ ] Observe exact `Hello, UART!\r\n` at 115200 8N1.
+6. [ ] Repeat PL K2 reset and record restart behavior before FreeRTOS hardware
+   debugging.
 
 Detailed commands and wiring are in
 [`fpga/zynq_mini_revb/README.md`](../fpga/zynq_mini_revb/README.md).

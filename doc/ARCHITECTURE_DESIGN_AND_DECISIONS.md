@@ -9,8 +9,9 @@
 **Current milestone:** Phase 5 is complete in RTL simulation and Vivado OOC
 synthesis. AR-024 implements the ZYNQ MINI REVB board boundary and produces
 three routed 25 MHz bitstreams with non-negative timing and no DRC errors.
-Physical FPGA observation, speed-grade identification, UART interrupts/PLIC,
-and FreeRTOS remain open.
+Physical external-UART and repeated-reset observation, speed-grade
+identification, UART interrupts/PLIC, and FreeRTOS remain open. JTAG, LED, and
+timer evidence now pass on the ZYNQ MINI REVB board.
 
 > This is the consolidated record of what the architecture is, why it evolved
 > this way, what was learned while fixing problems, and which decisions remain
@@ -1212,7 +1213,7 @@ evidence remains a Phase 7 gate. Full details are in
 
 ### AR-024 — ZYNQ MINI REVB board boundary and routed feedback fix
 
-**State:** Implemented and verified through bitstream generation; physical hardware validation deferred
+**State:** Implemented; bitstreams plus physical timer/GPIO and timer-IRQ verified, UART/reset pending
 
 **Problem/root cause:** The repository had no board top/XDC or routed timing
 flow. The first exact-board route also exposed a nine-LUT combinational loop:
@@ -1234,8 +1235,10 @@ same-cycle kill; start/request/cancel behavior still honors the kill.
 **Consequences/evidence:** Focused LSU/retirement, Phase 3 WFI, and Phase 5 4/4
 all pass. The three exact-board builds retain 16+16 initialized BRAMs, have 0
 DRC errors and TNS 0, and report WNS +22.824/+22.093/+22.555 ns before writing
-their bitstreams. `REQP-1839` asynchronous-reset-to-BRAM warnings and physical
-JTAG/UART/LED/reset observations remain open. Full details are in
+their bitstreams. On hardware, FT232HL JTAG access was recovered by installing
+the bundled Digilent Adept runtime, and `timer_gpio` plus ten-count `timer_irq`
+LED behavior passed. `REQP-1839`, external UART, repeated reset, and speed-grade
+identification remain open. Full details are in
 [`AR024_ZYNQ_MINI_REVB_FPGA_INTEGRATION.md`](AR024_ZYNQ_MINI_REVB_FPGA_INTEGRATION.md).
 
 ## 9. Future stage architecture gates
@@ -1246,9 +1249,9 @@ JTAG/UART/LED/reset observations remain open. Full details are in
 | Phase 2: external data bus | Complete: data decode/default, EX/WB response packet, precise data/instruction access faults, LSU FSM/backpressure | 4/4 SoC fault runs, data-fabric protocol suite, 22/22 smoke |
 | Phase 3: timer interrupt | Complete: MTIP ownership, effective eligibility, retirement boundary, MRET exclusion, logical WFI, timer target | Precise firmware plus 10,000 repeated interrupts, focused assertions, 22/22 smoke, OOC synthesis |
 | Phase 4: UART/GPIO | Complete: native UART TX/RX plus parameterized output GPIO, registered target responses, and five-owner fabric exclusivity | UART focused tests, TX text, RX echo, GPIO target/fabric, readback, and pin waveform PASS |
-| Phase 5: firmware | Complete locally: split-image ELF conversion, startup/linker ABI, drivers, and four sanity applications | 4/4 ModelSim, preservation regressions, and exact-image Vivado OOC initialization; physical board execution deferred to Phase 7 |
+| Phase 5: firmware | Complete: split-image ELF conversion, startup/linker ABI, drivers, and four sanity applications | 4/4 ModelSim, preservation regressions, exact-image Vivado initialization, and physical timer/GPIO plus timer-IRQ PASS; UART pending in Phase 7 |
 | Phase 6: FreeRTOS | Official port boundary, tick source, heap/stack policy | Context sentinels, preemption, queues, long run |
-| Phase 7: FPGA | Board top/XDC, 25 MHz MMCM/reset, BRAM init, route, timing, and bitstreams complete; speed grade and physical behavior open | 0-error DRC, TNS 0 and three bitstreams locally; JTAG/UART/LED/reset evidence on hardware still required |
+| Phase 7: FPGA | Board top/XDC, 25 MHz MMCM/reset, BRAM init, route, timing, and bitstreams complete; JTAG/LED/timer physically proven | 0-error DRC, TNS 0, three bitstreams, `timer_gpio` and `timer_irq` hardware PASS; UART/reset/speed grade still required |
 | Phase 8: release | Applicable ACT4 set and unified regression | Reproducible clean release evidence |
 
 ## 10. Architecture decision template

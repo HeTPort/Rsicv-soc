@@ -18,8 +18,9 @@ introduction.
 
 Phases 1–4 are complete. Phase 5 provides a split-image C runtime, minimal
 drivers, and three bare-metal programs. Phase 7 now provides the ZYNQ MINI REVB
-top/XDC and routed bitstreams for all three programs. Physical-board validation
-and FreeRTOS remain open.
+top/XDC and routed bitstreams for all three programs. JTAG plus the physical
+`timer_gpio` and `timer_irq` LED tests pass; external-UART `hello`, repeated
+reset, speed-grade identification, and FreeRTOS remain open.
 
 | Area | Implemented now |
 |---|---|
@@ -129,6 +130,7 @@ marker, and zero ModelSim errors, preventing PASS-looking false positives.
 | UART focused tests | PASS | TX/RX framing, FIFO order/full/error/W1C, and bus semantics |
 | Vivado 2019.2 OOC SoC check | PASS | 0 errors/critical warnings; BRAM, LSU, UART RX/TX, and GPIO hierarchy retained |
 | ZYNQ MINI REVB route/bitgen | 3/3 PASS | 0 DRC errors, TNS 0, WNS +22.093 ns or better, and initialized program/data BRAM bitstreams |
+| ZYNQ MINI REVB hardware | 2/3 applications PASS | JTAG recovered; `timer_gpio` LED sequence and ten-count `timer_irq` observed; external-UART `hello` pending |
 
 The Phase 4 echo test drives actual 8N1 waveforms into `uart_rx_i`. Firmware
 polls and drains a 16-byte stream, writes each byte to TX, and an independent
@@ -249,9 +251,8 @@ phase defines a real interface; empty future placeholders are not kept.
 
 The next practical steps are:
 
-1. connect JTAG and confirm Vivado detects the XC7Z010;
-2. wire a 3.3 V external UART on U15/W15 and run the three generated Phase 5
-   bitstreams on the FPGA;
+1. wire a 3.3 V external UART on U15/W15 and observe `Hello, UART!`;
+2. repeat PL K2 reset testing and record the result;
 3. confirm the device speed grade from a reliable record;
 4. integrate the official FreeRTOS RISC-V port and validate context switching;
 5. test the FreeRTOS demonstration on the FPGA;
@@ -259,9 +260,10 @@ The next practical steps are:
    hardware.
 
 You do not need to connect the FPGA board to develop or verify the RTL. You do
-need it to close the hardware gate: JTAG compatibility, oscillator/reset and
-I/O behavior, physical UART crossover, LED polarity, and program execution
-cannot be proven by implementation reports.
+need it to close the remaining hardware gate. JTAG compatibility, oscillator,
+LED polarity, BRAM boot, GPIO, timer progression, and timer interrupts now have
+physical evidence. Repeated reset and the external-UART crossover/baud path
+still cannot be closed by implementation reports.
 
 [`TODO.md`](TODO.md) is the authoritative checklist. Design semantics and
 naming standards are in

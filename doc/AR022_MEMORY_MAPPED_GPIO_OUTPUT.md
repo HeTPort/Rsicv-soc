@@ -100,8 +100,9 @@ address happens to be visible later—owns the response.
   of pins.
 - Partial writes are useful and deterministic, but they require the target to
   validate both transfer size and strobes.
-- Input GPIO, direction control, set/clear registers, interrupts, board pin
-  assignment, and physical electrical validation remain separate future work.
+- Input GPIO, direction control, set/clear registers, and interrupts remain
+  separate future work. The first output-only board mapping and LED electrical
+  behavior are physically verified on ZYNQ MINI REVB under AR024.
 
 ## Verification evidence
 
@@ -129,4 +130,3 @@ address happens to be visible later—owns the response.
 4. Under back-pressure, `valid` keeps the payload stable. To inspect unrelated
    live address bits without presenting a request, deassert `valid`.
 5. Delayed responses are routed by registered ownership, not re-decoding.
-

@@ -139,9 +139,11 @@ The reproducible check is
 out-of-context synthesis and fails unless the netlist contains a
 `RAMB18E1` or `RAMB36E1`.
 
-The board's exact package and speed grade are not yet recorded, so the script
-uses `xc7z010clg400-1` as a provisional Zynq-7010 part. Set the `AR005_PART`
-environment variable when the exact board part is known.
+The board marking confirms XC7Z010 in the CLG400 package, but its speed grade
+is not independently identified. The script therefore uses
+`xc7z010clg400-1` as a conservative provisional part. Set the `AR005_PART`
+environment variable if an authoritative device record identifies another
+speed grade.
 
 Final result:
 

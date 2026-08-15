@@ -113,7 +113,10 @@ Still missing:
   and three C sanity applications.
 - [ ] FreeRTOS application.
 - [x] FPGA top, XDC constraints, and routed Vivado bitstream build script.
-- [ ] Physical-board JTAG, UART, LED, timer, and reset result.
+- [x] Physical-board JTAG discovery plus LED-visible `timer_gpio` and
+  `timer_irq` results.
+- [ ] Physical-board external-UART `hello`, repeated PL reset, and speed-grade
+  result.
 
 Current planning position:
 
@@ -128,15 +131,17 @@ Current planning position:
   early FPGA feasibility gate; and AR-012 is cross-stage cleanup.
 - Phase 3 is complete. Phase 4 is complete in RTL simulation and OOC
   synthesis: polling UART TX/RX and output GPIO satisfy its combined exit
-  gate. Physical pin validation remains Phase 7 work.
+  gate. Physical GPIO output now passes; external-UART pin validation remains
+  Phase 7 work.
 - Phase 5 is complete in ModelSim and Vivado OOC synthesis: four firmware
   slices pass and both ELF-derived BRAM images retain nonzero initialization.
-  Its physical-board exit evidence remains open and joins the Phase 7 board
-  work.
+  Its timer/GPIO and timer-interrupt images now pass on the physical board;
+  external-UART `hello` remains part of Phase 7 board work.
 - Phase 7 is complete through exact-board bitstream generation: AR-024 adds
   the ZYNQ MINI REVB wrapper/XDC/build, removes a routed CPU combinational loop,
-  and produces all three Phase 5 bitstreams with non-negative timing. Physical
-  programming and observation remain open.
+  and produces all three Phase 5 bitstreams with non-negative timing. JTAG
+  programming, the LED sequence, and ten timer interrupts now pass on hardware;
+  external UART, repeated reset, and speed-grade confirmation remain open.
 - AR-014 accepted-map generation infrastructure is complete. AR-019 uses its
   SystemVerilog constants in the implemented data decoder/default target;
   remaining software/tool consumers continue in their owning later phases.
@@ -509,9 +514,10 @@ the `01 -> 02 -> 04 -> 08 -> A5` GPIO waveform from bare-metal programs.
 
 ## Phase 5 — Establish bare-metal firmware and FPGA sanity tests
 
-**Status:** complete in ModelSim and Vivado OOC synthesis (2026-08-14);
-physical-board execution remains open. The reset/runtime contract, decisions,
-and verification evidence are recorded in
+**Status:** complete in ModelSim/Vivado and complete for the physical
+timer-interrupt exit gate. `timer_gpio` and `timer_irq` passed on hardware on
+2026-08-15; external-UART `hello` remains open. The reset/runtime contract,
+decisions, and verification evidence are recorded in
 [`docs/phase5-startup-runtime-guide.md`](docs/phase5-startup-runtime-guide.md)
 and [`doc/AR023_PHASE5_BARE_METAL_RUNTIME.md`](doc/AR023_PHASE5_BARE_METAL_RUNTIME.md).
 
@@ -536,7 +542,9 @@ and [`doc/AR023_PHASE5_BARE_METAL_RUNTIME.md`](doc/AR023_PHASE5_BARE_METAL_RUNTI
   1. UART `hello`;
   2. timer-polled LED toggle;
   3. timer-interrupt counter with `mret`.
-- [ ] Run the same three programs on the FPGA before attempting FreeRTOS.
+- [x] Run `timer_gpio` and `timer_irq` on the FPGA and observe their expected
+  LED sequences.
+- [ ] Run `hello` on the FPGA through an external 3.3 V USB-TTL adapter.
 
 **Exit gate:** the bare-metal timer-interrupt program works both in ModelSim and
 on the physical board.
@@ -579,8 +587,10 @@ matches the scoreboard.
 **Purpose:** prove the custom RISC-V SoC in silicon.
 
 The board identity, schematic-derived PL pins, and local implementation flow
-are now known. Only speed-grade confirmation and physical execution require
-external evidence; ACT4 is not a blocker for these board checks.
+are known. JTAG, clock/BRAM boot, LED GPIO, timer progression, and timer
+interrupt execution now have physical evidence. Speed-grade confirmation,
+external UART, and repeated reset still require external evidence; ACT4 is not
+a blocker for these board checks.
 
 - [x] Record the exact board model, revision, XC7Z010 package, oscillator,
   reset, UART, and LED information.
@@ -606,7 +616,11 @@ external evidence; ACT4 is not a blocker for these board checks.
 - [x] Begin with a conservative 25 MHz core clock; attempt 50 MHz only after
   timing closes with margin.
 - [x] Capture utilization, WNS/TNS, clock, BRAM, LUT, FF, and power estimates.
-- [ ] Program and verify bare-metal UART, LED, and timer interrupt tests.
+- [x] Program and verify the bare-metal LED and timer-interrupt tests.
+- [ ] Program and verify bare-metal UART `hello` through external 3.3 V
+  USB-TTL on U15/W15.
+- [ ] Repeat PL K2 reset testing and record behavior around the existing
+  `REQP-1839` warning.
 - [ ] Program and verify the FreeRTOS demonstration.
 - [ ] Add an ILA for bus requests, interrupt entry, `mepc`, and task heartbeat
   only if external UART/LED evidence is insufficient.
@@ -655,12 +669,10 @@ for the first FreeRTOS FPGA demonstration:
 
 ## Immediate next action
 
-1. Keep all 47 official ACT4 RV32I/RV32M baseline tests active as continuous
-   Track A.
-2. Complete Phase 4 by adding the GPIO target and combined UART/GPIO
-   scoreboard; keep the verified polling UART TX/RX baseline green.
-3. Continue the accepted-map migration for linker, images, regression/ACT4
-   consumers, and peripheral target integration; the SoC RTL defaults and data
-   decoder already consume the accepted 64 KiB map.
-4. Keep the verified AR-017 iterative-divider regression and timing checkpoint
-   active while exact-board closure remains pending.
+1. Connect an external 3.3 V USB-TTL adapter to U15/W15/GND and close the
+   physical `hello` UART check.
+2. Repeat PL K2 reset testing and record whether the LED applications restart
+   consistently despite the open `REQP-1839` cleanup item.
+3. Confirm the XC7Z010 speed grade from a reliable vendor/device record.
+4. Keep all 47 official ACT4 RV32I/RV32M tests and the verified board-build
+   timing/DRC gates active while beginning the official FreeRTOS port.
