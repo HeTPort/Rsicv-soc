@@ -1,0 +1,147 @@
+# AR-024 — ZYNQ MINI REVB FPGA Integration
+
+**Date:** 2026-08-15  
+**State:** Implemented and verified through routed bitstream generation; physical-board execution pending  
+**Stage:** Phase 7
+
+## Problem
+
+AR-023 proved that the Phase 5 ELF-derived program and data images initialize
+both SoC BRAM banks, but only at the out-of-context `riscv_soc` boundary. The
+repository had no exact board identity, physical top, pin constraints,
+clock/reset conditioning, routed timing evidence, or reproducible bitstream
+flow. It therefore could not separate a CPU/firmware failure from a board-level
+clock, reset, pin, or serial-wiring failure.
+
+The supplied board is a Bo Chen Jing Xin ZYNQ MINI marked `20240221/REVB`. Its
+device is marked XC7Z010 CLG400, but no readable speed-grade suffix is visible.
+
+## Schematic and board findings
+
+The supplied schematic and front/back photographs establish this first PL
+interface:
+
+| Function | Package pin | Board signal | Electrical behavior |
+|---|---:|---|---|
+| PL clock | K17 | `PL_CLK_50M` / X1 | 50 MHz, Bank 35, LVCMOS33 |
+| Reset | M20 | `FPGA_PL_KEY1` / PL K2 | active low, external 4.7 kohm pull-up |
+| LED 0..3 | T12/U12/V12/W13 | PL D1..D4 | active high, LVCMOS33 |
+| UART RX | U15 | EXT IO U15 | external adapter TX to FPGA |
+| UART TX | W15 | EXT IO W15 | FPGA to external adapter RX |
+
+Banks 34 and 35 use 3.3 V VCCO. The onboard CH340 serial bridge is connected
+to PS MIO48/MIO49, so it cannot carry the custom PL UART. The PL UART therefore
+requires a separate 3.3 V TTL adapter with crossed TX/RX and common ground;
+adapter VCC remains disconnected.
+
+## Options considered
+
+1. Generate the SoC clock from a Zynq PS FCLK. Rejected for the first target
+   because K17 already supplies a direct PL clock and PS initialization would
+   add an unnecessary clock dependency.
+2. Divide 50 MHz with fabric logic. Rejected because a fabric-generated clock
+   would complicate clock routing and timing.
+3. Use a generated Clocking Wizard IP. Viable, but not selected because a
+   direct `MMCME2_BASE`/`BUFG` wrapper is smaller and reproducible without
+   generated project state.
+4. Target an assumed faster device. Rejected because the visible package mark
+   does not prove the speed grade.
+5. Waive the routed combinational-loop DRC. Rejected because Vivado explicitly
+   states that the loop can race and invalidates timing accuracy.
+
+## Decision and implementation
+
+`fpga/zynq_mini_revb/top.sv` is the board boundary. An MMCM multiplies the
+50 MHz K17 input by 20 and divides by 40, producing a conservative 25 MHz core
+clock. Reset asserts from PL K2 or MMCM lock loss and deasserts after four
+25 MHz edges. UART RX already has its own two-flop synchronizer in `uart_rx`.
+
+The wrapper keeps `GPIO_WIDTH=8` because Phase 5 firmware reads back `0xA5`,
+while only `gpio_out[3:0]` reaches the four physical LEDs. The programming port
+is tied inactive and `load_done=1`, so the core boots directly from bitstream-
+initialized program/data BRAM.
+
+A retained but otherwise unused `PS7` hard macro satisfies Zynq device
+configuration. It supplies no application clock, bus, firmware, or ARM
+service; the custom RISC-V SoC remains entirely in programmable logic.
+
+`fpga/zynq_mini_revb/build.tcl` selects conservative part
+`xc7z010clg400-1`, reads the explicit RTL/XDC sources, binds both images,
+checks nonzero program/data BRAM initialization, synthesizes, places, routes,
+reports utilization/timing/clock/power/DRC, rejects negative WNS or blocking
+DRCs, and writes a compressed bitstream. It accepts `hello`, `timer_gpio`, or
+`timer_irq`. Application-specific `mtime` prescalers keep the firmware images
+unchanged but make LED and interrupt activity visible on hardware.
+
+## Routed failure found and fixed
+
+The first routed `hello` attempt exposed `LUTLP-1`: nine LUTs formed a feedback
+loop through retirement interrupt selection, `pipe_kill`/`ex_kill`, and the
+same-cycle LSU/divider wait signals.
+
+The root cause was that `retire_stage` uses `ex_wait` to defer an interrupt,
+while the wait observations themselves included `!ex_kill`. Selecting the
+interrupt asserted the kill, the kill removed the wait, and removing the wait
+selected the interrupt again.
+
+The fix separates visible ownership from start/cancel permission:
+
+- `lsu.busy_o` now observes a pending aligned memory operation independently
+  of same-cycle kill, while `mem_start` still requires `!ex_kill_i`;
+- `div_wait` now observes the incomplete divider instruction independently of
+  kill, while `div_start` and the divider state machine still honor kill.
+
+Redirect priority, pipeline flush, bus-request suppression, and registered
+owner cancellation are unchanged. No DRC waiver is used.
+
+## Verification evidence
+
+Post-fix simulation:
+
+- focused LSU protocol: PASS;
+- focused retirement stage: PASS;
+- Phase 3 WFI manifest: 1/1 PASS;
+- Phase 5 firmware manifest: 4/4 PASS.
+
+Vivado 2019.2 exact-board results on `xc7z010clg400-1`:
+
+| Image | Timer prescaler | Routed WNS | TNS | DRC errors | Bitstream |
+|---|---:|---:|---:|---:|---|
+| `hello` | 1 | +22.824 ns | 0.000 ns | 0 | generated |
+| `timer_gpio` | 1,250,000 | +22.093 ns | 0.000 ns | 0 | generated |
+| `timer_irq` | 25,000 | +22.555 ns | 0.000 ns | 0 | generated |
+
+All three builds retain 16 initialized program plus 16 initialized data
+RAMB36E1 cells. The utilization envelope is 3,978-3,984 LUTs
+(22.60-22.64%), 2,852-2,873 registers (8.10-8.16%), 32/60 BRAM tiles
+(53.33%), 12/80 DSPs (15%), two BUFGs, and one MMCM.
+
+## Consequences and open risks
+
+- No board connection is needed for RTL, constraints, synthesis,
+  implementation, timing reports, BRAM checks, or bitstream generation.
+- A physical board is required for JTAG/cable discovery, oscillator and reset
+  behavior, LED polarity, UART voltage/crossover/baud, and application output.
+- The real speed grade remains unidentified. `-1` is the conservative build
+  assumption and must not be rewritten as a confirmed package property.
+- Vivado warns that asynchronously reset registers feed data-BRAM
+  address/control cones (`REQP-1839`). Reset deassertion is synchronized, but
+  repeated button-reset robustness remains a physical and architectural
+  follow-up; do not suppress this warning.
+- DSP pipeline warnings are accepted at 25 MHz because routed slack is large;
+  50 MHz remains a separate optimization/closure decision.
+- Vectorless PS7 power is approximate because the retained PS7 macro is not
+  configured for application use.
+
+## Physical completion checklist
+
+1. Set board BOOT to JTAG `00` with power off.
+2. Connect the board's documented 5 V Type-C power and JTAG cable.
+3. Confirm Vivado Hardware Manager detects XC7Z010.
+4. Connect a 3.3 V TTL adapter: TX->U15, RX<-W15, GND->GND, no VCC.
+5. Program and observe `hello`, `timer_gpio`, and `timer_irq` in that order.
+6. Record actual UART text, LED sequence/timing, reset behavior, and any JTAG
+   cable-driver issue before beginning FreeRTOS hardware debugging.
+
+Detailed commands and wiring are in
+[`fpga/zynq_mini_revb/README.md`](../fpga/zynq_mini_revb/README.md).

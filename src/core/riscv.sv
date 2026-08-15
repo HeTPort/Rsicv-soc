@@ -362,7 +362,10 @@ module riscv #(
                      !div_busy &&
                      !div_complete &&
                      !ex_kill;
-  assign div_wait  = ex_div_instruction && !div_complete && !ex_kill;
+  // Keep interrupt deferral independent of a same-cycle retirement kill.
+  // div_start/kill_i still prevent or cancel work; including !ex_kill here
+  // creates redirect -> pipe_kill -> !div_wait -> redirect feedback.
+  assign div_wait  = ex_div_instruction && !div_complete;
   assign ex_wait   = lsu_busy || div_wait;
 
   radix2_divider #(

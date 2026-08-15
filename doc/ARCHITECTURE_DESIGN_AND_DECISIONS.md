@@ -4,12 +4,12 @@
 
 **Audience:** Designers, reviewers, learners, and future maintainers
 
-**Last updated:** 2026-08-14
+**Last updated:** 2026-08-15
 
 **Current milestone:** Phase 5 is complete in RTL simulation and Vivado OOC
-synthesis. AR-023 adds a split-image ELF flow, linker/startup runtime, MMIO
-drivers, and four bare-metal sanity applications on the accepted
-`freertos_split_64k_v1` map. Physical FPGA validation, UART interrupts/PLIC,
+synthesis. AR-024 implements the ZYNQ MINI REVB board boundary and produces
+three routed 25 MHz bitstreams with non-negative timing and no DRC errors.
+Physical FPGA observation, speed-grade identification, UART interrupts/PLIC,
 and FreeRTOS remain open.
 
 > This is the consolidated record of what the architecture is, why it evolved
@@ -1205,10 +1205,38 @@ hello/runtime, timer/GPIO polling, and ten timer interrupts. The input data
 image deliberately poisons the `.bss` tail, so the hello test proves startup
 clears it. Phase 3 remains 2/2, Phase 4 remains 3/3, smoke remains 22/22, and
 the Vivado check retains 16 program plus 16 data BRAMs with nonzero
-initialization properties in both banks. The exact board part, clock, reset,
-constraints, bitstream, UART pins, and GPIO pins remain a separate Phase 7
-gate. Full details are in
+initialization properties in both banks. AR-024 now provides the board
+clock/reset/pins, routed constraints, and three bitstreams; programmed-hardware
+evidence remains a Phase 7 gate. Full details are in
 [`AR023_PHASE5_BARE_METAL_RUNTIME.md`](AR023_PHASE5_BARE_METAL_RUNTIME.md).
+
+### AR-024 — ZYNQ MINI REVB board boundary and routed feedback fix
+
+**State:** Implemented and verified through bitstream generation; physical hardware validation deferred
+
+**Problem/root cause:** The repository had no board top/XDC or routed timing
+flow. The first exact-board route also exposed a nine-LUT combinational loop:
+retirement interrupt selection depended on `ex_wait`, while a selected redirect
+asserted `ex_kill` and combinationally removed the same LSU/divider wait.
+
+**Options:** Use PS FCLK or the direct K17 PL oscillator; divide in fabric,
+generate clock IP, or instantiate MMCM primitives; waive or fix `LUTLP-1`.
+The direct PL oscillator plus MMCM and an RTL loop fix were selected. A waiver
+was rejected because timing analysis is not valid across a combinational loop.
+
+**Decision:** `fpga/zynq_mini_revb/top.sv` generates 25 MHz from the board's
+50 MHz K17 input, releases reset after MMCM lock and four synchronized edges,
+and maps PL K2, D1-D4, and external UART U15/W15. A retained unused PS7 hard
+macro satisfies Zynq configuration without ARM application execution. LSU
+`busy_o` and `div_wait` now observe pending ownership independently of
+same-cycle kill; start/request/cancel behavior still honors the kill.
+
+**Consequences/evidence:** Focused LSU/retirement, Phase 3 WFI, and Phase 5 4/4
+all pass. The three exact-board builds retain 16+16 initialized BRAMs, have 0
+DRC errors and TNS 0, and report WNS +22.824/+22.093/+22.555 ns before writing
+their bitstreams. `REQP-1839` asynchronous-reset-to-BRAM warnings and physical
+JTAG/UART/LED/reset observations remain open. Full details are in
+[`AR024_ZYNQ_MINI_REVB_FPGA_INTEGRATION.md`](AR024_ZYNQ_MINI_REVB_FPGA_INTEGRATION.md).
 
 ## 9. Future stage architecture gates
 
@@ -1220,7 +1248,7 @@ gate. Full details are in
 | Phase 4: UART/GPIO | Complete: native UART TX/RX plus parameterized output GPIO, registered target responses, and five-owner fabric exclusivity | UART focused tests, TX text, RX echo, GPIO target/fabric, readback, and pin waveform PASS |
 | Phase 5: firmware | Complete locally: split-image ELF conversion, startup/linker ABI, drivers, and four sanity applications | 4/4 ModelSim, preservation regressions, and exact-image Vivado OOC initialization; physical board execution deferred to Phase 7 |
 | Phase 6: FreeRTOS | Official port boundary, tick source, heap/stack policy | Context sentinels, preemption, queues, long run |
-| Phase 7: FPGA | Board part, clock/reset, XDC, BRAM init, frequency | Timing closure, utilization, UART/LED evidence |
+| Phase 7: FPGA | Board top/XDC, 25 MHz MMCM/reset, BRAM init, route, timing, and bitstreams complete; speed grade and physical behavior open | 0-error DRC, TNS 0 and three bitstreams locally; JTAG/UART/LED/reset evidence on hardware still required |
 | Phase 8: release | Applicable ACT4 set and unified regression | Reproducible clean release evidence |
 
 ## 10. Architecture decision template
@@ -1328,6 +1356,7 @@ An architecture-changing task is incomplete until this document is updated.
 - [AR-021 polling UART RX and parameterized FIFO](AR021_POLLING_UART_RX_FIFO.md)
 - [AR-022 memory-mapped GPIO output](AR022_MEMORY_MAPPED_GPIO_OUTPUT.md)
 - [AR-023 Phase 5 bare-metal runtime](AR023_PHASE5_BARE_METAL_RUNTIME.md)
+- [AR-024 ZYNQ MINI REVB FPGA integration](AR024_ZYNQ_MINI_REVB_FPGA_INTEGRATION.md)
 - [Phase 5 startup/runtime implementation guide](../docs/phase5-startup-runtime-guide.md)
 - [ACT4 integration handoff](ACT4_RV32I_INTEGRATION_HANDOFF_2026-07-27.md)
 - [ACT4 integration guide](../verif/act4/README.md)

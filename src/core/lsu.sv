@@ -56,6 +56,7 @@ module lsu #(
   logic          ex_mem_unsigned;
   logic [AW-1:0] eff_addr;
   logic [1:0]    byte_offset;
+  logic          mem_pending;
   logic          mem_start;
 
   assign ex_valid        = pkt_ex_i.valid;
@@ -81,15 +82,20 @@ module lsu #(
     end
   end
 
-  assign mem_start = state_q == LSU_IDLE &&
-                     ex_valid &&
-                     ex_mem_req &&
-                     !ex_kill_i &&
-                     !mem_misaligned_o;
+  // `mem_pending` deliberately does not depend on ex_kill_i.  It is also the
+  // interrupt-deferral observation exported through busy_o.  If a retirement
+  // redirect kills this younger operation in the same cycle, mem_start remains
+  // suppressed, but busy_o must not feed that kill combinationally back into
+  // the redirect decision.
+  assign mem_pending = state_q == LSU_IDLE &&
+                       ex_valid &&
+                       ex_mem_req &&
+                       !mem_misaligned_o;
+  assign mem_start = mem_pending && !ex_kill_i;
 
   // ID/EX must hold from the first visible memory operation through RESPONSE.
   // COMPLETE releases it while presenting one result to EX/WB.
-  assign busy_o     = mem_start ||
+  assign busy_o     = mem_pending ||
                       state_q == LSU_REQUEST ||
                       state_q == LSU_RESPONSE;
   assign complete_o = state_q == LSU_COMPLETE;

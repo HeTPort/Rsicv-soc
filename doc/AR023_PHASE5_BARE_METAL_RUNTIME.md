@@ -142,7 +142,9 @@ timing, pin constraints, serial electrical behavior, or execution on a board.
 
 ## Remaining gate
 
-Physical completion requires the exact board model and part/package/speed
-grade, clock/reset source and polarity, UART/LED pins and I/O standards, vendor
-XDC/schematic, board top, implementation timing, bitstream generation, and
-programmed-hardware evidence for the same three applications.
+AR-024 now supplies the exact board/revision, package, clock/reset/UART/LED
+pins, XDC, board top, routed timing, and all three bitstreams. The speed grade
+is still unreadable and physical completion still requires JTAG discovery plus
+programmed-hardware UART/LED/timer/reset evidence for the same three
+applications. See
+[`AR024_ZYNQ_MINI_REVB_FPGA_INTEGRATION.md`](AR024_ZYNQ_MINI_REVB_FPGA_INTEGRATION.md).

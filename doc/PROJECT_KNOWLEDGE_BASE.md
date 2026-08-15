@@ -4,14 +4,13 @@
 
 **Audience:** New contributors and learners
 
-**Last updated:** 2026-08-14
+**Last updated:** 2026-08-15
 
 **Current reference:** `codex/phase2-act4-cleanup`. Phases 1–4 are complete.
-Phase 5 is complete in ModelSim and Vivado OOC synthesis: AR-023 adds the split
-ELF/image path, reset-to-C runtime, linker, minimal drivers, three bare-metal
-programs, and FPGA-equivalent BRAM initialization evidence. Physical-board
-execution, FreeRTOS, physical clock/reset integration, and exact-board
-validation remain open.
+Phase 5 is complete in ModelSim and Vivado OOC synthesis. AR-024 adds the Bo
+Chen Jing Xin ZYNQ MINI `20240221/REVB` top, schematic-derived XDC, 50-to-25 MHz
+MMCM/reset wrapper, and routed bitstreams for all three bare-metal programs.
+Physical-board execution, speed-grade identification, and FreeRTOS remain open.
 
 > Update this document whenever a change alters a module boundary, pipeline
 > timing, packet field, architectural behavior, memory map, verification
@@ -102,6 +101,13 @@ the minimal architecture needed for the first working system.
   timer interrupts and exact serial/GPIO scoreboards.
 - Vivado firmware INIT gate: 32 RAMB36E1 cells split 16 program/16 data, with
   nonzero INIT properties in both image-loaded banks.
+- Exact ZYNQ MINI REVB boundary: K17 50 MHz clock, M20 active-low reset,
+  T12/U12/V12/W13 LEDs, and external 3.3 V UART on U15/W15.
+- Primitive MMCM/BUFG 25 MHz clock generation, four-cycle lock-qualified reset
+  release, and a retained unused PS7 hard macro for Zynq configuration.
+- Routed Vivado 2019.2 builds for `hello`, `timer_gpio`, and `timer_irq`: all
+  have 0 DRC errors, TNS 0.000 ns, at least +22.093 ns WNS, initialized 16+16
+  BRAMs, and generated bitstreams.
 
 ### Not implemented yet
 
@@ -109,7 +115,10 @@ the minimal architecture needed for the first working system.
   polling UART TX/RX and output GPIO are implemented, while UART interrupts/
   PLIC are deferred.
 - FreeRTOS port integration.
-- Board top, constraints, timing closure, and physical FPGA result.
+- Physical FPGA JTAG, UART, LED, timer, and reset observations; the top,
+  constraints, 25 MHz timing closure, and bitstreams are implemented.
+- Positive identification of the package speed grade; local builds use
+  conservative `xc7z010clg400-1`.
 
 The implementation contract and ordered verification gates for the first item
 are defined in the
@@ -894,12 +903,13 @@ Recommended waveform groups:
 | Memory-map implementation | Timer/UART/GPIO/RAM/default decode, 64 KiB RTL defaults, and fetch errors are implemented; future consumers must continue using generated constants | Continuous / AR-009/AR-014/AR-019/AR-022 |
 | Unmapped access faults | Data load/store and out-of-range instruction fetches trap precisely; redirect/stall edge cases need broader directed coverage | Continuous verification / AR-018 |
 | Interrupt boundary | Implemented and verified; broader randomized boundary coverage remains useful | Continuous verification / AR-008/AR-010 |
-| Timer | Implemented word-access timer and polling/interrupt firmware APIs; actual clock-frequency calibration remains | Phase 7 |
-| RV32M timing | Iterative divider passes 25/50 MHz OOC post-synthesis checks; exact-board routed closure and multiply-high margin remain | Phase 7 / AR-011/AR-017 |
+| Timer | Implemented word-access timer and polling/interrupt firmware APIs; exact-board 25 MHz profiles exist, but physical oscillator/application timing remains | Phase 7 / AR-024 |
+| RV32M timing | Exact-board 25 MHz routing passes with at least +22.093 ns WNS; 50 MHz exact-board closure and multiply-high optimization remain optional | Phase 7 / AR-011/AR-017/AR-024 |
 | Retirement ownership | `retire_stage` is the owner; obsolete `halt_o` and broader README cleanup remain | Cleanup / AR-012 |
 | Peripherals | Timer, polling UART TX/RX, output GPIO, and their Phase 5 drivers are implemented; UART interrupts/PLIC and hardware validation remain open | Phases 6-7 |
 | UART RX capacity | The 16-byte default FIFO tolerates bounded polling latency but sustained traffic can still overrun | Firmware must monitor errors; revisit interrupts/DMA only after board baseline |
 | Clock gating | Logical WFI is verified, but no safe FPGA clock gating is implemented | Phase 7 after board clock design |
+| Reset-to-BRAM control | Reset deassertion is synchronized, but Vivado `REQP-1839` warns that asynchronously reset control registers feed data-BRAM address/control logic | Physical reset test, then synchronous-reset cleanup if required / AR-024 |
 
 ## 16. Practical study exercises
 
@@ -962,9 +972,13 @@ compare RAM data, `load_offset`, extracted value, and committed result.
 - [AR-019 centralized data fabric](AR019_CENTRALIZED_DATA_FABRIC.md)
 - [AR-020 minimal polling UART TX](AR020_MINIMAL_POLLING_UART_TX.md)
 - [AR-021 polling UART RX and parameterized FIFO](AR021_POLLING_UART_RX_FIFO.md)
+- [AR-022 memory-mapped GPIO output](AR022_MEMORY_MAPPED_GPIO_OUTPUT.md)
+- [AR-023 Phase 5 bare-metal runtime](AR023_PHASE5_BARE_METAL_RUNTIME.md)
+- [AR-024 ZYNQ MINI REVB FPGA integration](AR024_ZYNQ_MINI_REVB_FPGA_INTEGRATION.md)
 - [Phase 4 UART implementation guide](../docs/phase4-uart-guide.md)
 - [Phase 4 GPIO implementation guide](../docs/phase4-gpio-guide.md)
 - [Phase 5 startup/runtime implementation guide](../docs/phase5-startup-runtime-guide.md)
+- [ZYNQ MINI REVB build and wiring guide](../fpga/zynq_mini_revb/README.md)
 - [ACT4 integration](../verif/act4/README.md)
 - [Project roadmap](../TODO.md)
 

@@ -22,11 +22,11 @@ The detailed architecture findings, remediation steps, verification cases, and
 recommended Phase 0A gate are recorded in
 [`doc/ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md`](doc/ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md).
 
-> **Board information still required:** `XC7Z010` identifies the FPGA/SoC
-> device, not the board model. Before board-specific work, record the board
-> manufacturer/model, complete FPGA part (package and speed grade), oscillator
-> frequency and pin, reset polarity, UART pins, LED pins, schematic, and any
-> vendor XDC file.
+> **Board identified:** Bo Chen Jing Xin ZYNQ MINI `20240221/REVB`, XC7Z010 in
+> CLG400, with direct 50 MHz PL clock on K17. Clock/reset/UART/LED pins are
+> recorded in AR-024 and `fpga/zynq_mini_revb/`. The package speed grade is not
+> readable; builds conservatively target `xc7z010clg400-1` until it is
+> positively identified.
 
 ## Development and learning rules
 
@@ -112,7 +112,8 @@ Still missing:
 - [x] Bare-metal startup code, linker script, split images, peripheral drivers,
   and three C sanity applications.
 - [ ] FreeRTOS application.
-- [ ] FPGA top, XDC constraints, Vivado build script, and physical-board result.
+- [x] FPGA top, XDC constraints, and routed Vivado bitstream build script.
+- [ ] Physical-board JTAG, UART, LED, timer, and reset result.
 
 Current planning position:
 
@@ -132,6 +133,10 @@ Current planning position:
   slices pass and both ELF-derived BRAM images retain nonzero initialization.
   Its physical-board exit evidence remains open and joins the Phase 7 board
   work.
+- Phase 7 is complete through exact-board bitstream generation: AR-024 adds
+  the ZYNQ MINI REVB wrapper/XDC/build, removes a routed CPU combinational loop,
+  and produces all three Phase 5 bitstreams with non-negative timing. Physical
+  programming and observation remain open.
 - AR-014 accepted-map generation infrastructure is complete. AR-019 uses its
   SystemVerilog constants in the implemented data decoder/default target;
   remaining software/tool consumers continue in their owning later phases.
@@ -573,30 +578,34 @@ matches the scoreboard.
 
 **Purpose:** prove the custom RISC-V SoC in silicon.
 
-This phase is blocked only on the exact board identity and schematic/XDC, not on
-ACT4 completion.
+The board identity, schematic-derived PL pins, and local implementation flow
+are now known. Only speed-grade confirmation and physical execution require
+external evidence; ACT4 is not a blocker for these board checks.
 
-- [ ] Record the exact board model and full XC7Z010 part/package/speed grade.
-- [ ] Create `fpga/<board>/top.sv` with explicit clock, reset, UART, and LED
+- [x] Record the exact board model, revision, XC7Z010 package, oscillator,
+  reset, UART, and LED information.
+- [ ] Confirm the unreadable XC7Z010 speed grade from a reliable device/vendor
+  record; use conservative `xc7z010clg400-1` until then.
+- [x] Create `fpga/zynq_mini_revb/top.sv` with explicit clock, reset, UART, and LED
   ports.
-- [ ] Create and review `fpga/<board>/constraints.xdc` from the board schematic
+- [x] Create and review `fpga/zynq_mini_revb/constraints.xdc` from the board schematic
   or vendor reference file.
-- [ ] Add synchronizers and reset deassertion logic for asynchronous board
+- [x] Add synchronizers and reset deassertion logic for asynchronous board
   inputs.
-- [ ] If necessary, instantiate the Zynq processing system only to generate PL
-  FCLK/reset; keep FreeRTOS on the custom RISC-V core.
-- [ ] Add a non-interactive Vivado Tcl flow for project creation, synthesis,
+- [x] Retain the otherwise-unused PS7 hard block required for Zynq
+  configuration; use neither PS FCLK nor ARM application execution.
+- [x] Add a non-interactive Vivado Tcl flow for project creation, synthesis,
   implementation, reports, and bitstream generation.
-- [ ] Initialize instruction/data BRAM images reproducibly in the bitstream.
+- [x] Initialize instruction/data BRAM images reproducibly in the bitstream.
 - [x] Run the early post-synthesis timing checkpoint and inspect the
       combinational RV32M divider critical path; AR-015 confirms it fails both
       25 MHz and 50 MHz for both RAM capacities.
 - [x] Replace DIV/DIVU/REM/REMU with the AR-017 Radix-2 iterative divider and
       rerun the paired internal timing comparison. Both profiles pass 50 MHz
       with WNS +7.373 ns; the worst path is now multiply-high.
-- [ ] Begin with a conservative 25 MHz core clock; attempt 50 MHz only after
+- [x] Begin with a conservative 25 MHz core clock; attempt 50 MHz only after
   timing closes with margin.
-- [ ] Capture utilization, WNS/TNS, clock, BRAM, LUT, FF, and power estimates.
+- [x] Capture utilization, WNS/TNS, clock, BRAM, LUT, FF, and power estimates.
 - [ ] Program and verify bare-metal UART, LED, and timer interrupt tests.
 - [ ] Program and verify the FreeRTOS demonstration.
 - [ ] Add an ILA for bus requests, interrupt entry, `mepc`, and task heartbeat

@@ -16,9 +16,10 @@ introduction.
 
 ## Current development status
 
-Phases 1–4 are complete. Phase 5 now provides a split-image C runtime, minimal
-drivers, and three bare-metal programs verified in ModelSim and Vivado
-out-of-context synthesis. Physical-board validation remains open.
+Phases 1–4 are complete. Phase 5 provides a split-image C runtime, minimal
+drivers, and three bare-metal programs. Phase 7 now provides the ZYNQ MINI REVB
+top/XDC and routed bitstreams for all three programs. Physical-board validation
+and FreeRTOS remain open.
 
 | Area | Implemented now |
 |---|---|
@@ -33,7 +34,7 @@ out-of-context synthesis. Physical-board validation remains open.
 | UART | Polling 8N1 TX and RX, default 16-byte RX FIFO, sticky overrun/framing errors |
 | GPIO | 32-bit R/W MMIO register driving parameterized low output bits; default width 8 |
 | Verification | Focused protocol tests, 22/22 smoke, 47/47 applicable ACT4 I/M, Phase 3 2/2, Phase 4 3/3, Phase 5 4/4 |
-| FPGA | Both ELF-derived images produce nonzero INIT in 16 program + 16 data RAMB36E1 cells; board constraints/hardware remain open |
+| FPGA | ZYNQ MINI REVB top/XDC/build; three routed 25 MHz bitstreams, 0 DRC errors, WNS +22.093 ns or better; hardware observation open |
 | Software | Reset-to-C runtime, split linker, UART/GPIO/timer/CSR drivers, and three bare-metal apps; FreeRTOS remains open |
 
 This is a verified development baseline, not a complete ISA-compliance or
@@ -127,6 +128,7 @@ marker, and zero ModelSim errors, preventing PASS-looking false positives.
 | SoC-map generator unit tests | 9/9 PASS | Canonical map validation and generated addresses |
 | UART focused tests | PASS | TX/RX framing, FIFO order/full/error/W1C, and bus semantics |
 | Vivado 2019.2 OOC SoC check | PASS | 0 errors/critical warnings; BRAM, LSU, UART RX/TX, and GPIO hierarchy retained |
+| ZYNQ MINI REVB route/bitgen | 3/3 PASS | 0 DRC errors, TNS 0, WNS +22.093 ns or better, and initialized program/data BRAM bitstreams |
 
 The Phase 4 echo test drives actual 8N1 waveforms into `uart_rx_i`. Firmware
 polls and drains a 16-byte stream, writes each byte to TX, and an independent
@@ -209,7 +211,8 @@ vivado -mode batch -source .\compare_riscv_soc_ram_utilization.tcl -tclargs ram_
 
 These are out-of-context checks using the provisional FPGA part. They prove
 synthesizability and resource retention, not post-route timing or correct board
-pins. Physical proof waits for a board-specific top and XDC.
+pins. For the exact-board routed build and programming flow, see
+[`fpga/zynq_mini_revb/README.md`](fpga/zynq_mini_revb/README.md).
 
 ## Repository map
 
@@ -229,6 +232,7 @@ sim/
   generated/  Generated normalized map/Tcl data
 
 config/       Authoritative SoC map and generator contract
+fpga/         Exact-board top, constraints, Vivado flow, and board guide
 firmware/     Generated C/linker map consumers
 sw/           Reset runtime, linker, minimal drivers, and bare-metal apps
 testdata/     Directed assembly and readmemh images
@@ -245,20 +249,19 @@ phase defines a real interface; empty future placeholders are not kept.
 
 The next practical steps are:
 
-1. record the exact board, part/package/speed grade, clock/reset, UART/LED pins,
-   schematic, and vendor XDC;
-2. add a board-specific top, reset/clock conditioning, constraints, and
-   non-interactive implementation/bitstream flow;
-3. run the same three Phase 5 images on the FPGA;
+1. connect JTAG and confirm Vivado detects the XC7Z010;
+2. wire a 3.3 V external UART on U15/W15 and run the three generated Phase 5
+   bitstreams on the FPGA;
+3. confirm the device speed grade from a reliable record;
 4. integrate the official FreeRTOS RISC-V port and validate context switching;
-5. close post-route timing and test the FreeRTOS demonstration on the FPGA;
+5. test the FreeRTOS demonstration on the FPGA;
 6. add UART interrupts/PLIC only after the polling baseline is stable on
    hardware.
 
 You do not need to connect the FPGA board to develop or verify the RTL. You do
-need it to close the hardware gate: asynchronous input behavior, oscillator
-accuracy, reset polarity, I/O voltage, physical pins, USB-UART crossover, and
-post-route timing cannot be proven by RTL simulation.
+need it to close the hardware gate: JTAG compatibility, oscillator/reset and
+I/O behavior, physical UART crossover, LED polarity, and program execution
+cannot be proven by implementation reports.
 
 [`TODO.md`](TODO.md) is the authoritative checklist. Design semantics and
 naming standards are in
