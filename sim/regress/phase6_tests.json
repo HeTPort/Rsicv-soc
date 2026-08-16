@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "defaults": {
+    "top": "work.tb_riscv_soc",
+    "tohost_addr": 2147549180,
+    "prog_ram_depth": 16384,
+    "data_ram_depth": 16384
+  },
+  "tests": [
+    {
+      "name": "firmware_freertos_demo",
+      "image": "testdata/firmware_freertos_demo_sim.imem.hex",
+      "data_image": "testdata/firmware_freertos_demo_sim.dmem.hex",
+      "timeout_cycles": 500000,
+      "freertos_check_enable": true,
+      "freertos_min_timer_irqs": 10,
+      "tags": ["phase6", "soc", "freertos", "preemption", "queue", "uart", "gpio"]
+    }
+  ]
+}

@@ -24,6 +24,8 @@ module tb_riscv_soc #(
   parameter bit GPIO_CHECK_ENABLE = 1'b0,
   parameter bit TIMER_IRQ_CHECK_ENABLE = 1'b0,
   parameter int TIMER_IRQ_EXPECTED_COUNT = 10,
+  parameter bit FREERTOS_CHECK_ENABLE = 1'b0,
+  parameter int FREERTOS_MIN_TIMER_IRQS = 10,
   parameter bit DATA_FORCE_ERROR = 1'b0,
   parameter bit DATA_ERROR_ADDR_ENABLE = 1'b0,
   parameter logic [31:0] DATA_ERROR_ADDR = '0
@@ -35,8 +37,9 @@ module tb_riscv_soc #(
   localparam int UART_BAUD_RATE = 4;
   localparam int UART_CLKS_PER_BIT =
       (UART_CLK_FREQ_HZ + (UART_BAUD_RATE / 2)) / UART_BAUD_RATE;
-  localparam int UART_EXPECTED_BYTES = UART_RX_ECHO_ENABLE ? 16 : 14;
-  localparam int GPIO_EXPECTED_TRANSITIONS = 5;
+  localparam int UART_EXPECTED_BYTES =
+      FREERTOS_CHECK_ENABLE ? 28 : (UART_RX_ECHO_ENABLE ? 16 : 14);
+  localparam int GPIO_EXPECTED_TRANSITIONS = FREERTOS_CHECK_ENABLE ? 2 : 5;
 
   logic clk;
   logic rst_n;
@@ -120,20 +123,62 @@ module tb_riscv_soc #(
 
   function automatic logic [7:0] expected_gpio_value(input integer index);
     begin
-      unique case (index)
-        0: expected_gpio_value = 8'h01;
-        1: expected_gpio_value = 8'h02;
-        2: expected_gpio_value = 8'h04;
-        3: expected_gpio_value = 8'h08;
-        4: expected_gpio_value = 8'ha5;
-        default: expected_gpio_value = 8'hxx;
-      endcase
+      if (FREERTOS_CHECK_ENABLE) begin
+        unique case (index % 2)
+          0: expected_gpio_value = 8'h01;
+          1: expected_gpio_value = 8'h00;
+          default: expected_gpio_value = 8'hxx;
+        endcase
+      end else begin
+        unique case (index)
+          0: expected_gpio_value = 8'h01;
+          1: expected_gpio_value = 8'h02;
+          2: expected_gpio_value = 8'h04;
+          3: expected_gpio_value = 8'h08;
+          4: expected_gpio_value = 8'ha5;
+          default: expected_gpio_value = 8'hxx;
+        endcase
+      end
     end
   endfunction
 
   function automatic logic [7:0] expected_uart_byte(input integer index);
+    integer freertos_index;
     begin
-      if (UART_RX_ECHO_ENABLE) begin
+      if (FREERTOS_CHECK_ENABLE) begin
+        freertos_index = (index < 17) ? index : (17 + ((index - 17) % 11));
+        unique case (freertos_index)
+          0:  expected_uart_byte = "F";
+          1:  expected_uart_byte = "r";
+          2:  expected_uart_byte = "e";
+          3:  expected_uart_byte = "e";
+          4:  expected_uart_byte = "R";
+          5:  expected_uart_byte = "T";
+          6:  expected_uart_byte = "O";
+          7:  expected_uart_byte = "S";
+          8:  expected_uart_byte = " ";
+          9:  expected_uart_byte = "R";
+          10: expected_uart_byte = "V";
+          11: expected_uart_byte = "3";
+          12: expected_uart_byte = "2";
+          13: expected_uart_byte = "I";
+          14: expected_uart_byte = "M";
+          15: expected_uart_byte = 8'h0d;
+          16: expected_uart_byte = 8'h0a;
+          17: expected_uart_byte = "h";
+          18: expected_uart_byte = "e";
+          19: expected_uart_byte = "a";
+          20: expected_uart_byte = "r";
+          21: expected_uart_byte = "t";
+          22: expected_uart_byte = "b";
+          23: expected_uart_byte = "e";
+          24: expected_uart_byte = "a";
+          25: expected_uart_byte = "t";
+          26: expected_uart_byte = 8'h0d;
+          27: expected_uart_byte = 8'h0a;
+          default: expected_uart_byte = 8'hxx;
+        endcase
+      end else if (UART_RX_ECHO_ENABLE) begin
         unique case (index)
           0:  expected_uart_byte = 8'h52; // R
           1:  expected_uart_byte = 8'h58; // X
@@ -195,8 +240,10 @@ module tb_riscv_soc #(
       #1;
       assert (uart_tx)
         else $fatal(1, "UART stop bit was not high at its center");
-      assert (uart_byte_count < UART_EXPECTED_BYTES)
-        else $fatal(1, "UART emitted more bytes than expected");
+      if (!FREERTOS_CHECK_ENABLE) begin
+        assert (uart_byte_count < UART_EXPECTED_BYTES)
+          else $fatal(1, "UART emitted more bytes than expected");
+      end
       assert (sampled_byte == expected_uart_byte(uart_byte_count))
         else $fatal(1,
           "UART byte %0d mismatch: got 0x%02h expected 0x%02h",
@@ -228,7 +275,7 @@ module tb_riscv_soc #(
 
   initial begin
     uart_byte_count = 0;
-    if (UART_CHECK_ENABLE || UART_RX_ECHO_ENABLE) begin
+    if (UART_CHECK_ENABLE || UART_RX_ECHO_ENABLE || FREERTOS_CHECK_ENABLE) begin
       wait (cpu_rst_n == 1'b1);
       forever decode_uart_byte();
     end
@@ -247,15 +294,17 @@ module tb_riscv_soc #(
 
   initial begin
     gpio_transition_count = 0;
-    if (GPIO_CHECK_ENABLE) begin
+    if (GPIO_CHECK_ENABLE || FREERTOS_CHECK_ENABLE) begin
       wait (cpu_rst_n == 1'b1);
       assert (gpio_out == 8'h00)
         else $fatal(1, "GPIO reset value mismatch: got 0x%02h", gpio_out);
       forever begin
         @(gpio_out);
         if (cpu_rst_n) begin
-          assert (gpio_transition_count < GPIO_EXPECTED_TRANSITIONS)
-            else $fatal(1, "GPIO produced more transitions than expected");
+          if (!FREERTOS_CHECK_ENABLE) begin
+            assert (gpio_transition_count < GPIO_EXPECTED_TRANSITIONS)
+              else $fatal(1, "GPIO produced more transitions than expected");
+          end
           assert (gpio_out == expected_gpio_value(gpio_transition_count))
             else $fatal(1,
               "GPIO transition %0d mismatch: got 0x%02h expected 0x%02h",
@@ -341,12 +390,21 @@ module tb_riscv_soc #(
     $display("[SOC-TB] timer IRQs = %0d", timer_irq_count);
     $display("[SOC-TB] GPIO pins  = 0x%02h", gpio_out);
     if (tohost_val == 32'd1) begin
-      if (UART_CHECK_ENABLE || UART_RX_ECHO_ENABLE) begin
+      if (FREERTOS_CHECK_ENABLE) begin
+        assert (uart_byte_count >= UART_EXPECTED_BYTES)
+          else $fatal(1, "FreeRTOS UART byte count mismatch: got %0d expected >= %0d",
+                      uart_byte_count, UART_EXPECTED_BYTES);
+      end else if (UART_CHECK_ENABLE || UART_RX_ECHO_ENABLE) begin
         assert (uart_byte_count == UART_EXPECTED_BYTES)
           else $fatal(1, "UART byte count mismatch: got %0d expected %0d",
                       uart_byte_count, UART_EXPECTED_BYTES);
       end
-      if (GPIO_CHECK_ENABLE) begin
+      if (FREERTOS_CHECK_ENABLE) begin
+        assert (gpio_transition_count >= GPIO_EXPECTED_TRANSITIONS)
+          else $fatal(1,
+            "FreeRTOS GPIO transition count mismatch: got %0d expected >= %0d",
+            gpio_transition_count, GPIO_EXPECTED_TRANSITIONS);
+      end else if (GPIO_CHECK_ENABLE) begin
         assert (gpio_transition_count == GPIO_EXPECTED_TRANSITIONS)
           else $fatal(1,
             "GPIO transition count mismatch: got %0d expected %0d",
@@ -357,6 +415,12 @@ module tb_riscv_soc #(
           else $fatal(1,
             "Timer interrupt count mismatch: got %0d expected %0d",
             timer_irq_count, TIMER_IRQ_EXPECTED_COUNT);
+      end
+      if (FREERTOS_CHECK_ENABLE) begin
+        assert (timer_irq_count >= FREERTOS_MIN_TIMER_IRQS)
+          else $fatal(1,
+            "FreeRTOS timer interrupt count too small: got %0d expected >= %0d",
+            timer_irq_count, FREERTOS_MIN_TIMER_IRQS);
       end
       $display("[TB] RESULT: PASS");
       $display("============================================================");

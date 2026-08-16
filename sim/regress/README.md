@@ -13,6 +13,7 @@ logs, and returns a nonzero process status if any test fails.
 - `phase3_tests.json` - precise timer/WFI and 10,000-interrupt Phase 3 cases.
 - `phase4_tests.json` - polling UART TX/RX and GPIO Phase 4 cases.
 - `phase5_tests.json` - split-image and reset-to-C Phase 5 firmware cases.
+- `phase6_tests.json` - official FreeRTOS preemption/queue/UART/GPIO slice.
 - `run_regression.ps1` - Windows PowerShell orchestration and result checking.
 - `regression_result.ps1` - shared simulator result-classification policy.
 - `test_regression_result.ps1` - dependency-free positive/negative classifier
@@ -148,6 +149,26 @@ The hello case checks ABI/runtime invariants before decoding
 image, so observing zero proves startup cleared it. The timer/GPIO case checks
 timer-polled output/readback. The interrupt case independently requires ten
 machine-timer trap entries, full-context `mret` return, and final GPIO `0x0A`.
+
+Build the distinct Phase 6 simulation image from the repository root with:
+
+```bash
+SOC_FREERTOS_MTIME_HZ=5000000 \
+SOC_FREERTOS_DEMO_TIME_SCALE=100 \
+SOC_FREERTOS_IMAGE_SUFFIX=_sim \
+bash sw/build_firmware_wsl.sh --install freertos_demo
+```
+
+Then run:
+
+```powershell
+./run_regression.ps1 -Manifest .\phase6_tests.json -Tag phase6
+```
+
+The scoreboard checks the FreeRTOS banner/heartbeat stream, alternating GPIO,
+and at least ten timer interrupts. Firmware reports PASS only after ordered
+queue traffic and the queue-forced `s2`-`s11` context sentinels succeed. Build
+the production 25 MHz image without the three simulation overrides.
 
 Success produces process exit code `0`. Manifest, tool, compile, assertion,
 timeout, simulator, or architectural failures produce a nonzero exit code. The

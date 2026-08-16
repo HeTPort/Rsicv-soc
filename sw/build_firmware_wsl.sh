@@ -15,6 +15,8 @@ while (($# > 0)); do
     --help|-h)
       echo "Usage: $0 [--install] [app ...]"
       echo "Builds sw/apps/<app> with the Phase 5 runtime and split memory map."
+      echo "FreeRTOS overrides: SOC_FREERTOS_MTIME_HZ, SOC_FREERTOS_DEMO_TIME_SCALE,"
+      echo "SOC_FREERTOS_SIM_COMPLETION, and SOC_FREERTOS_IMAGE_SUFFIX (for example _sim)."
       exit 0
       ;;
     *)
@@ -61,7 +63,11 @@ common_flags=(
 for app in "${requested_apps[@]}"; do
   app_dir="${repo_root}/sw/apps/${app}"
   [[ -d "${app_dir}" ]] || { echo "Unknown firmware app: ${app}" >&2; exit 1; }
-  out_dir="${output_root}/${app}"
+  artifact_name="${app}"
+  if [[ "${app}" == "freertos_demo" ]]; then
+    artifact_name+="${SOC_FREERTOS_IMAGE_SUFFIX:-}"
+  fi
+  out_dir="${output_root}/${artifact_name}"
   object_dir="${out_dir}/obj"
   mkdir -p "${object_dir}"
 
@@ -71,21 +77,55 @@ for app in "${requested_apps[@]}"; do
   done < <(find "${repo_root}/sw/drivers" "${app_dir}" -maxdepth 1 -type f \
            \( -name '*.c' -o -name '*.S' \) | sort)
 
+  app_flags=()
+  include_dirs=(
+    "${repo_root}/firmware/include"
+    "${repo_root}/sw/common"
+    "${repo_root}/sw/drivers"
+    "${app_dir}"
+  )
+
+  if [[ "${app}" == "freertos_demo" ]]; then
+    freertos_root="${repo_root}/third_party/FreeRTOS-Kernel"
+    sources+=(
+      "${repo_root}/sw/common/minilib.c"
+      "${freertos_root}/tasks.c"
+      "${freertos_root}/queue.c"
+      "${freertos_root}/list.c"
+      "${freertos_root}/portable/MemMang/heap_4.c"
+      "${freertos_root}/portable/GCC/RISC-V/port.c"
+      "${freertos_root}/portable/GCC/RISC-V/portASM.S"
+    )
+    include_dirs+=(
+      "${repo_root}/sw/common/libc"
+      "${freertos_root}/include"
+      "${freertos_root}/portable/GCC/RISC-V"
+      "${freertos_root}/portable/GCC/RISC-V/chip_specific_extensions/RISCV_MTIME_CLINT_no_extensions"
+    )
+    app_flags+=(
+      "-DconfigCPU_CLOCK_HZ=${SOC_FREERTOS_MTIME_HZ:-25000000}UL"
+      "-DSOC_FREERTOS_DEMO_TIME_SCALE=${SOC_FREERTOS_DEMO_TIME_SCALE:-1}U"
+      "-DSOC_FREERTOS_SIM_COMPLETION=${SOC_FREERTOS_SIM_COMPLETION:-0}U"
+    )
+  fi
+
   objects=()
   for source_path in "${sources[@]}"; do
     relative="${source_path#${repo_root}/}"
     object_name="${relative//\//_}"
     object_path="${object_dir}/${object_name%.*}.o"
-    "${tool_prefix}gcc" "${common_flags[@]}" -O2 -g3 \
-      -I"${repo_root}/firmware/include" \
-      -I"${repo_root}/sw/common" \
-      -I"${repo_root}/sw/drivers" \
+    include_flags=()
+    for include_dir in "${include_dirs[@]}"; do
+      include_flags+=("-I${include_dir}")
+    done
+    "${tool_prefix}gcc" "${common_flags[@]}" "${app_flags[@]}" -O2 -g3 \
+      "${include_flags[@]}" \
       -c "${source_path}" -o "${object_path}"
     objects+=("${object_path}")
   done
 
-  elf_path="${out_dir}/${app}.elf"
-  map_path="${out_dir}/${app}.map"
+  elf_path="${out_dir}/${artifact_name}.elf"
+  map_path="${out_dir}/${artifact_name}.map"
   "${tool_prefix}gcc" "${common_flags[@]}" \
     -nostartfiles -nostdlib -no-pie \
     -Wl,--gc-sections \
@@ -95,23 +135,23 @@ for app in "${requested_apps[@]}"; do
     -T "${repo_root}/sw/common/linker.ld" \
     -o "${elf_path}" "${objects[@]}" -lgcc
 
-  "${tool_prefix}readelf" -h -l -S -s "${elf_path}" > "${out_dir}/${app}.readelf"
-  "${tool_prefix}objdump" -drwC "${elf_path}" > "${out_dir}/${app}.dis"
-  "${tool_prefix}size" -A "${elf_path}" > "${out_dir}/${app}.size"
+  "${tool_prefix}readelf" -h -l -S -s "${elf_path}" > "${out_dir}/${artifact_name}.readelf"
+  "${tool_prefix}objdump" -drwC "${elf_path}" > "${out_dir}/${artifact_name}.dis"
+  "${tool_prefix}size" -A "${elf_path}" > "${out_dir}/${artifact_name}.size"
 
   python3 "${repo_root}/sim/regress/elf_to_mem.py" \
     "${elf_path}" \
-    --imem "${out_dir}/${app}.imem.hex" \
-    --dmem "${out_dir}/${app}.dmem.hex" \
+    --imem "${out_dir}/${artifact_name}.imem.hex" \
+    --dmem "${out_dir}/${artifact_name}.dmem.hex" \
     --split-map "${repo_root}/sim/generated/soc_map.json" \
     --dmem-uninitialized-fill 0xA5
 
   if ((install_images)); then
-    cp "${out_dir}/${app}.imem.hex" "${repo_root}/testdata/firmware_${app}.imem.hex"
-    cp "${out_dir}/${app}.dmem.hex" "${repo_root}/testdata/firmware_${app}.dmem.hex"
+    cp "${out_dir}/${artifact_name}.imem.hex" "${repo_root}/testdata/firmware_${artifact_name}.imem.hex"
+    cp "${out_dir}/${artifact_name}.dmem.hex" "${repo_root}/testdata/firmware_${artifact_name}.dmem.hex"
   fi
 
-  echo "[FIRMWARE] ${app}: ${elf_path}"
+  echo "[FIRMWARE] ${artifact_name}: ${elf_path}"
 done
 
 echo "Built ${#requested_apps[@]} firmware app(s) under ${output_root}"

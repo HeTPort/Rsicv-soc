@@ -111,7 +111,7 @@ Still missing:
   fabric ownership, firmware waveform checking, and OOC synthesis evidence.
 - [x] Bare-metal startup code, linker script, split images, peripheral drivers,
   and three C sanity applications.
-- [ ] FreeRTOS application.
+- [x] FreeRTOS application and initial ModelSim vertical slice.
 - [x] FPGA top, XDC constraints, and routed Vivado bitstream build script.
 - [x] Physical-board JTAG discovery plus LED-visible `timer_gpio` and
   `timer_irq` results.
@@ -137,6 +137,11 @@ Current planning position:
   slices pass and both ELF-derived BRAM images retain nonzero initialization.
   Its timer/GPIO and timer-interrupt images now pass on the physical board;
   external-UART `hello` remains part of Phase 7 board work.
+- Phase 6 has a GREEN initial ModelSim vertical slice using the unmodified
+  official FreeRTOS V11.3.0 GCC RISC-V port. Tick/preemption, queue traffic,
+  context sentinels, UART, and GPIO pass, and the exact-board bitstream routes
+  with positive timing; the extended run and physical FPGA execution remain
+  open.
 - Phase 7 is complete through exact-board bitstream generation: AR-024 adds
   the ZYNQ MINI REVB wrapper/XDC/build, removes a routed CPU combinational loop,
   and produces all three Phase 5 bitstreams with non-negative timing. JTAG
@@ -553,32 +558,39 @@ on the physical board.
 
 ## Phase 6 — Integrate the official FreeRTOS RISC-V port
 
+**Status:** initial official-port vertical slice complete in ModelSim and the
+exact-board bitstream routes successfully (2026-08-16); extended simulation
+and physical FPGA execution remain open. See
+[`doc/AR025_OFFICIAL_FREERTOS_RISCV_PORT.md`](doc/AR025_OFFICIAL_FREERTOS_RISCV_PORT.md).
+
 **Purpose:** run an existing, reviewed kernel rather than inventing a scheduler
 or context-switch ABI.
 
-- [ ] Vendor or submodule a pinned FreeRTOS Kernel release.
-- [ ] Use the official `portable/GCC/RISC-V` port and document any platform
+- [x] Vendor a pinned FreeRTOS Kernel V11.3.0 source subset.
+- [x] Use the official `portable/GCC/RISC-V` port and document any platform
   adaptation rather than rewriting its context switch.
-- [ ] Add `FreeRTOSConfig.h` with explicit CPU clock and a 1 kHz tick.
-- [ ] Start with one hart, M-mode only, preemption enabled, and no atomic `A`
+- [x] Add `FreeRTOSConfig.h` with explicit CPU clock and a 1 kHz tick.
+- [x] Start with one hart, M-mode only, preemption enabled, and no atomic `A`
   extension requirement.
-- [ ] Choose and document `heap_4.c` or static allocation; keep heap and task
+- [x] Choose and document `heap_4.c`; keep heap and task
   stacks in data BRAM.
-- [ ] Enable `configASSERT`, stack-overflow checking, and malloc-failure hooks.
-- [ ] Avoid full `printf`; use a small polling UART writer.
-- [ ] Add build-time RAM/ROM overflow checks using the ELF size and linker map.
-- [ ] Add three demonstration tasks:
+- [x] Enable `configASSERT`, stack-overflow checking, and malloc-failure hooks.
+- [x] Avoid full `printf`; use a small polling UART writer.
+- [x] Add build-time RAM/ROM overflow checks using the ELF size and linker map.
+- [x] Add three demonstration functions (implemented as four tasks so queue
+      producer/receiver priorities are explicit):
   1. toggle an LED every 500 ms;
   2. print a UART heartbeat every second;
   3. send and receive values through a FreeRTOS queue.
-- [ ] Verify register/context preservation using sentinel register values across
+- [x] Verify register/context preservation using sentinel register values across
   forced context switches.
 - [ ] Run long simulation with assertions for illegal traps, duplicate commits,
   stack corruption, and unexpected writes.
 
-**Exit gate:** FreeRTOS starts in ModelSim, the tick count advances, at least two
-tasks preempt each other, queue communication succeeds, and UART/GPIO output
-matches the scoreboard.
+**Initial exit evidence:** FreeRTOS starts in ModelSim, the tick count advances,
+tasks preempt through timer and ECALL paths, queue communication succeeds, the
+`s2`-`s11` sentinels survive a forced switch, and UART/GPIO output matches the
+scoreboard. The long-duration item above remains open before Phase 6 is closed.
 
 ---
 
@@ -674,5 +686,6 @@ for the first FreeRTOS FPGA demonstration:
 2. Repeat PL K2 reset testing and record whether the LED applications restart
    consistently despite the open `REQP-1839` cleanup item.
 3. Confirm the XC7Z010 speed grade from a reliable vendor/device record.
-4. Keep all 47 official ACT4 RV32I/RV32M tests and the verified board-build
-   timing/DRC gates active while beginning the official FreeRTOS port.
+4. Add the extended FreeRTOS scheduler/stack-corruption run, then program and
+   verify the routed production FreeRTOS image on the FPGA while keeping the
+   47-test ACT4 and board timing/DRC gates active.

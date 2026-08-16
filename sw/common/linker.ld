@@ -55,6 +55,7 @@ SECTIONS
   __stack_top = SOC_TOHOST_ADDR & ~0xF;
   __stack_bottom = __stack_top - __stack_size;
   __heap_end = __stack_bottom;
+  PROVIDE(__freertos_irq_stack_top = __stack_top);
 
   PROVIDE(__global_pointer$ = ORIGIN(data_ram) + 0x800);
 

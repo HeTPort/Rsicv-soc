@@ -51,6 +51,7 @@ Current ownership and status:
 | AR-017 | AR-011 timing optimization | Radix-2 iterative divider implemented and verified; exact-board closure open |
 | AR-018 | Phase 2 SoC contract | All data and instruction fault cases GREEN; closed |
 | AR-019 | Phase 2 data fabric | Centralized decoder/default target implemented and verified |
+| AR-025 | Phase 6 FreeRTOS | Official V11.3.0 port initial ModelSim slice and routed bitstream verified; extended run and physical execution open |
 
 ## Verified baseline
 
@@ -678,8 +679,9 @@ checkpoint are complete.
    level.
 9. **Run bare-metal simulation and FPGA sanity programs.** Prove UART, GPIO, and
    timer interrupts before adding the kernel.
-10. **Integrate the pinned official FreeRTOS RISC-V port.** Add context sentinel,
-    stack, heap, queue, preemption, and long-run checks.
+10. **Integrate the pinned official FreeRTOS RISC-V port.** Port, stack/heap,
+    queue, preemption, and context sentinels are GREEN in ModelSim; the extended
+    run remains open. See `AR025_OFFICIAL_FREERTOS_RISCV_PORT.md`.
 11. **Complete FPGA timing and physical-board validation.**
 
 Official RV32I/RV32M ACT4 execution remains a continuous parallel track. It is

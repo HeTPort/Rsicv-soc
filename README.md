@@ -17,10 +17,13 @@ introduction.
 ## Current development status
 
 Phases 1–4 are complete. Phase 5 provides a split-image C runtime, minimal
-drivers, and three bare-metal programs. Phase 7 now provides the ZYNQ MINI REVB
+drivers, and three bare-metal programs; it is complete. Phase 6 now boots the pinned official
+FreeRTOS V11.3.0 GCC RISC-V port in ModelSim with preemption, queues, UART,
+GPIO, and context sentinels. Phase 7 provides the ZYNQ MINI REVB
 top/XDC and routed bitstreams for all three programs. JTAG plus the physical
 `timer_gpio` and `timer_irq` LED tests pass; external-UART `hello`, repeated
-reset, speed-grade identification, and FreeRTOS remain open.
+reset, speed-grade identification, an extended FreeRTOS simulation, and
+FreeRTOS FPGA execution remain open.
 
 | Area | Implemented now |
 |---|---|
@@ -34,9 +37,9 @@ reset, speed-grade identification, and FreeRTOS remain open.
 | Timer | 64-bit `mtime`/`mtimecmp`, MTIP level, local offsets `0xBFF8`/`0x4000` |
 | UART | Polling 8N1 TX and RX, default 16-byte RX FIFO, sticky overrun/framing errors |
 | GPIO | 32-bit R/W MMIO register driving parameterized low output bits; default width 8 |
-| Verification | Focused protocol tests, 22/22 smoke, 47/47 applicable ACT4 I/M, Phase 3 2/2, Phase 4 3/3, Phase 5 4/4 |
+| Verification | Focused protocol tests, 22/22 smoke, 47/47 applicable ACT4 I/M, Phase 3 2/2, Phase 4 3/3, Phase 5 4/4, Phase 6 1/1 |
 | FPGA | ZYNQ MINI REVB top/XDC/build; three routed 25 MHz bitstreams, 0 DRC errors, WNS +22.093 ns or better; hardware observation open |
-| Software | Reset-to-C runtime, split linker, UART/GPIO/timer/CSR drivers, and three bare-metal apps; FreeRTOS remains open |
+| Software | Reset-to-C runtime, split linker/drivers, three bare-metal apps, and pinned official FreeRTOS V11.3.0 demo |
 
 This is a verified development baseline, not a complete ISA-compliance or
 production-readiness claim. There is no cache, MMU, S-mode, PLIC, AXI fabric,
@@ -126,6 +129,7 @@ marker, and zero ModelSim errors, preventing PASS-looking false positives.
 | Phase 3 | 2/2 PASS | Precise timer/WFI behavior and long-duration timer run |
 | Phase 4 | 3/3 PASS | UART text, 16-byte RX-to-TX echo, and GPIO pin waveform/readback |
 | Phase 5 | 4/4 PASS | Split data image, C startup/UART, timer-polled GPIO, and ten full-context timer interrupts |
+| Phase 6 | 1/1 PASS | Official FreeRTOS tick/preemption, queue traffic, context sentinels, UART heartbeat, and GPIO activity |
 | SoC-map generator unit tests | 9/9 PASS | Canonical map validation and generated addresses |
 | UART focused tests | PASS | TX/RX framing, FIFO order/full/error/W1C, and bus semantics |
 | Vivado 2019.2 OOC SoC check | PASS | 0 errors/critical warnings; BRAM, LSU, UART RX/TX, and GPIO hierarchy retained |
@@ -178,12 +182,32 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 .\run_regression.ps1 -Manifest .\phase3_tests.json
 .\run_regression.ps1 -Manifest .\phase4_tests.json -Tag phase4
 .\run_regression.ps1 -Manifest .\phase5_tests.json -Tag phase5
+.\run_regression.ps1 -Manifest .\phase6_tests.json -Tag phase6
 .\test_regression_result.ps1
 python -m unittest test_elf_to_mem.py test_import_act4.py
 ```
 
 Useful selectors include `-List`, `-Test soc_uart_echo`, `-Tag lsu`, and
 `-Trace -DumpWaves`. See the [regression guide](sim/regress/README.md).
+
+### Build the FreeRTOS images
+
+The default image targets the board's 25 MHz CPU/MTIME clock and real 500 ms/
+1 s task periods:
+
+```powershell
+wsl.exe -e bash -lc "cd /mnt/d/Rsicv-soc-worktrees/phase2-act4-cleanup && bash sw/build_firmware_wsl.sh --install freertos_demo"
+```
+
+The focused RTL regression uses a distinct time-scaled image while retaining a
+1 kHz kernel tick:
+
+```powershell
+wsl.exe -e bash -lc "cd /mnt/d/Rsicv-soc-worktrees/phase2-act4-cleanup && SOC_FREERTOS_MTIME_HZ=5000000 SOC_FREERTOS_DEMO_TIME_SCALE=100 SOC_FREERTOS_SIM_COMPLETION=1 SOC_FREERTOS_IMAGE_SUFFIX=_sim bash sw/build_firmware_wsl.sh --install freertos_demo"
+```
+
+See [AR-025](doc/AR025_OFFICIAL_FREERTOS_RISCV_PORT.md) for the port boundary,
+memory policy, and verification evidence.
 
 ### Generate and validate the SoC map
 
@@ -237,6 +261,7 @@ config/       Authoritative SoC map and generator contract
 fpga/         Exact-board top, constraints, Vivado flow, and board guide
 firmware/     Generated C/linker map consumers
 sw/           Reset runtime, linker, minimal drivers, and bare-metal apps
+third_party/  Pinned, provenance-recorded FreeRTOS Kernel source subset
 testdata/     Directed assembly and readmemh images
 tools/        Map generator and dependency-free tests
 verif/act4/   RISC-V Architecture Test integration
@@ -254,8 +279,8 @@ The next practical steps are:
 1. wire a 3.3 V external UART on U15/W15 and observe `Hello, UART!`;
 2. repeat PL K2 reset testing and record the result;
 3. confirm the device speed grade from a reliable record;
-4. integrate the official FreeRTOS RISC-V port and validate context switching;
-5. test the FreeRTOS demonstration on the FPGA;
+4. add the extended FreeRTOS scheduler/stack-corruption simulation;
+5. build and test the production FreeRTOS demonstration on the FPGA;
 6. add UART interrupts/PLIC only after the polling baseline is stable on
    hardware.
 

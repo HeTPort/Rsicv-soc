@@ -42,11 +42,14 @@ Use 115200 baud, 8 data bits, no parity, one stop bit, and no flow control.
 
 ## Build firmware images
 
-From WSL, build and install the same three Phase 5 images used by simulation:
+From WSL, build and install the Phase 5 images or the production FreeRTOS
+image. The production FreeRTOS build keeps scheduling indefinitely; only its
+separate `_sim` profile terminates through `tohost`:
 
 ```bash
 cd /mnt/d/Rsicv-soc-worktrees/phase2-act4-cleanup
 bash sw/build_firmware_wsl.sh --install hello timer_gpio timer_irq
+bash sw/build_firmware_wsl.sh --install freertos_demo
 ```
 
 ## Build bitstreams with Vivado 2019.2
@@ -61,6 +64,8 @@ $vivado = 'D:\vivado\Vivado\2019.2\bin\vivado.bat'
   -source .\fpga\zynq_mini_revb\build.tcl -tclargs timer_gpio
 & $vivado -mode batch -notrace `
   -source .\fpga\zynq_mini_revb\build.tcl -tclargs timer_irq
+& $vivado -mode batch -notrace `
+  -source .\fpga\zynq_mini_revb\build.tcl -tclargs freertos_demo
 ```
 
 Each run reads RTL and XDC, synthesizes, checks that both firmware images
@@ -72,9 +77,11 @@ Warning DRC, and generates:
 build/zynq_mini_revb/<application>/zynq_mini_revb_<application>.bit
 ```
 
-The hardware profiles keep the same firmware images but slow `mtime` so the
-results are visible: `timer_gpio` changes LEDs about once per second, while
-`timer_irq` generates one interrupt about once per second for ten interrupts.
+The Phase 5 hardware profiles keep the same firmware images but slow `mtime`
+so the results are visible: `timer_gpio` changes LEDs about once per second,
+while `timer_irq` generates one interrupt about once per second for ten
+interrupts. `freertos_demo` uses the real 25 MHz MTIME rate configured in its
+production image, giving a 1 kHz RTOS tick.
 
 ## Program and observe the board
 
@@ -91,7 +98,10 @@ These are the steps that require the board:
    programming.
 5. For `hello`, confirm the expected UART banner at 115200 8N1. For
    `timer_gpio`, confirm the PL LEDs step through the firmware sequence. For
-   `timer_irq`, confirm the ten timer-interrupt completion behavior.
+   `timer_irq`, confirm the ten timer-interrupt completion behavior. For
+   `freertos_demo`, confirm `FreeRTOS RV32IM`, then a `heartbeat` line every
+   second, while PL D1 toggles every 500 ms. Leave it running to exercise tick
+   preemption, queue blocking/unblocking, and repeated context switches.
 
 Observed on 2026-08-15:
 

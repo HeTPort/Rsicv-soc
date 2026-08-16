@@ -269,6 +269,12 @@ try {
         if ($null -ne $testCase.PSObject.Properties["timer_irq_expected_count"]) {
             $vsimArgs += "-gTIMER_IRQ_EXPECTED_COUNT=$([int]$testCase.timer_irq_expected_count)"
         }
+        if ($null -ne $testCase.PSObject.Properties["freertos_check_enable"]) {
+            $vsimArgs += "-gFREERTOS_CHECK_ENABLE=$([int][bool]$testCase.freertos_check_enable)"
+        }
+        if ($null -ne $testCase.PSObject.Properties["freertos_min_timer_irqs"]) {
+            $vsimArgs += "-gFREERTOS_MIN_TIMER_IRQS=$([int]$testCase.freertos_min_timer_irqs)"
+        }
         if (-not [string]::IsNullOrWhiteSpace($dataImagePath)) {
             $modelSimDataImagePath = $dataImagePath.Replace("\", "/")
             $vsimArgs += "-gDATA_FILE=$modelSimDataImagePath"

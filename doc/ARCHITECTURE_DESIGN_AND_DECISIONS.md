@@ -4,14 +4,16 @@
 
 **Audience:** Designers, reviewers, learners, and future maintainers
 
-**Last updated:** 2026-08-15
+**Last updated:** 2026-08-16
 
 **Current milestone:** Phase 5 is complete in RTL simulation and Vivado OOC
 synthesis. AR-024 implements the ZYNQ MINI REVB board boundary and produces
 three routed 25 MHz bitstreams with non-negative timing and no DRC errors.
 Physical external-UART and repeated-reset observation, speed-grade
-identification, UART interrupts/PLIC, and FreeRTOS remain open. JTAG, LED, and
-timer evidence now pass on the ZYNQ MINI REVB board.
+identification and UART interrupts/PLIC remain open. JTAG, LED, and timer
+evidence pass on the ZYNQ MINI REVB board. AR-025 implements and verifies the
+initial official FreeRTOS port in ModelSim and routes its board bitstream; its
+long run and physical FPGA gate remain.
 
 > This is the consolidated record of what the architecture is, why it evolved
 > this way, what was learned while fixing problems, and which decisions remain
@@ -1241,6 +1243,37 @@ LED behavior passed. `REQP-1839`, external UART, repeated reset, and speed-grade
 identification remain open. Full details are in
 [`AR024_ZYNQ_MINI_REVB_FPGA_INTEGRATION.md`](AR024_ZYNQ_MINI_REVB_FPGA_INTEGRATION.md).
 
+### AR-025 — Official FreeRTOS V11.3.0 RISC-V port
+
+**State:** Initial ModelSim vertical slice and routed bitstream verified; extended run and physical FPGA execution pending
+
+**Problem/root cause:** The SoC had a precise timer/trap path and bare-metal
+runtime but no scheduler. Replacing the official context ABI with local
+assembly would create a second, unreviewed ownership contract.
+
+**Options:** Write a custom scheduler/port, import the full distribution, use a
+submodule, or vendor the minimal official kernel/queue/heap/GCC-RISC-V slice.
+The minimal pinned vendor slice was selected for offline reproducibility and a
+small review surface.
+
+**Decision:** Vendor FreeRTOS-Kernel V11.3.0 commit
+`9b777ae5c5b8e9e456065a00294d1e5f5f9facf5` unchanged; select
+`RISCV_MTIME_CLINT_no_extensions`, `heap_4.c`, one M-mode hart, preemption, and
+a 1 kHz tick. An app-local trampoline connects startup `trap_entry` to the
+official handler. A 24 KiB heap owns task stacks; the linker-provided top 4 KiB
+stack becomes the IRQ stack. Keep separate 25 MHz production and time-scaled
+simulation images.
+
+**Consequences/evidence:** No RTL or atomic `A` extension is required. A small
+freestanding string layer compensates for the bare toolchain without changing
+upstream. The focused run proves timer and ECALL switching, ordered queue
+traffic, `s2`-`s11` sentinels, UART heartbeat, GPIO activity, 11 timer IRQs,
+and `tohost=1`. Phase 6 is 1/1, Phase 5 is 4/4, smoke is 22/22, and converter/
+importer tests are 12/12. The initial 500-cycle simulation period was shorter
+than context overhead and caused MTIP catch-up starvation; 5,000 cycles avoids
+that model artifact. Full details are in
+[`AR025_OFFICIAL_FREERTOS_RISCV_PORT.md`](AR025_OFFICIAL_FREERTOS_RISCV_PORT.md).
+
 ## 9. Future stage architecture gates
 
 | Stage | Architecture decisions required before implementation | Exit evidence |
@@ -1250,8 +1283,8 @@ identification remain open. Full details are in
 | Phase 3: timer interrupt | Complete: MTIP ownership, effective eligibility, retirement boundary, MRET exclusion, logical WFI, timer target | Precise firmware plus 10,000 repeated interrupts, focused assertions, 22/22 smoke, OOC synthesis |
 | Phase 4: UART/GPIO | Complete: native UART TX/RX plus parameterized output GPIO, registered target responses, and five-owner fabric exclusivity | UART focused tests, TX text, RX echo, GPIO target/fabric, readback, and pin waveform PASS |
 | Phase 5: firmware | Complete: split-image ELF conversion, startup/linker ABI, drivers, and four sanity applications | 4/4 ModelSim, preservation regressions, exact-image Vivado initialization, and physical timer/GPIO plus timer-IRQ PASS; UART pending in Phase 7 |
-| Phase 6: FreeRTOS | Official port boundary, tick source, heap/stack policy | Context sentinels, preemption, queues, long run |
-| Phase 7: FPGA | Board top/XDC, 25 MHz MMCM/reset, BRAM init, route, timing, and bitstreams complete; JTAG/LED/timer physically proven | 0-error DRC, TNS 0, three bitstreams, `timer_gpio` and `timer_irq` hardware PASS; UART/reset/speed grade still required |
+| Phase 6: FreeRTOS | Initial official V11.3.0 port, tick source, heap/stack policy, preemption, queues, and context sentinels complete | 1/1 focused ModelSim PASS; extended run remains |
+| Phase 7: FPGA | Board top/XDC, 25 MHz MMCM/reset, BRAM init, route, timing, and bitstreams complete; JTAG/LED/timer physically proven | 0-error DRC, TNS 0, four bitstreams including FreeRTOS, `timer_gpio` and `timer_irq` hardware PASS; FreeRTOS/UART/reset/speed grade still required |
 | Phase 8: release | Applicable ACT4 set and unified regression | Reproducible clean release evidence |
 
 ## 10. Architecture decision template
@@ -1360,6 +1393,7 @@ An architecture-changing task is incomplete until this document is updated.
 - [AR-022 memory-mapped GPIO output](AR022_MEMORY_MAPPED_GPIO_OUTPUT.md)
 - [AR-023 Phase 5 bare-metal runtime](AR023_PHASE5_BARE_METAL_RUNTIME.md)
 - [AR-024 ZYNQ MINI REVB FPGA integration](AR024_ZYNQ_MINI_REVB_FPGA_INTEGRATION.md)
+- [AR-025 official FreeRTOS RISC-V port](AR025_OFFICIAL_FREERTOS_RISCV_PORT.md)
 - [Phase 5 startup/runtime implementation guide](../docs/phase5-startup-runtime-guide.md)
 - [ACT4 integration handoff](ACT4_RV32I_INTEGRATION_HANDOFF_2026-07-27.md)
 - [ACT4 integration guide](../verif/act4/README.md)

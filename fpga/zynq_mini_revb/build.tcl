@@ -5,12 +5,13 @@
 #   vivado -mode batch -source fpga/zynq_mini_revb/build.tcl -tclargs hello
 #   vivado -mode batch -source fpga/zynq_mini_revb/build.tcl -tclargs timer_gpio
 #   vivado -mode batch -source fpga/zynq_mini_revb/build.tcl -tclargs timer_irq
+#   vivado -mode batch -source fpga/zynq_mini_revb/build.tcl -tclargs freertos_demo
 
 set script_dir [file dirname [file normalize [info script]]]
 set repo_root  [file normalize [file join $script_dir ../..]]
 
 if {$argc > 1} {
-  error "Expected zero or one application name: hello, timer_gpio, or timer_irq"
+  error "Expected zero or one application name: hello, timer_gpio, timer_irq, or freertos_demo"
 }
 set app_name [expr {$argc == 1 ? [lindex $argv 0] : "hello"}]
 
@@ -20,9 +21,10 @@ array set timer_ticks {
   hello       1
   timer_gpio  1250000
   timer_irq   25000
+  freertos_demo 1
 }
 if {![info exists timer_ticks($app_name)]} {
-  error "Unknown application '$app_name'; expected hello, timer_gpio, or timer_irq"
+  error "Unknown application '$app_name'; expected hello, timer_gpio, timer_irq, or freertos_demo"
 }
 set timer_tick_cycles $timer_ticks($app_name)
 

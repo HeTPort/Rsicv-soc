@@ -4,14 +4,17 @@
 
 **Audience:** New contributors and learners
 
-**Last updated:** 2026-08-15
+**Last updated:** 2026-08-16
 
 **Current reference:** `codex/phase2-act4-cleanup`. Phases 1–4 are complete.
 Phase 5 is complete in ModelSim and Vivado OOC synthesis. AR-024 adds the Bo
 Chen Jing Xin ZYNQ MINI `20240221/REVB` top, schematic-derived XDC, 50-to-25 MHz
 MMCM/reset wrapper, and routed bitstreams for all three bare-metal programs.
 JTAG plus physical `timer_gpio` and `timer_irq` execution now pass. External
-UART, repeated reset, speed-grade identification, and FreeRTOS remain open.
+UART, repeated reset, and speed-grade identification remain open. AR-025 adds
+the official FreeRTOS V11.3.0 RISC-V port, a GREEN ModelSim vertical slice, and
+a routed exact-board bitstream; extended simulation and physical FPGA execution
+remain open.
 
 > Update this document whenever a change alters a module boundary, pipeline
 > timing, packet field, architectural behavior, memory map, verification
@@ -100,6 +103,9 @@ the minimal architecture needed for the first working system.
   timer-polled GPIO, and full-context timer-interrupt applications.
 - Phase 5 regression: 4/4 passing, including ten independently observed
   timer interrupts and exact serial/GPIO scoreboards.
+- Phase 6 initial regression: 1/1 passing with the official FreeRTOS V11.3.0
+  GCC RISC-V port, 11 observed ticks, queue-forced context switching,
+  `s2`-`s11` sentinels, UART heartbeat, and GPIO activity.
 - Vivado firmware INIT gate: 32 RAMB36E1 cells split 16 program/16 data, with
   nonzero INIT properties in both image-loaded banks.
 - Exact ZYNQ MINI REVB boundary: K17 50 MHz clock, M20 active-low reset,
@@ -120,7 +126,8 @@ the minimal architecture needed for the first working system.
 - GPIO input/direction/interrupt registers and other additional peripherals;
   polling UART TX/RX and output GPIO are implemented, while UART interrupts/
   PLIC are deferred.
-- FreeRTOS port integration.
+- Extended FreeRTOS scheduler/stack-corruption simulation and physical FPGA
+  execution; the initial official-port ModelSim vertical slice is implemented.
 - Physical external-UART `hello` and repeated PL reset observations; JTAG,
   LED, timer progression, and timer interrupt execution are verified.
 - Positive identification of the package speed grade; local builds use
@@ -156,6 +163,7 @@ The current mapping is:
 | AR-020 | Minimal polling UART TX implemented and verified through OOC synthesis |
 | AR-021 | Polling UART RX and parameterized default 16-byte FIFO implemented and verified through OOC synthesis |
 | AR-022 | Memory-mapped output GPIO implemented and verified through OOC synthesis |
+| AR-025 | Official FreeRTOS V11.3.0 RISC-V port; initial ModelSim slice and routed bitstream verified, extended/physical gates pending |
 
 The authoritative phase checklist is [`TODO.md`](../TODO.md); the detailed
 finding status is in
@@ -742,6 +750,27 @@ MTIP is the level `mtime >= mtimecmp`. RV32 software replaces `mtimecmp` with
 the safe low-all-ones, high, low sequence. Only aligned word accesses are
 implemented in this milestone.
 
+### 11.6 Official FreeRTOS context path
+
+The Phase 6 application points the startup `trap_entry` symbol at the official
+FreeRTOS `freertos_risc_v_trap_handler`. That assembly code, not repository
+glue, owns the task stack frame, integer-register save/restore, ECALL yield,
+timer-tick update, scheduler call, and `mret`.
+
+The selected upstream chip header declares an MTIME/CLINT-compatible target
+with no extra implementation-specific registers. The existing CPU already
+supplies direct `mtvec`, ECALL, `mret`, `mhartid=0`, and the required M-mode CSR
+bits, so the integration changes no RTL and needs no atomic `A` extension.
+
+`heap_4.c` reserves 24 KiB in data BRAM. Task stacks come from that heap, while
+the pre-scheduler 4 KiB main stack becomes the interrupt stack through
+`__freertos_irq_stack_top`. The linker rejects overlap and RAM overflow.
+
+The focused demo uses LED, heartbeat, queue producer, and queue receiver tasks.
+The producer wraps a send with `s2`-`s11` sentinels; waking the higher-priority
+receiver forces a scheduler switch, and any failed restore prevents PASS. See
+[`AR025_OFFICIAL_FREERTOS_RISCV_PORT.md`](AR025_OFFICIAL_FREERTOS_RISCV_PORT.md).
+
 ## 12. Architectural commit interface
 
 `commit_o` is the stable observation record for each valid retired instruction.
@@ -782,6 +811,7 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 ./run_regression.ps1 -Manifest ./phase4_tests.json -Test soc_uart_echo
 ./run_regression.ps1 -Manifest ./phase4_tests.json -Test soc_gpio_out
 ./run_regression.ps1 -Manifest ./phase5_tests.json -Tag phase5
+./run_regression.ps1 -Manifest ./phase6_tests.json -Tag phase6
 ./test_regression_result.ps1
 python -m unittest test_elf_to_mem.py test_import_act4.py
 ```
@@ -916,6 +946,7 @@ Recommended waveform groups:
 | UART RX capacity | The 16-byte default FIFO tolerates bounded polling latency but sustained traffic can still overrun | Firmware must monitor errors; revisit interrupts/DMA only after board baseline |
 | Clock gating | Logical WFI is verified, but no safe FPGA clock gating is implemented | Phase 7 after board clock design |
 | Reset-to-BRAM control | Reset deassertion is synchronized, but Vivado `REQP-1839` warns that asynchronously reset control registers feed data-BRAM address/control logic | Physical reset test, then synchronous-reset cleanup if required / AR-024 |
+| FreeRTOS duration/hardware | Initial official-port preemption, queues, context sentinels, UART, and GPIO pass in ModelSim; the board bitstream routes, while extended runtime and physical execution remain unverified | Phases 6-7 / AR-025 |
 
 ## 16. Practical study exercises
 
@@ -981,6 +1012,7 @@ compare RAM data, `load_offset`, extracted value, and committed result.
 - [AR-022 memory-mapped GPIO output](AR022_MEMORY_MAPPED_GPIO_OUTPUT.md)
 - [AR-023 Phase 5 bare-metal runtime](AR023_PHASE5_BARE_METAL_RUNTIME.md)
 - [AR-024 ZYNQ MINI REVB FPGA integration](AR024_ZYNQ_MINI_REVB_FPGA_INTEGRATION.md)
+- [AR-025 official FreeRTOS RISC-V port](AR025_OFFICIAL_FREERTOS_RISCV_PORT.md)
 - [Phase 4 UART implementation guide](../docs/phase4-uart-guide.md)
 - [Phase 4 GPIO implementation guide](../docs/phase4-gpio-guide.md)
 - [Phase 5 startup/runtime implementation guide](../docs/phase5-startup-runtime-guide.md)
