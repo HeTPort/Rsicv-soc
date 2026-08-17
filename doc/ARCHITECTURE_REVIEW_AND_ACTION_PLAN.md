@@ -43,7 +43,7 @@ Current ownership and status:
 | AR-009 | Phase 1 | Accepted; Phase 1 contract and Phase 2 RTL adoption complete, later software consumers pending |
 | AR-010 | Continuous verification track | Ongoing |
 | AR-011 | Early FPGA feasibility, then Phase 7 closure | AR-017 closes the MULDIV OOC blocker; exact-board closure remains open |
-| AR-012 | Cross-stage cleanup | Partial: retirement owner and control-port cleanup complete; halt/README cleanup remains |
+| AR-012 | Cross-stage cleanup | Implemented and verified: retirement owner, control ports, public halt removal, and release documentation complete |
 | AR-013 | Regression infrastructure | Implemented and verified |
 | AR-014 | Phase 1 contract tooling | Accepted contract generation implemented and verified |
 | AR-015 | AR-011 evidence supporting Phase 1 | 16 KiB/64 KiB utilization and post-synthesis timing comparison verified |
@@ -570,27 +570,29 @@ area being redesigned for the bus.
 
 ### AR-012 — Documentation and interface cleanup
 
-**Status:** partially implemented. **Target:** retirement/control portion
-complete; final public-interface/document cleanup remains before release.
+**Status:** implemented and verified on 2026-08-17.
 
-The repository README still describes the long-term Linux target and an older
-five-stage/privilege status, while `TODO.md` now correctly targets FreeRTOS.
-Several interfaces also retain obsolete or duplicate signals, including a
-permanently low `halt_o`, unused `core_ctrl` inputs, and tied-off WB CSR/trap
-outputs.
+The retirement owner, control ports, public core interface, and release-facing
+documentation now describe the implemented FreeRTOS-oriented design. The
+obsolete fixed-low halt output and its empty/test-only connections are removed;
+completion uses committed `tohost` stores.
 
 **Handling**
 
-- [ ] Update `README.md` after the target architecture and memory map are frozen.
-- [ ] Document the real pipeline stages and actual instruction/data memory
+- [x] Update `README.md` after the target architecture and memory map are frozen.
+- [x] Document the real pipeline stages and actual instruction/data memory
       latency rather than the conceptual five-stage labels.
-- [ ] Remove or explicitly deprecate `halt_o` and obsolete halt-based tests.
+- [x] Remove or explicitly deprecate `halt_o` and obsolete halt-based tests.
 - [x] Make one module own retirement, CSR writes, trap entry, and commit record
       construction.
 - [x] Remove unused control ports after the bus/interrupt control contract is
       stable.
 - [x] Remove empty placeholder RTL files; add implemented modules when their
       owning phase starts and defines a real interface.
+
+See [`AR012_RETIREMENT_INTERFACE_CLEANUP.md`](AR012_RETIREMENT_INTERFACE_CLEANUP.md)
+for alternatives, consequences, and the fresh 47/47 ACT4 plus 22/22 smoke
+preservation evidence.
 
 ### AR-013 — Regression PASS ignored the simulator process status
 

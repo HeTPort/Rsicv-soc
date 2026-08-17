@@ -251,9 +251,13 @@ assert (
 @(negedge clk);
 
 /*
- * Change the observational payload to a UART address while valid is low and
- * GPIO is still outstanding. The response must follow the registered owner,
- * not the live address bits on the CPU request bus.
+ * Change the live CPU request to UART while GPIO is still outstanding.
+ *
+ * A correct fabric must:
+ *
+ * 1. refuse to accept/redecode the UART request;
+ * 2. continue waiting for the GPIO response;
+ * 3. route the GPIO response when it arrives.
  */
 set_request(
   UART_BASE + 32'h0000_0004,
@@ -263,7 +267,7 @@ set_request(
   '0
 );
 
-cpu_req_valid = 1'b0;
+cpu_req_valid = 1'b1;
 
 gpio_rsp.rdata = 32'h4750_494f; // ASCII-like "GPIO" sentinel
 gpio_rsp.error = 1'b0;
@@ -294,8 +298,8 @@ assert (
   );
 
 /*
- * The GPIO response retires on this edge. With no next request asserted, the
- * fabric must become ready without forwarding the observational UART payload.
+ * The GPIO response retires on this edge. The already-present UART request
+ * should then become eligible, but it must not have been accepted earlier.
  */
 @(posedge clk);
 #1;
@@ -304,18 +308,32 @@ gpio_rsp_valid = 1'b0;
 
 assert (
   cpu_req_ready &&
-  !timer_req_valid &&
-  !uart_req_valid &&
-  !data_req_valid &&
+  uart_req_valid &&
   !gpio_req_valid
 )
   else $fatal(
     1,
-    "fabric did not return to the idle ready state after the GPIO response"
+    "next target was not released after the GPIO response"
   );
 
-// Present the next request only after the previous response has retired.
+// Keep valid and payload stable until the released UART request is accepted.
+@(posedge clk);
+#1;
+assert (uart_accept_count == 2 && cpu_accept_count == 4)
+  else $fatal(1, "released UART request was not accepted exactly once");
+
 @(negedge clk);
+cpu_req_valid = 1'b0;
+uart_rsp.rdata = 32'h5552_5421; // ASCII-like "URT!" sentinel
+uart_rsp.error = 1'b0;
+uart_rsp_valid = 1'b1;
+#1;
+assert (cpu_rsp_valid && cpu_rsp.rdata == 32'h5552_5421 && !cpu_rsp.error)
+  else $fatal(1, "released UART request did not retain response ownership");
+@(posedge clk);
+@(negedge clk);
+uart_rsp_valid = 1'b0;
+
     // An unmapped store must select only the registered default target.
     set_request(32'h4000_0000, 1'b1, MEM_SIZE_WORD,
                 32'hdead_beef, 4'b1111);
@@ -413,17 +431,17 @@ assert (
     #1;
     data_rsp_valid = 1'b0;
 
-    assert (cpu_accept_count == 7)
+    assert (cpu_accept_count == 8)
       else $fatal(1, "CPU acceptance count mismatch: %0d", cpu_accept_count);
     assert (timer_accept_count == 1)
       else $fatal(1, "timer acceptance count mismatch: %0d", timer_accept_count);
-    assert (uart_accept_count == 1)
+    assert (uart_accept_count == 2)
       else $fatal(1, "UART acceptance count mismatch: %0d", uart_accept_count);
     assert (gpio_accept_count == 1)
       else $fatal(1, "GPIO acceptance count mismatch: %0d", gpio_accept_count);
     assert (data_accept_count == 2)
       else $fatal(1, "RAM acceptance count mismatch: %0d", data_accept_count);
-    assert (cpu_response_count == 7)
+    assert (cpu_response_count == 8)
       else $fatal(1, "response count mismatch: %0d", cpu_response_count);
 
     $display("[SOC-DATA-FABRIC-TB] RESULT: PASS");

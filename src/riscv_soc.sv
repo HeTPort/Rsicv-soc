@@ -123,7 +123,6 @@ module riscv_soc #(
     .dbg_x3_o        (test_case),
     .dbg_x10_o       (reg_s10),
     .dbg_x11_o       (reg_s11),
-    .halt_o          (),
     .illegal_instr_o (),
     .exception_o     (),
     .commit_o        (commit_o)

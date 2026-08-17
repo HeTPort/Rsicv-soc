@@ -97,14 +97,16 @@ The RTL checks, outside synthesis, that:
 
 `tb_soc_data_fabric.sv` verifies RAM request back-pressure, base and inclusive
 end translation, an invalid store that never reaches RAM, exact registered
-default latency, a changed live address while RAM owns the response, and a
-held cross-target request immediately following that response.
+default latency, changed live addresses while another target owns the response,
+and a held cross-target request immediately following that response. The GPIO
+to UART case also proves exactly-once next-request acceptance and registered
+UART response ownership.
 
 ## Verification evidence
 
 | Check | Result |
 |---|---|
-| Focused fabric protocol/decode test | PASS at 116 ns; zero errors |
+| Focused fabric protocol/decode test | PASS at 196 ns; zero errors, refreshed 2026-08-17 |
 | SoC unmapped load firmware | PASS, cause 5 path |
 | SoC unmapped store firmware | PASS, cause 7 and sentinel unchanged |
 | SoC unmapped store with RAM waits 2/3 | PASS through real fabric/adapter |

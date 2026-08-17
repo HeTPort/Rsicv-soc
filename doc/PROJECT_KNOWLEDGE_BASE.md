@@ -151,7 +151,7 @@ The current mapping is:
 | AR-008 | Phase 3 precise timer interrupt/WFI/timer target, implemented and verified |
 | AR-010 | Ongoing verification-depth work across phases |
 | AR-011 | Early FPGA feasibility plus later timing closure |
-| AR-012 | Retirement owner/control-port cleanup implemented; `halt_o`/README cleanup remains |
+| AR-012 | Retirement owner and public-interface cleanup implemented and verified; obsolete `halt_o` removed |
 | AR-013 | Regression infrastructure fix, implemented and verified |
 | AR-023 | Phase 5 split-image runtime and applications; simulation plus physical timer/GPIO and timer-IRQ verified, UART pending |
 | AR-014 | Accepted-map generation infrastructure, implemented and verified |
@@ -875,7 +875,8 @@ Tests finish by committing a store to the configured `tohost` address:
 - value `1`: PASS;
 - another nonzero value: test-specific failure code.
 
-`halt_o` is not the completion mechanism.
+The core exposes no halt output. A committed `tohost` store is the test
+completion mechanism, and `commit_pkt_t` is the ordered retirement observation.
 
 The regression runner classifies a test as PASS only when the native simulator
 exit is zero, the architectural PASS marker is present, no fatal marker is
@@ -941,7 +942,7 @@ Recommended waveform groups:
 | Interrupt boundary | Implemented and verified; broader randomized boundary coverage remains useful | Continuous verification / AR-008/AR-010 |
 | Timer | Implemented word-access timer and polling/interrupt firmware APIs; both exact-board LED-visible timer profiles pass physically | Closed for bare-metal baseline / AR-024 |
 | RV32M timing | Exact-board 25 MHz routing passes with at least +22.093 ns WNS; 50 MHz exact-board closure and multiply-high optimization remain optional | Phase 7 / AR-011/AR-017/AR-024 |
-| Retirement ownership | `retire_stage` is the owner; obsolete `halt_o` and broader README cleanup remain | Cleanup / AR-012 |
+| Retirement ownership | `retire_stage` is the owner; obsolete `halt_o` is removed and the public-interface cleanup is verified | Closed / AR-012 |
 | Peripherals | Timer and GPIO pass physically; polling UART TX/RX is implemented but external-UART hardware validation and UART interrupts/PLIC remain open | Phases 6-7 |
 | UART RX capacity | The 16-byte default FIFO tolerates bounded polling latency but sustained traffic can still overrun | Firmware must monitor errors; revisit interrupts/DMA only after board baseline |
 | Clock gating | Logical WFI is verified, but no safe FPGA clock gating is implemented | Phase 7 after board clock design |
@@ -999,6 +1000,7 @@ compare RAM data, `load_offset`, extracted value, and committed result.
 - [AR-006 control-flow misalignment](AR006_CONTROL_FLOW_MISALIGNMENT.md)
 - [AR-007 CSR contract](AR007_CSR_LEGALITY_WARL_AND_HAZARDS.md)
 - [AR-008 precise machine-timer interrupts](AR008_PRECISE_MACHINE_TIMER_INTERRUPTS.md)
+- [AR-012 retirement and public-interface cleanup](AR012_RETIREMENT_INTERFACE_CLEANUP.md)
 - [Semantic signal specification](SEMANTIC_SIGNAL_SPEC.md)
 - [AR-013 regression exit-status gate](AR013_REGRESSION_EXIT_STATUS_GATE.md)
 - [AR-014 machine-readable SoC map](AR014_MACHINE_READABLE_SOC_MAP.md)
@@ -1018,6 +1020,7 @@ compare RAM data, `load_offset`, extracted value, and committed result.
 - [Phase 5 startup/runtime implementation guide](../docs/phase5-startup-runtime-guide.md)
 - [ZYNQ MINI REVB build and wiring guide](../fpga/zynq_mini_revb/README.md)
 - [ACT4 integration](../verif/act4/README.md)
+- [Interview preparation guide](../docs/INTERVIEW_GUIDE.md)
 - [Project roadmap](../TODO.md)
 
 ## 18. Living-document update checklist

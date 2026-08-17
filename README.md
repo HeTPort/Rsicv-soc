@@ -37,7 +37,7 @@ FreeRTOS FPGA execution remain open.
 | Timer | 64-bit `mtime`/`mtimecmp`, MTIP level, local offsets `0xBFF8`/`0x4000` |
 | UART | Polling 8N1 TX and RX, default 16-byte RX FIFO, sticky overrun/framing errors |
 | GPIO | 32-bit R/W MMIO register driving parameterized low output bits; default width 8 |
-| Verification | Focused protocol tests, 22/22 smoke, 47/47 applicable ACT4 I/M, Phase 3 2/2, Phase 4 3/3, Phase 5 4/4, Phase 6 1/1 |
+| Verification | Focused protocol tests, 22/22 smoke, 47/47 applicable ACT4 I/M refreshed 2026-08-17, Phase 3 2/2, Phase 4 3/3, Phase 5 4/4, Phase 6 1/1 |
 | FPGA | ZYNQ MINI REVB top/XDC/build; three routed 25 MHz bitstreams, 0 DRC errors, WNS +22.093 ns or better; hardware observation open |
 | Software | Reset-to-C runtime, split linker/drivers, three bare-metal apps, and pinned official FreeRTOS V11.3.0 demo |
 
@@ -125,7 +125,7 @@ marker, and zero ModelSim errors, preventing PASS-looking false positives.
 | Gate | Current result | What it proves |
 |---|---:|---|
 | Smoke regression | 22/22 PASS | Directed CPU, CSR, trap, LSU, and bus behavior |
-| Applicable ACT4 | 47/47 PASS | 39 RV32I and 8 RV32M architectural cases |
+| Applicable ACT4 | 47/47 PASS, refreshed 2026-08-17 | 39 RV32I and 8 RV32M architectural cases |
 | Phase 3 | 2/2 PASS | Precise timer/WFI behavior and long-duration timer run |
 | Phase 4 | 3/3 PASS | UART text, 16-byte RX-to-TX echo, and GPIO pin waveform/readback |
 | Phase 5 | 4/4 PASS | Split data image, C startup/UART, timer-polled GPIO, and ten full-context timer interrupts |
@@ -142,6 +142,13 @@ serial decoder checks `RX FIFO 16 OK!\r\n`. The focused FIFO test separately
 fills all 16 entries and verifies full/overrun behavior. Together they verify
 the complete pin → receiver → FIFO → CPU → transmitter → pin path in simulation.
 
+The 2026-08-17 release-cleanup run regenerated ACT4 4.0.0 artifacts before
+execution, then passed 47/47 ACT4, 22/22 directed smoke, the focused data-fabric
+test, 12/12 converter/importer tests, 9/9 map-generator tests, and the regression
+classifier test. It also removed the obsolete fixed-low core `halt_o` port;
+committed `tohost` stores and `commit_pkt_t` are the completion and retirement
+observation contracts. See [AR-012](doc/AR012_RETIREMENT_INTERFACE_CLEANUP.md).
+
 ## Try it
 
 ### Requirements
@@ -150,6 +157,8 @@ the complete pin → receiver → FIFO → CPU → transmitter → pin path in s
 - Windows PowerShell for the regression scripts
 - Python 3 for map/tool tests
 - a RISC-V GNU toolchain under WSL when rebuilding assembly images
+- WSL Ubuntu with the pinned ACT4 dependencies when regenerating official
+  architecture-test artifacts
 - Vivado 2019.2 or compatible for optional synthesis checks
 
 ### Main core simulation
@@ -189,6 +198,29 @@ python -m unittest test_elf_to_mem.py test_import_act4.py
 
 Useful selectors include `-List`, `-Test soc_uart_echo`, `-Tag lsu`, and
 `-Trace -DumpWaves`. See the [regression guide](sim/regress/README.md).
+
+### Regenerate and run applicable ACT4
+
+ACT4 4.0.0 generation uses WSL, Clang/LLVM 21, Sail 0.10, and the repository
+configuration under `verif/act4/`. Build I before M so the shared target and
+final manifest contain all 47 applicable cases:
+
+```powershell
+Set-Location .\sim\regress
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\run_act4_build.ps1 -Extension I
+.\run_act4_build.ps1 -Extension M
+
+Set-Location ..\..
+.\sim\regress\run_regression.ps1 `
+  -Manifest .\build\act4\tests.json `
+  -Tag act4
+```
+
+ACT4 is an ISA regression gate, not a certification claim and not a substitute
+for directed bus, trap, peripheral, firmware, synthesis, or board tests. See
+the [ACT4 integration guide](verif/act4/README.md) for tool versions and
+environment details.
 
 ### Build the FreeRTOS images
 
@@ -272,7 +304,20 @@ docs/         Phase-oriented implementation guides
 Build scripts list sources explicitly. Planned modules are added only when a
 phase defines a real interface; empty future placeholders are not kept.
 
+## Interview preparation
+
+The [RV32IM SoC interview guide](docs/INTERVIEW_GUIDE.md) turns the repository
+into a design narrative: requirements, module boundaries, pipeline and bus
+protocols, refinement stories, peripherals, startup/FreeRTOS integration,
+verification layers, FPGA bring-up, tradeoffs, and concise questions and
+answers. Use the linked AR reports when an interviewer asks for failure evidence
+or alternatives considered.
+
 ## Roadmap and open gates
+
+The repository is interview-ready and has a refreshed CPU/SoC simulation
+baseline, but it is not a completed Phase 8 hardware release. The remaining
+claims require external evidence rather than more documentation.
 
 The next practical steps are:
 

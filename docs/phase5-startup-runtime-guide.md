@@ -774,9 +774,9 @@ Keep each step independently reviewable:
 - [x] Vivado uses the intended instruction and data BRAM initial contents.
 - [x] ELF/map/disassembly/size artifacts are reproducible.
 - [x] UART hello passes at the physical serial pin model and through `tohost`.
-- [x] Existing focused, phase, smoke, map, and synthesis gates remain green,
-      except the separately modified data-fabric test whose failure predates
-      Phase 5 work.
+- [x] Existing focused, phase, smoke, map, and synthesis gates remain green;
+      the strengthened data-fabric ownership test was repaired and passes with
+      zero errors on 2026-08-17.
 
 ## 16. References
 

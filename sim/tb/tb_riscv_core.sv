@@ -60,7 +60,6 @@ module tb_riscv_core #(
   logic [DW-1:0] dbg_x3;
   logic [DW-1:0] dbg_x10;
   logic [DW-1:0] dbg_x11;
-  logic halt;
   logic illegal_instr;
   logic exception;
   commit_pkt_t commit;
@@ -89,7 +88,6 @@ module tb_riscv_core #(
     .dbg_x3_o        (dbg_x3),
     .dbg_x10_o       (dbg_x10),
     .dbg_x11_o       (dbg_x11),
-    .halt_o          (halt),
     .illegal_instr_o (illegal_instr),
     .exception_o     (exception),
     .commit_o        (commit)

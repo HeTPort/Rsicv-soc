@@ -75,6 +75,8 @@ Implemented:
 
 - [x] RV32IM in-order core with packed pipeline packets.
 - [x] Explicit architectural commit/retirement interface.
+- [x] Obsolete fixed-low `halt_o` removed; committed `tohost` stores are the
+      single test-completion ABI.
 - [x] M-mode CSR instructions and synchronous trap entry/return support.
 - [x] Explicit M-mode CSR legality, no-write rules, WARL filtering, and
       same-address dependency bypass.
@@ -85,8 +87,9 @@ Implemented:
   completion checking.
 - [x] ELF-to-memory converter and ACT4 import/runner adapters.
 - [x] Synthetic ACT4 harness smoke test.
-- [x] Official ACT4 RV32IM baseline: 39/39 RV32I and 8/8 RV32M tests passed
-  on unchanged RTL on 2026-08-03, with no failures or DUT candidates.
+- [x] Official ACT4 RV32IM baseline: 39/39 RV32I and 8/8 RV32M tests passed;
+  refreshed after release-interface cleanup on 2026-08-17 with no failures,
+  timeouts, or nonzero simulator exits.
 - [x] Synchronous instruction BRAM with PC/response alignment across stalls and
       redirects, verified as four `RAMB36E1` primitives in Vivado 2019.2.
 - [x] Single-outstanding wait-state-capable CPU data bus and LSU transaction
@@ -128,7 +131,8 @@ Current planning position:
   AR-019 supplies centralized data decode and the registered default target,
   and AR-018 verifies precise data and instruction access faults.
 - AR-008 belongs to Phase 3; AR-010 is continuous verification; AR-011 is an
-  early FPGA feasibility gate; and AR-012 is cross-stage cleanup.
+  early FPGA feasibility gate; AR-012 retirement/public-interface cleanup is
+  complete and verified.
 - Phase 3 is complete. Phase 4 is complete in RTL simulation and OOC
   synthesis: polling UART TX/RX and output GPIO satisfy its combined exit
   gate. Physical GPIO output now passes; external-UART pin validation remains
@@ -645,7 +649,8 @@ BRAM firmware, prints the FreeRTOS banner and task heartbeats, switches tasks at
 
 ## Phase 8 — Release verification and definition of done
 
-- [ ] All applicable official RV32I and RV32M ACT4 tests pass.
+- [x] All applicable official RV32I and RV32M ACT4 tests pass (47/47 refreshed
+  on 2026-08-17 after regenerating the official artifacts).
 - [ ] All directed, CSR/trap, LSU, bus, timer, UART, GPIO, and FreeRTOS tests
   pass from one documented regression command.
 - [ ] ModelSim logs contain no fatal errors or unexpected assertions.

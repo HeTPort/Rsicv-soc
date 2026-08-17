@@ -9,7 +9,7 @@
  *   - This program uses JALR opcode with funct3 == 3'b001.
  *   - decode should report illegal_instr_o.
  *   - exception_o should pulse high.
- *   - halt_o should become high.
+ *   - The illegal-instruction trap should suppress normal JALR effects.
  *
  * Register markers:
  *   x10 = 102

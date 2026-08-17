@@ -23,7 +23,6 @@ module riscv #(
   output logic [DW-1:0] dbg_x3_o,
   output logic [DW-1:0] dbg_x10_o,
   output logic [DW-1:0] dbg_x11_o,
-  output logic          halt_o,
   output logic          illegal_instr_o,
   output logic          exception_o,
   output commit_pkt_t   commit_o
@@ -182,7 +181,6 @@ module riscv #(
     .pipe_kill      (pipe_kill)
   );
 
-  assign halt_o          = 1'b0; // No longer halt; tests use tohost exit
   assign illegal_instr_o = ex2wb_pkt_out.valid && ex2wb_pkt_out.exc.illegal_instr;
   assign exception_o     = wb_trap_event;
 

@@ -154,7 +154,8 @@ configured `tohost` address:
 - **PASS:** `tohost == 1`
 - **FAIL:** another nonzero `tohost` value contains a test-specific failure code
 
-`halt_o` is retained only as an obsolete compatibility output and is fixed low.
+The core has no architectural halt output; tests finish through committed
+`tohost` stores.
 
 ### Current filelist notes
 
@@ -284,7 +285,7 @@ the effective post-retirement CSR context.
   eligible interrupt wakes directly into trap entry without retiring WFI twice.
 - `pipe_kill` converts the complete younger EX/WB input packet to the canonical
   bubble and suppresses younger LSU activity.
-- `halt_o` is fixed low; tests and software use `tohost` completion.
+- Tests and software use committed `tohost` stores for completion.
 - `exception_o` and `illegal_instr_o` are WB-stage observations.
 
 ### Control/data conventions

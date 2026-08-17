@@ -321,7 +321,7 @@ Why:
 
 Consequences:
 
-- `halt_o` became obsolete and is fixed low.
+- The early halt output became obsolete and was later removed by AR-012.
 - Trap precision became testable at the architectural boundary.
 - Some retirement ownership remains duplicated between top-level and WB logic.
 
@@ -348,7 +348,9 @@ Decisions:
 Verification:
 
 - On 2026-08-03, 39/39 applicable RV32I tests and 8/8 applicable RV32M tests
-  passed on unchanged RTL.
+  passed on unchanged RTL. The full artifacts and 47-case ModelSim result were
+  regenerated after release-interface cleanup on 2026-08-17; all cases passed
+  with native simulator exit zero.
 - The complete 47-test result contained no failures, timeouts, unsupported
   cases, tool failures, or DUT/RTL candidates.
 - The detailed counts, commands, scope limits, and evidence locations are in
@@ -876,8 +878,8 @@ and the implemented follow-up is in
 
 ### AR-012 — Retirement and interface cleanup
 
-**State:** Partially implemented; retirement/control cleanup complete, release
-documentation and obsolete `halt_o` cleanup remain
+**State:** Implemented and verified; public-interface and release-document
+cleanup completed 2026-08-17
 
 **Owning stage:** Cross-stage cleanup, closed before release
 
@@ -887,11 +889,15 @@ Implemented decisions:
 - `wb_stage.sv` was removed after behavior-preserving regression evidence.
 - Unused WB/memory observation inputs were removed from `core_ctrl.sv`.
 - Real peripheral directories/modules appear only with implemented interfaces.
+- The permanently low `halt_o` port and its empty/test-only connections were
+  removed; committed `tohost` stores remain the completion ABI.
+- README release commands/status and the interview-oriented project handoff
+  were refreshed.
 
-Remaining:
-
-- Remove or explicitly deprecate `halt_o` in the public boundary.
-- Complete README/release-document cleanup.
+Fresh evidence: full SoC compilation, focused data-fabric PASS, 22/22 smoke,
+47/47 applicable ACT4, 12/12 converter/importer tests, 9/9 map tests, and the
+regression-classifier negative test. Detailed rationale is in
+[`AR012_RETIREMENT_INTERFACE_CLEANUP.md`](AR012_RETIREMENT_INTERFACE_CLEANUP.md).
 
 ### AR-013 — Regression simulator exit-status gate
 
@@ -1093,7 +1099,8 @@ no write side effect. RAM decode size derives from the configured depth; SoC
 defaults consume the accepted generated 64 KiB constants.
 
 **Evidence and consequences:** Focused range/back-pressure/owner/cross-target
-tests pass at 116 ns. Both SoC data-fault firmware tests pass. The later AR-018
+tests pass at 196 ns after the 2026-08-17 next-request ownership extension.
+Both SoC data-fault firmware tests pass. The later AR-018
 fetch-error change also passes while retaining all 22 smoke tests. The
 classifier and generated-map checks pass. Vivado 2019.2 OOC synthesis reports
 0 errors and retains 32
@@ -1381,6 +1388,7 @@ An architecture-changing task is incomplete until this document is updated.
 - [AR-006 control-flow misalignment](AR006_CONTROL_FLOW_MISALIGNMENT.md)
 - [AR-007 CSR contract](AR007_CSR_LEGALITY_WARL_AND_HAZARDS.md)
 - [AR-009 architectural memory map](AR009_ARCHITECTURAL_MEMORY_MAP.md)
+- [AR-012 retirement and public-interface cleanup](AR012_RETIREMENT_INTERFACE_CLEANUP.md)
 - [AR-013 regression exit-status gate](AR013_REGRESSION_EXIT_STATUS_GATE.md)
 - [AR-014 machine-readable SoC map](AR014_MACHINE_READABLE_SOC_MAP.md)
 - [AR-015 RAM-capacity utilization and timing comparison](AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md)

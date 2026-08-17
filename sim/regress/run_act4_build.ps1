@@ -50,8 +50,15 @@ $scriptDir = $PSScriptRoot
 $repoRoot = [System.IO.Path]::GetFullPath((Join-Path $scriptDir "..\.."))
 
 if ([string]::IsNullOrWhiteSpace($WslRepoPath)) {
-    $wslPathOutput = @(& $wsl.Source -e wslpath -a -u $repoRoot 2>&1)
-    if ($LASTEXITCODE -ne 0) {
+    # WSL may print an unrelated localhost-proxy warning on stderr. Keep that
+    # diagnostic out of the translated path while still checking the native
+    # process status below.
+    $savedErrorActionPreference = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    $wslPathOutput = @(& $wsl.Source -e wslpath -a -u $repoRoot 2>$null)
+    $wslPathExitCode = $LASTEXITCODE
+    $ErrorActionPreference = $savedErrorActionPreference
+    if ($wslPathExitCode -ne 0) {
         throw "Could not translate the repository path through WSL: $($wslPathOutput -join [Environment]::NewLine)"
     }
     $WslRepoPath = ($wslPathOutput | Select-Object -First 1).ToString().Trim()
@@ -85,6 +92,10 @@ cd $quotedRepo
 mkdir -p build/act4
 bash sim/regress/build_act4_wsl.sh 2>&1 | tee $logPath
 "@
+# Windows PowerShell creates CRLF here-strings. Bash receives this value as one
+# argument, so normalize it explicitly rather than leaking carriage returns
+# into `cd` paths or command names.
+$bashCommand = $bashCommand.Replace("`r`n", "`n")
 
 $wslArgs = @("-e", "env") + $envVars + @(
     "bash", "-o", "pipefail", "-lc", $bashCommand
