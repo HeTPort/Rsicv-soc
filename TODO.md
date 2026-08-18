@@ -420,9 +420,8 @@ next changed, or earlier only if a regression exposes a real failure.
 - [ ] If instruction wait states or multiple fetch targets are introduced,
   separate response-valid from response-error and move range ownership into a
   SoC-level instruction decoder.
-- [ ] Before extension-specific ACT4 automation is needed, tag RV32I and RV32M
-  entries distinctly and preserve a compact baseline report under
-  `doc/evidence/act4/`.
+- [x] Tag imported RV32I and RV32M entries distinctly and preserve the compact
+  2026-08-17 baseline under `doc/evidence/act4/`.
 
 ---
 
@@ -651,17 +650,17 @@ BRAM firmware, prints the FreeRTOS banner and task heartbeats, switches tasks at
 
 - [x] All applicable official RV32I and RV32M ACT4 tests pass (47/47 refreshed
   on 2026-08-17 after regenerating the official artifacts).
-- [ ] All directed, CSR/trap, LSU, bus, timer, UART, GPIO, and FreeRTOS tests
+- [x] All directed, CSR/trap, LSU, bus, timer, UART, GPIO, and FreeRTOS tests
   pass from one documented regression command.
-- [ ] ModelSim logs contain no fatal errors or unexpected assertions.
-- [ ] Vivado synthesis and implementation complete with non-negative timing
+- [x] ModelSim logs contain no fatal errors or unexpected assertions.
+- [x] Vivado synthesis and implementation complete with non-negative timing
   slack at the selected clock.
-- [ ] BRAM, LUT, FF, clock, and estimated power usage fit the XC7Z010 target.
+- [x] BRAM, LUT, FF, clock, and estimated power usage fit the XC7Z010 target.
 - [ ] FPGA UART output demonstrates task scheduling and queue communication.
 - [ ] FPGA LED output demonstrates timed task execution.
 - [ ] Stack-overflow, malloc-failure, and unexpected-trap indicators remain
   clear during an extended hardware run.
-- [ ] A reproducible README documents Windows 11, ModelSim, Vivado, WSL Ubuntu,
+- [x] A reproducible README documents Windows 11, ModelSim, Vivado, WSL Ubuntu,
   GNU RISC-V toolchain, firmware build, simulation, bitstream build, and board
   programming commands.
 

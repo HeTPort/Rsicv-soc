@@ -38,7 +38,7 @@ FreeRTOS FPGA execution remain open.
 | UART | Polling 8N1 TX and RX, default 16-byte RX FIFO, sticky overrun/framing errors |
 | GPIO | 32-bit R/W MMIO register driving parameterized low output bits; default width 8 |
 | Verification | Focused protocol tests, 22/22 smoke, 47/47 applicable ACT4 I/M refreshed 2026-08-17, Phase 3 2/2, Phase 4 3/3, Phase 5 4/4, Phase 6 1/1 |
-| FPGA | ZYNQ MINI REVB top/XDC/build; three routed 25 MHz bitstreams, 0 DRC errors, WNS +22.093 ns or better; hardware observation open |
+| FPGA | ZYNQ MINI REVB top/XDC/build; four routed 25 MHz bitstreams including FreeRTOS, 0 DRC errors, WNS +22.093 ns or better; remaining hardware observation open |
 | Software | Reset-to-C runtime, split linker/drivers, three bare-metal apps, and pinned official FreeRTOS V11.3.0 demo |
 
 This is a verified development baseline, not a complete ISA-compliance or
@@ -130,10 +130,11 @@ marker, and zero ModelSim errors, preventing PASS-looking false positives.
 | Phase 4 | 3/3 PASS | UART text, 16-byte RX-to-TX echo, and GPIO pin waveform/readback |
 | Phase 5 | 4/4 PASS | Split data image, C startup/UART, timer-polled GPIO, and ten full-context timer interrupts |
 | Phase 6 | 1/1 PASS | Official FreeRTOS tick/preemption, queue traffic, context sentinels, UART heartbeat, and GPIO activity |
+| Unified release command | PASS, 2026-08-17 | Map/tool gates, focused fabric, smoke, Phases 3–6, ACT4 classification, and ACT4 47/47 |
 | SoC-map generator unit tests | 9/9 PASS | Canonical map validation and generated addresses |
 | UART focused tests | PASS | TX/RX framing, FIFO order/full/error/W1C, and bus semantics |
 | Vivado 2019.2 OOC SoC check | PASS | 0 errors/critical warnings; BRAM, LSU, UART RX/TX, and GPIO hierarchy retained |
-| ZYNQ MINI REVB route/bitgen | 3/3 PASS | 0 DRC errors, TNS 0, WNS +22.093 ns or better, and initialized program/data BRAM bitstreams |
+| ZYNQ MINI REVB route/bitgen | 4/4 PASS | Three bare-metal plus one FreeRTOS bitstream; 0 DRC errors, TNS 0, WNS +22.093 ns or better, and initialized program/data BRAM |
 | ZYNQ MINI REVB hardware | 2/3 applications PASS | JTAG recovered; `timer_gpio` LED sequence and ten-count `timer_irq` observed; external-UART `hello` pending |
 
 The Phase 4 echo test drives actual 8N1 waveforms into `uart_rx_i`. Firmware
@@ -149,6 +150,10 @@ classifier test. It also removed the obsolete fixed-low core `halt_o` port;
 committed `tohost` stores and `commit_pkt_t` are the completion and retirement
 observation contracts. See [AR-012](doc/AR012_RETIREMENT_INTERFACE_CLEANUP.md).
 
+After per-extension ACT4 tagging and the unified runner were added, the single
+release command passed again in 497.3 seconds: every local gate plus 39 RV32I
+and eight RV32M cases, with zero failed steps and zero nonzero simulator exits.
+
 ## Try it
 
 ### Requirements
@@ -160,6 +165,12 @@ observation contracts. See [AR-012](doc/AR012_RETIREMENT_INTERFACE_CLEANUP.md).
 - WSL Ubuntu with the pinned ACT4 dependencies when regenerating official
   architecture-test artifacts
 - Vivado 2019.2 or compatible for optional synthesis checks
+
+The recorded reference environment is Windows 11, Windows PowerShell 5.1,
+ModelSim SE-64 2019.2, Python 3.12.9, WSL2 Ubuntu 26.04 LTS,
+`riscv64-unknown-elf-gcc` 14.2.0, Clang/LLVM 21.1.8 plus Sail 0.10 for ACT4,
+and Vivado 2019.2. See the [Phase 0 tool inventory](doc/PHASE0_BASELINE_2026-07-24.md)
+for the exact recorded versions.
 
 ### Main core simulation
 
@@ -196,6 +207,27 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 python -m unittest test_elf_to_mem.py test_import_act4.py
 ```
 
+### One-command release verification
+
+From `sim/regress/`, run every local map/tool gate, the focused data-fabric
+test, smoke, Phase 3–6, and the existing generated ACT4 manifest with:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\run_release_verification.ps1
+```
+
+For a clean checkout, regenerate the pinned ACT4 I/M artifacts inside the same
+fail-fast command:
+
+```powershell
+.\run_release_verification.ps1 -RegenerateAct4
+```
+
+`-SkipAct4` is a faster local preflight and is deliberately reported as
+incomplete release evidence. See the [regression guide](sim/regress/README.md)
+for the exact gate sequence.
+
 Useful selectors include `-List`, `-Test soc_uart_echo`, `-Tag lsu`, and
 `-Trace -DumpWaves`. See the [regression guide](sim/regress/README.md).
 
@@ -220,7 +252,9 @@ Set-Location ..\..
 ACT4 is an ISA regression gate, not a certification claim and not a substitute
 for directed bus, trap, peripheral, firmware, synthesis, or board tests. See
 the [ACT4 integration guide](verif/act4/README.md) for tool versions and
-environment details.
+environment details and the
+[compact 2026-08-17 baseline](doc/evidence/act4/BASELINE_2026-08-17.md) for the
+39 RV32I plus eight RV32M result and per-extension manifest classification.
 
 ### Build the FreeRTOS images
 
@@ -316,8 +350,9 @@ or alternatives considered.
 ## Roadmap and open gates
 
 The repository is interview-ready and has a refreshed CPU/SoC simulation
-baseline, but it is not a completed Phase 8 hardware release. The remaining
-claims require external evidence rather than more documentation.
+baseline, but it is not a completed Phase 8 hardware release. One local gate—the
+extended FreeRTOS scheduler/stack-corruption run—remains alongside the external
+UART/reset/speed-grade and FreeRTOS-on-board evidence.
 
 The next practical steps are:
 

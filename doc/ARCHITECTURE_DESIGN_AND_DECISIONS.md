@@ -4,13 +4,14 @@
 
 **Audience:** Designers, reviewers, learners, and future maintainers
 
-**Last updated:** 2026-08-16
+**Last updated:** 2026-08-17
 
-**Current milestone:** Phase 5 is complete in RTL simulation and Vivado OOC
-synthesis. AR-024 implements the ZYNQ MINI REVB board boundary and produces
-three routed 25 MHz bitstreams with non-negative timing and no DRC errors.
-Physical external-UART and repeated-reset observation, speed-grade
-identification and UART interrupts/PLIC remain open. JTAG, LED, and timer
+**Current milestone:** Phase 6 has an initial official FreeRTOS ModelSim slice
+and routed board image. AR-024 implements the ZYNQ MINI REVB boundary; together
+with AR-025 the flow produces four routed 25 MHz bitstreams with non-negative
+timing and no DRC errors. Physical external-UART and repeated-reset observation,
+speed-grade identification, the extended FreeRTOS run, board FreeRTOS execution,
+and UART interrupts/PLIC remain open. JTAG, LED, and timer
 evidence pass on the ZYNQ MINI REVB board. AR-025 implements and verifies the
 initial official FreeRTOS port in ModelSim and routes its board bitstream; its
 long run and physical FPGA gate remain.
@@ -354,7 +355,10 @@ Verification:
 - The complete 47-test result contained no failures, timeouts, unsupported
   cases, tool failures, or DUT/RTL candidates.
 - The detailed counts, commands, scope limits, and evidence locations are in
-  `doc/ACT4_RV32I_INTEGRATION_HANDOFF_2026-07-27.md`.
+  `doc/ACT4_RV32I_INTEGRATION_HANDOFF_2026-07-27.md`; the compact retained
+  baseline is [`evidence/act4/BASELINE_2026-08-17.md`](evidence/act4/BASELINE_2026-08-17.md).
+- Imported entries are tagged per ELF extension (`rv32i` for 39 I cases and
+  `rv32m` for eight M cases), with mixed-corpus unit coverage.
 
 Consequences:
 
@@ -1292,7 +1296,7 @@ that model artifact. Full details are in
 | Phase 5: firmware | Complete: split-image ELF conversion, startup/linker ABI, drivers, and four sanity applications | 4/4 ModelSim, preservation regressions, exact-image Vivado initialization, and physical timer/GPIO plus timer-IRQ PASS; UART pending in Phase 7 |
 | Phase 6: FreeRTOS | Initial official V11.3.0 port, tick source, heap/stack policy, preemption, queues, and context sentinels complete | 1/1 focused ModelSim PASS; extended run remains |
 | Phase 7: FPGA | Board top/XDC, 25 MHz MMCM/reset, BRAM init, route, timing, and bitstreams complete; JTAG/LED/timer physically proven | 0-error DRC, TNS 0, four bitstreams including FreeRTOS, `timer_gpio` and `timer_irq` hardware PASS; FreeRTOS/UART/reset/speed grade still required |
-| Phase 8: release | Applicable ACT4 set and unified regression | Reproducible clean release evidence |
+| Phase 8: release | Applicable ACT4 set plus fail-fast unified release command implemented | Unified local run PASS: map/tool, focused fabric, smoke, Phases 3–6, tag classification, and ACT4 47/47; clean-checkout regeneration and physical gates remain separate |
 
 ## 10. Architecture decision template
 

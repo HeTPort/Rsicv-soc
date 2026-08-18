@@ -99,9 +99,9 @@ Exit criteria:
 
 AR-003 and AR-004 are Phase 2 data-bus sub-gates that were deliberately pulled
 forward to satisfy the wait-state and registered-result criteria above. AR-019
-now implements centralized data decode/default termination. Phase 2 remains
-open for instruction-access errors, real peripheral targets, and broader
-system integration.
+now implements centralized data decode/default termination, and AR-018 closes
+the instruction-access-error path. Phase 2 is complete; timer/UART/GPIO target
+adoption and system integration were subsequently verified in Phases 3–5.
 
 ## Findings and handling plan
 
@@ -217,10 +217,10 @@ During REQUEST/RESPONSE:
 - [x] Never reissue an accepted request.
 - [x] Never report a commit until the response completes.
 - [x] Do not accept another memory operation while one is outstanding.
-- [ ] Defer an interrupt after a request has been accepted; do not attempt to
-      cancel an externally visible store. The store rule is implemented;
-      interrupt deferral remains part of AR-008 because interrupts do not yet
-      exist.
+- [x] Defer an interrupt after a request has been accepted; do not attempt to
+      cancel an externally visible store. AR-008 implements retirement-boundary
+      interrupt selection and verifies interrupts around loads, stores, and
+      pipeline stalls.
 
 The existing pipeline does not require a new full MEM stage if an `ex_done` or
 `ex_fire` signal controls when the held ID/EX instruction is allowed to enter
@@ -453,8 +453,9 @@ regions:
 - [x] Record the selected option in `TODO.md` and the architecture documentation.
 - [x] Express all memory sizes in bytes at the SoC contract boundary; translate
       to words only inside RAM modules.
-- [ ] Update hardware parameters, linker scripts, firmware image generation,
-      ACT4 configuration, and testbench ranges in the same change.
+- [x] Update hardware parameters, linker scripts, firmware image generation,
+      ACT4 configuration, and testbench ranges as each accepted-map consumer is
+      adopted; the generated-map staleness check prevents drift.
 - [x] Use an explicit registered default error target for unmapped data-bus
       addresses. See
       [`AR019_CENTRALIZED_DATA_FABRIC.md`](AR019_CENTRALIZED_DATA_FABRIC.md).
@@ -496,8 +497,8 @@ regions:
 - [x] Add initial data-RAM boundary, inserted-request-wait, owner-stability, and
       back-to-back cross-target coverage.
 - [x] Turn the AR-018 instruction case GREEN.
-- [ ] Extend coverage as real peripheral targets are added in their owning
-      phases.
+- [x] Extend coverage as real timer/UART/GPIO targets are added in their owning
+      Phase 3/4 focused and SoC-level manifests.
 
 Detailed rationale, failure codes, commands, and the acceptance evidence are in
 [`AR018_SOC_FABRIC_RED_TESTS.md`](AR018_SOC_FABRIC_RED_TESTS.md). The data
@@ -512,7 +513,8 @@ Several trap programs enter a handler and write PASS without checking every
 value named in their comments. For example, the handler in
 [`ebreak_test.S`](../testdata/ebreak_test.S#L40) does not read `mcause`, `mepc`,
 or `mtval`. The existing [`illegal_jalr_funct3_test.S`](../testdata/illegal_jalr_funct3_test.S)
-is not in the manifest and still describes the obsolete halt behavior.
+is not in the manifest. Its source now uses committed `tohost` completion, but
+manifest adoption or deliberate removal remains open below.
 
 **Handling**
 
@@ -563,10 +565,11 @@ area being redesigned for the bus.
       existing EX completion/backpressure mechanism.
 - [x] Repeat paired constrained timing: both profiles pass 50 MHz with WNS
       +7.373 ns and 25 MHz with WNS +27.373 ns.
-- [ ] Rerun timing on the exact board part with its clock source and XDC when
-      known.
-- [ ] Keep full placement, routing, power, and board timing closure in the later
-      FPGA phase.
+- [x] Rerun routed timing with the known XC7Z010 CLG400 package, 50 MHz board
+      clock, and exact XDC. The build conservatively targets speed grade `-1`
+      until the unreadable physical speed grade is independently identified.
+- [x] Complete placement, routing, power estimation, DRC, BRAM initialization,
+      and 25 MHz timing closure in Phase 7 for the board images.
 
 ### AR-012 — Documentation and interface cleanup
 
@@ -698,10 +701,13 @@ document can be considered fully handled only when:
 - [ ] Every AR item is either implemented and verified or explicitly deferred
       with a reason and risk statement.
 - [ ] The full directed and Python regression is reproducible from a clean
-      checkout.
+      checkout. The unified command passes on the current tree and supports
+      clean-checkout ACT4 generation through `-RegenerateAct4`; a fresh-clone
+      execution remains the final evidence for this checkbox.
 - [ ] ACT4 configuration describes the implemented hardware and final memory
       map accurately.
-- [ ] Vivado reports confirm BRAM inference and timing at the selected clock.
+- [x] Vivado reports confirm BRAM inference and non-negative routed timing at
+      the selected 25 MHz clock on conservative `xc7z010clg400-1` builds.
 - [x] A bare-metal timer handler survives at least 10,000 interrupts.
 - [ ] FreeRTOS preempts tasks, preserves context, communicates through a queue,
       writes UART output, and controls GPIO in simulation and on the board.

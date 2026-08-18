@@ -23,3 +23,7 @@ __pycache__/
 /task_plan.md
 /findings.md
 /progress.md
+/.planning/
+
+# Local research/download scratch space (never commit)
+/tmp/

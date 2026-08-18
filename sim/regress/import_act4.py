@@ -18,6 +18,12 @@ def safe_name(relative_elf: Path) -> str:
     return re.sub(r"[^A-Za-z0-9_.-]+", "__", stem).strip("_.-")
 
 
+def extension_tag(relative_elf: Path) -> str | None:
+    """Return the repository tag for an ACT4 I/M extension directory."""
+    extension = relative_elf.parent.name.upper()
+    return {"I": "rv32i", "M": "rv32m"}.get(extension)
+
+
 def main() -> int:
     script_dir = Path(__file__).resolve().parent
     default_repo = script_dir.parent.parent
@@ -55,7 +61,7 @@ def main() -> int:
     output_dir.mkdir(parents=True, exist_ok=True)
     tests = []
     names: set[str] = set()
-    tags = list(dict.fromkeys(["act4", *args.tag]))
+    common_tags = list(dict.fromkeys(["act4", *args.tag]))
     ram_depth_words = args.size // 4
     if args.size <= 0 or args.size % 4 != 0:
         parser.error("--size must be a positive multiple of four bytes")
@@ -69,6 +75,10 @@ def main() -> int:
         imem_path = output_dir / f"{name}.imem.hex"
         dmem_path = output_dir / f"{name}.dmem.hex"
         convert(elf_path, imem_path, dmem_path, args.base, args.size)
+        test_tags = list(common_tags)
+        inferred_tag = extension_tag(relative_elf)
+        if inferred_tag is not None and inferred_tag not in test_tags:
+            test_tags.append(inferred_tag)
         tests.append(
             {
                 "name": name,
@@ -78,7 +88,7 @@ def main() -> int:
                 "tohost_addr": args.tohost,
                 "prog_ram_depth": ram_depth_words,
                 "data_ram_depth": ram_depth_words,
-                "tags": tags,
+                "tags": test_tags,
             }
         )
 

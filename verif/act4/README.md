@@ -6,9 +6,12 @@ files with expected results calculated by the Sail reference model. The local
 flow converts those ELFs into the two `$readmemh` images required by this
 Harvard-memory core and then runs them through the normal ModelSim regression.
 
-The enabled baseline scope is unprivileged RV32I plus RV32M. On 2026-08-03 all
-39 RV32I and all 8 RV32M tests passed. Privileged tests remain disabled until
+The enabled baseline scope is unprivileged RV32I plus RV32M. The baseline was
+refreshed on 2026-08-17: all 39 RV32I and all 8 RV32M tests passed. Imported
+tests carry distinct per-extension tags. Privileged tests remain disabled until
 the target configuration and interrupt behavior are ready for that wider scope.
+The compact checked-in result is
+[`../../doc/evidence/act4/BASELINE_2026-08-17.md`](../../doc/evidence/act4/BASELINE_2026-08-17.md).
 
 ## Data flow
 

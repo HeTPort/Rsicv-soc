@@ -458,13 +458,11 @@ not a RISC-V ACT4 compliance report. Because interrupt macros are no-ops and
 several advertised features are intentionally unsupported, the baseline cannot
 be interpreted as certification.
 
-## Low-priority maintenance backlog
+## Completed maintenance follow-up
 
-The 47/47 RV32I/RV32M result remains valid. The following repository-quality
-improvements can wait until ACT4 automation is extended:
-
-- derive `rv32i` and `rv32m` manifest tags from each imported test instead of
-  assigning `rv32i` globally;
-- copy a compact, tool-versioned classification summary into
-  `doc/evidence/act4/` so GitHub retains evidence even though generated
-  `build/` logs and images remain ignored.
+The importer now derives `rv32i` and `rv32m` tags from each generated ELF's
+extension directory instead of assigning one global tag to the combined
+manifest. A mixed-corpus unit test protects that classification. The compact,
+tool-versioned 2026-08-17 result is preserved in
+[`evidence/act4/BASELINE_2026-08-17.md`](evidence/act4/BASELINE_2026-08-17.md),
+while generated logs and images remain ignored under `build/` and `sim/logs/`.

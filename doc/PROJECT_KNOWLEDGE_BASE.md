@@ -81,6 +81,8 @@ the minimal architecture needed for the first working system.
 - Ordered architectural commit records.
 - ModelSim directed regression and test manifest with native-exit,
   PASS-marker, fatal-marker, and error-count result gates.
+- One fail-fast release entry point covering map/tool checks, focused fabric,
+  smoke, Phases 3–6, ACT4 classification, and all applicable ACT4 cases.
 - ELF/image conversion and ACT4 integration adapters.
 - Dependency-free machine-readable SoC map validation and deterministic
   cross-language generation for the accepted configuration; the data-fabric
@@ -94,7 +96,10 @@ the minimal architecture needed for the first working system.
   utilities and the focused regression-result negative test passing.
 - Separate AR-018 `tb_riscv_soc` contract manifest: all three data-path runs and
   the instruction-access-fault run are GREEN.
-- Official ACT4 baseline: 39/39 RV32I and 8/8 RV32M tests passing.
+- Official ACT4 baseline: 39/39 RV32I and 8/8 RV32M tests passing, with
+  per-extension manifest tags and a compact checked-in evidence record.
+- Unified release verification: all local gates plus ACT4 47/47 passed from one
+  command on 2026-08-17 in 497.3 seconds.
 - Split-region ELF conversion with generated map geometry, independent local
   images, rejection tests, and optional ELF-tail `.bss` poison.
 - Reset-to-C startup with ABI-safe `sp`/`gp`, direct `mtvec`, active `.bss`
@@ -112,9 +117,9 @@ the minimal architecture needed for the first working system.
   T12/U12/V12/W13 LEDs, and external 3.3 V UART on U15/W15.
 - Primitive MMCM/BUFG 25 MHz clock generation, four-cycle lock-qualified reset
   release, and a retained unused PS7 hard macro for Zynq configuration.
-- Routed Vivado 2019.2 builds for `hello`, `timer_gpio`, and `timer_irq`: all
-  have 0 DRC errors, TNS 0.000 ns, at least +22.093 ns WNS, initialized 16+16
-  BRAMs, and generated bitstreams.
+- Routed Vivado 2019.2 builds for `hello`, `timer_gpio`, `timer_irq`, and
+  `freertos_demo`: all have 0 DRC errors, TNS 0.000 ns, at least +22.093 ns
+  WNS, initialized 16+16 BRAMs, and generated bitstreams.
 - Exact-board JTAG configuration and physical execution for `timer_gpio` and
   `timer_irq`, including the expected LED sequence and ten interrupt counts.
 - A reproducible FT232HL recovery record: diagnose `localhost (0)` at the cable
@@ -147,7 +152,7 @@ The current mapping is:
 |---|---|
 | AR-001, AR-002, AR-005, AR-006, AR-007 | Phase 0A work, implemented and verified |
 | AR-003, AR-004 | Phase 2 transaction/result sub-gates, implemented and verified |
-| AR-009 | Phase 1 split 64 KiB map accepted; data RTL partially adopted in Phase 2 |
+| AR-009 | Phase 1 split 64 KiB map accepted and adopted by RTL, firmware, simulation, synthesis, and ACT4 consumers |
 | AR-008 | Phase 3 precise timer interrupt/WFI/timer target, implemented and verified |
 | AR-010 | Ongoing verification-depth work across phases |
 | AR-011 | Early FPGA feasibility plus later timing closure |
@@ -1020,6 +1025,8 @@ compare RAM data, `load_offset`, extracted value, and committed result.
 - [Phase 5 startup/runtime implementation guide](../docs/phase5-startup-runtime-guide.md)
 - [ZYNQ MINI REVB build and wiring guide](../fpga/zynq_mini_revb/README.md)
 - [ACT4 integration](../verif/act4/README.md)
+- [ACT4 2026-08-17 compact baseline evidence](evidence/act4/BASELINE_2026-08-17.md)
+- [Release-verification command](../sim/regress/README.md#one-command-release-verification)
 - [Interview preparation guide](../docs/INTERVIEW_GUIDE.md)
 - [Project roadmap](../TODO.md)
 

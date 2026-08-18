@@ -45,8 +45,12 @@ class ImportAct4Tests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             repo = Path(temporary)
             elf_dir = repo / "elfs"
-            elf_dir.mkdir()
-            write_fixture_elf(elf_dir / "I-ADDI-01.elf")
+            i_dir = elf_dir / "rv32i" / "I"
+            m_dir = elf_dir / "rv32i" / "M"
+            i_dir.mkdir(parents=True)
+            m_dir.mkdir(parents=True)
+            write_fixture_elf(i_dir / "I-ADDI-01.elf")
+            write_fixture_elf(m_dir / "M-MUL-01.elf")
             script = Path(__file__).resolve().parent / "import_act4.py"
             result = subprocess.run(
                 [
@@ -56,7 +60,7 @@ class ImportAct4Tests(unittest.TestCase):
                     "--repo-root", str(repo),
                     "--output-dir", str(repo / "build/images"),
                     "--manifest", str(repo / "build/tests.json"),
-                    "--tag", "rv32i",
+                    "--tag", "release-baseline",
                 ],
                 check=False,
                 capture_output=True,
@@ -64,13 +68,20 @@ class ImportAct4Tests(unittest.TestCase):
             )
             self.assertEqual(result.returncode, 0, result.stderr)
             manifest = json.loads((repo / "build/tests.json").read_text())
-            self.assertEqual(manifest["tests"][0]["name"], "I-ADDI-01")
-            self.assertEqual(manifest["tests"][0]["tohost_addr"], 0x0003_FFFC)
-            self.assertEqual(manifest["tests"][0]["prog_ram_depth"], 0x40000 // 4)
-            self.assertEqual(manifest["tests"][0]["data_ram_depth"], 0x40000 // 4)
-            self.assertIn("rv32i", manifest["tests"][0]["tags"])
-            self.assertTrue((repo / manifest["tests"][0]["image"]).is_file())
-            self.assertTrue((repo / manifest["tests"][0]["data_image"]).is_file())
+            tests = {test["name"]: test for test in manifest["tests"]}
+            self.assertEqual(set(tests), {"rv32i__I__I-ADDI-01", "rv32i__M__M-MUL-01"})
+            for test in tests.values():
+                self.assertEqual(test["tohost_addr"], 0x0003_FFFC)
+                self.assertEqual(test["prog_ram_depth"], 0x40000 // 4)
+                self.assertEqual(test["data_ram_depth"], 0x40000 // 4)
+                self.assertIn("release-baseline", test["tags"])
+                self.assertTrue((repo / test["image"]).is_file())
+                self.assertTrue((repo / test["data_image"]).is_file())
+
+            self.assertIn("rv32i", tests["rv32i__I__I-ADDI-01"]["tags"])
+            self.assertNotIn("rv32m", tests["rv32i__I__I-ADDI-01"]["tags"])
+            self.assertIn("rv32m", tests["rv32i__M__M-MUL-01"]["tags"])
+            self.assertNotIn("rv32i", tests["rv32i__M__M-MUL-01"]["tags"])
 
 
 if __name__ == "__main__":

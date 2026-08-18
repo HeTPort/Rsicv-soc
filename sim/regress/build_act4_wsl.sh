@@ -51,8 +51,7 @@ python3 "${script_dir}/import_act4.py" "${elf_dir}" \
   --output-dir "${repo_root}/build/act4/images" \
   --manifest "${repo_root}/build/act4/tests.json" \
   --size "${ram_size}" \
-  --tohost "${tohost_addr}" \
-  --tag rv32i
+  --tohost "${tohost_addr}"
 
 echo "ACT4 images are ready. Run this from Windows PowerShell:"
 echo "  sim\\regress\\run_regression.ps1 -Manifest build\\act4\\tests.json -Tag act4"
