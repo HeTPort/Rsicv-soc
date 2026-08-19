@@ -4,7 +4,7 @@
 
 **Audience:** Designers, reviewers, learners, and future maintainers
 
-**Last updated:** 2026-08-17
+**Last updated:** 2026-08-18
 
 **Current milestone:** Phase 6 has an initial official FreeRTOS ModelSim slice
 and routed board image. AR-024 implements the ZYNQ MINI REVB boundary; together
@@ -849,8 +849,8 @@ Required decisions:
 
 ### AR-011 — Early FPGA feasibility
 
-**State:** Utilization and early critical-path evidence verified; AR-017
-closes the MULDIV OOC timing blocker; exact-board closure remains open
+**State:** Implemented and verified through exact-board route; AR-017 closes
+the MULDIV OOC timing blocker and AR-024 closes routed implementation evidence
 
 **Owning stage:** Early checkpoint after Phase 2; full closure in Phase 7
 
@@ -865,9 +865,11 @@ Verified evidence:
   paired STA: WNS +7.373 ns at 50 MHz and +27.373 ns at 25 MHz, with zero
   failing setup endpoints.
 
-Remaining evidence:
+Later verified evidence:
 
-- exact-board placement, routing, power, and resource margin.
+- exact-board placement, routing, power estimate, DRC, and resource margin;
+- four 25 MHz bitstreams with non-negative timing on conservative
+  `xc7z010clg400-1` builds.
 
 AR-017 reuses the Phase 2 completion/backpressure mechanism for a multi-cycle
 divider. DIV/REM now occupy 32 iterative run cycles while unrelated instruction
@@ -1018,8 +1020,8 @@ fault mapping, reset/boot boundary, verification split, and Phase 2 order are in
 
 ### AR-017 â€” Radix-2 iterative divider
 
-**State:** Implemented and functionally verified; 25/50 MHz OOC
-post-synthesis timing passes, exact-board closure open
+**State:** Implemented and verified through exact-board route; 25/50 MHz OOC
+post-synthesis timing and the routed 25 MHz board builds pass
 
 **Problem:** Single-cycle `/` and `%` produced an 87.102 ns/305-level path,
 failed both proposed clock targets, and consumed more than 4,000 additional
@@ -1036,9 +1038,11 @@ bubble EX/WB until one completion; combine `div_wait` with `lsu_busy`; reuse
 multiplication.
 
 **Evidence and consequences:** 42 focused divider cases, 2/2 RV32M integration,
-22/22 smoke, LSU protocol, and regression-classifier tests pass. LUT use falls
+the original 22/22 smoke suite, LSU protocol, and regression-classifier tests
+pass; the current 23/23 suite adds illegal-JALR coverage. LUT use falls
 to 3,504/3,542 for the two profiles. Both pass 50 MHz OOC STA with WNS +7.373
-ns; multiply-high is now the 12.605 ns critical path. Complete principle,
+ns; multiply-high is now the 12.605 ns critical path. AR-024 subsequently
+verified four routed 25 MHz board images with non-negative slack. Complete principle,
 signals, module relationships, commands, and limitations are in
 [`AR017_RADIX2_ITERATIVE_DIVIDER.md`](AR017_RADIX2_ITERATIVE_DIVIDER.md).
 
@@ -1273,7 +1277,9 @@ small review surface.
 a 1 kHz tick. An app-local trampoline connects startup `trap_entry` to the
 official handler. A 24 KiB heap owns task stacks; the linker-provided top 4 KiB
 stack becomes the IRQ stack. Keep separate 25 MHz production and time-scaled
-simulation images.
+simulation images. Keep the focused simulation as the fast release gate and
+add a separately tagged soak with explicit firmware and independent testbench
+minimums, rather than slowing every release run or relying on a host timeout.
 
 **Consequences/evidence:** No RTL or atomic `A` extension is required. A small
 freestanding string layer compensates for the bare toolchain without changing
@@ -1282,21 +1288,45 @@ traffic, `s2`-`s11` sentinels, UART heartbeat, GPIO activity, 11 timer IRQs,
 and `tohost=1`. Phase 6 is 1/1, Phase 5 is 4/4, smoke is 22/22, and converter/
 importer tests are 12/12. The initial 500-cycle simulation period was shorter
 than context overhead and caused MTIP catch-up starvation; 5,000 cycles avoids
-that model artifact. Full details are in
+that model artifact. The 2026-08-18 soak adds 1,000 ordered queue/context checks
+and passed at 7,262,975 cycles with 1,428 timer IRQs, 1,579 valid UART bytes,
+286 GPIO transitions, `tohost=1`, native exit zero, and no
+ModelSim errors. Full details are in
 [`AR025_OFFICIAL_FREERTOS_RISCV_PORT.md`](AR025_OFFICIAL_FREERTOS_RISCV_PORT.md).
+
+### Phase 8 clean-regeneration follow-up
+
+**Problem/root cause:** The unified release command passed when reusing an
+existing ACT4 manifest, but its clean-checkout `-RegenerateAct4` branch had not
+been executed. The first detached-worktree run exposed positional array
+splatting that bound the literal `-Jobs` string to `run_act4_build.ps1`'s
+integer `Jobs` parameter.
+
+**Options:** Reorder positional arguments, invoke the build through a command
+string, or forward named parameters with a hashtable. Named hashtable splatting
+was selected because it preserves type/name binding for `Jobs` and each
+optional path without quoting or ordering ambiguity.
+
+**Decision/consequences/evidence:** Forward ACT4 options as a hashtable and
+keep the existing fail-fast gate order. A newly recreated detached worktree
+then regenerated 195 RV32I plus 40 RV32M build jobs, imported 39 I and 8 M
+cases, and passed all local gates, smoke 23/23, Phases 3–6, and ACT4 47/47 in
+549.2 seconds. This closes the clean-checkout release criterion without
+changing ISA claims. The retained result is
+[`evidence/release/BASELINE_2026-08-18.md`](evidence/release/BASELINE_2026-08-18.md).
 
 ## 9. Future stage architecture gates
 
 | Stage | Architecture decisions required before implementation | Exit evidence |
 |---|---|---|
 | Phase 1: contract freeze | Complete: AR-009/AR-016 accept topology, byte map, faults, timer atomicity, and bus lifecycle | Accepted contract answers every address/access/error case |
-| Phase 2: external data bus | Complete: data decode/default, EX/WB response packet, precise data/instruction access faults, LSU FSM/backpressure | 4/4 SoC fault runs, data-fabric protocol suite, 22/22 smoke |
-| Phase 3: timer interrupt | Complete: MTIP ownership, effective eligibility, retirement boundary, MRET exclusion, logical WFI, timer target | Precise firmware plus 10,000 repeated interrupts, focused assertions, 22/22 smoke, OOC synthesis |
+| Phase 2: external data bus | Complete: data decode/default, EX/WB response packet, precise data/instruction access faults, LSU FSM/backpressure | 4/4 SoC fault runs, data-fabric protocol suite, 23/23 smoke |
+| Phase 3: timer interrupt | Complete: MTIP ownership, effective eligibility, retirement boundary, MRET exclusion, logical WFI, timer target | Precise firmware plus 10,000 repeated interrupts, focused assertions, 23/23 smoke, OOC synthesis |
 | Phase 4: UART/GPIO | Complete: native UART TX/RX plus parameterized output GPIO, registered target responses, and five-owner fabric exclusivity | UART focused tests, TX text, RX echo, GPIO target/fabric, readback, and pin waveform PASS |
 | Phase 5: firmware | Complete: split-image ELF conversion, startup/linker ABI, drivers, and four sanity applications | 4/4 ModelSim, preservation regressions, exact-image Vivado initialization, and physical timer/GPIO plus timer-IRQ PASS; UART pending in Phase 7 |
-| Phase 6: FreeRTOS | Initial official V11.3.0 port, tick source, heap/stack policy, preemption, queues, and context sentinels complete | 1/1 focused ModelSim PASS; extended run remains |
+| Phase 6: FreeRTOS | Official V11.3.0 port, tick source, heap/stack policy, preemption, queues, and context sentinels complete | Focused 1/1 plus separate 1,000-tick/queue-receive soak PASS |
 | Phase 7: FPGA | Board top/XDC, 25 MHz MMCM/reset, BRAM init, route, timing, and bitstreams complete; JTAG/LED/timer physically proven | 0-error DRC, TNS 0, four bitstreams including FreeRTOS, `timer_gpio` and `timer_irq` hardware PASS; FreeRTOS/UART/reset/speed grade still required |
-| Phase 8: release | Applicable ACT4 set plus fail-fast unified release command implemented | Unified local run PASS: map/tool, focused fabric, smoke, Phases 3–6, tag classification, and ACT4 47/47; clean-checkout regeneration and physical gates remain separate |
+| Phase 8: release | Applicable ACT4 set plus fail-fast unified release command implemented | Clean-worktree regeneration PASS: map/tool, focused fabric, smoke 23/23, Phases 3–6, regenerated 39 I/8 M, and ACT4 47/47; physical gates remain separate |
 
 ## 10. Architecture decision template
 

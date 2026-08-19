@@ -1,8 +1,8 @@
 # AR-025 — Official FreeRTOS RISC-V Port Integration
 
-**Date:** 2026-08-16
-**State:** Initial ModelSim vertical slice and routed FPGA bitstream verified;
-extended simulation and physical FPGA execution remain open
+**Date:** 2026-08-16; extended-run follow-up 2026-08-18
+**State:** Focused and extended ModelSim profiles plus routed FPGA bitstream
+verified; physical FPGA execution remains open
 **Stage:** Phase 6
 
 ## Problem
@@ -81,7 +81,10 @@ overflow.
 
 The default image uses a 25 MHz CPU/MTIME clock and real 500/1000 ms task
 periods. `freertos_demo_sim` is a distinct image built with a modeled 5 MHz
-clock and 100x shorter demonstration delays. The kernel tick remains 1 kHz.
+clock and 100x shorter demonstration delays. `freertos_demo_soak` uses the same
+modeled clock and delays but raises completion thresholds to 1,000 tick hooks,
+1,000 ordered queue receives, 100 GPIO updates, and 50 heartbeats. The kernel
+tick remains 1 kHz in both simulation profiles.
 
 ## Demonstration and context preservation
 
@@ -118,6 +121,34 @@ The simulation profile now uses 5,000 cycles per 1 ms tick. This is a model
 frequency choice, not a scheduler or RTL workaround. The 25 MHz production
 image naturally has 25,000 cycles per tick.
 
+### A short deterministic run is not a soak test
+
+**Problem/root cause:** The first Phase 6 image intentionally completed after
+eight queue receives, two GPIO transitions, one heartbeat, and ten timer
+interrupts. That is an effective fast integration gate, but it is too short to
+support claims about repeated stack checks, context preservation, or scheduler
+stability.
+
+**Options considered:** Increase the only Phase 6 case, run the production
+image for a host-controlled time without architectural completion, or add a
+separate image with explicit firmware thresholds. Increasing the only case
+would slow every release run, while a host timeout cannot distinguish useful
+progress from a live lock.
+
+**Decision:** Keep `phase6` as the fast gate and add a separately tagged
+`phase6-soak` case. The build exposes completion thresholds without changing
+the production defaults or vendored FreeRTOS code. Firmware owns queue order,
+completion, failure hooks, and the `s2`-`s11` sentinels; the testbench
+independently owns commit order, timer-trap cause, UART framing/content, GPIO
+alternation, and minimum observable counts.
+
+**Consequences:** The soak adds no RTL or kernel fork and does not inflate the
+normal release command. It catches repeated context corruption, stack-overflow
+hook, allocation/assertion/task-return failures, unexpected trap handlers,
+duplicate/out-of-order commits, and malformed peripheral output over a much
+longer run. It is still simulation evidence, not a substitute for physical
+FreeRTOS execution or memory-protection hardware.
+
 ## Verification evidence
 
 The focused run checks:
@@ -143,12 +174,32 @@ GREEN evidence on 2026-08-16:
 | Program text | 10,244 bytes after sentinel integration |
 | Data `.rodata + .data + .bss` | 25,312 bytes |
 
+Extended GREEN evidence on 2026-08-18:
+
+| Gate | Result |
+|---|---:|
+| Phase 6 focused profile after threshold parameterization | PASS |
+| Phase 6 soak | PASS at 7,262,975 cycles in 227.39 seconds on the evidence-refresh run |
+| Observed machine-timer interrupts | 1,428; required at least 1,000 |
+| Firmware queue/context gate | 1,000 ordered receives with `s2`-`s11` checks |
+| Independent UART/GPIO observations | 1,579 valid bytes and 286 alternating transitions; required at least 567/100 |
+| Simulator result | Native exit 0, `tohost=1`, 0 ModelSim errors |
+| Preservation release run | PASS: smoke 23/23, Phases 3–6, ACT4 47/47, all local/tool gates |
+
 Reproduce the simulation image and test:
 
 ```powershell
 wsl.exe -e bash -lc "cd /mnt/d/Rsicv-soc-worktrees/phase2-act4-cleanup && SOC_FREERTOS_MTIME_HZ=5000000 SOC_FREERTOS_DEMO_TIME_SCALE=100 SOC_FREERTOS_SIM_COMPLETION=1 SOC_FREERTOS_IMAGE_SUFFIX=_sim bash sw/build_firmware_wsl.sh --install freertos_demo"
 Set-Location .\sim\regress
 .\run_regression.ps1 -Manifest .\phase6_tests.json -Tag phase6
+```
+
+Build and run the separate extended profile:
+
+```powershell
+wsl.exe -e bash -lc "cd /mnt/d/Rsicv-soc-worktrees/phase2-act4-cleanup && SOC_FREERTOS_MTIME_HZ=5000000 SOC_FREERTOS_DEMO_TIME_SCALE=100 SOC_FREERTOS_SIM_COMPLETION=1 SOC_FREERTOS_IMAGE_SUFFIX=_soak SOC_FREERTOS_MIN_QUEUE_RECEIVES=1000 SOC_FREERTOS_MIN_LED_UPDATES=100 SOC_FREERTOS_MIN_HEARTBEATS=50 SOC_FREERTOS_MIN_TICK_HOOKS=1000 bash sw/build_firmware_wsl.sh --install freertos_demo"
+Set-Location .\sim\regress
+.\run_regression.ps1 -Manifest .\phase6_tests.json -Tag phase6-soak
 ```
 
 Build the production 25 MHz image with real task periods:
@@ -159,11 +210,9 @@ wsl.exe -e bash -lc "cd /mnt/d/Rsicv-soc-worktrees/phase2-act4-cleanup && bash s
 
 ## Remaining gates
 
-- Add an extended scheduler/stack-corruption simulation rather than treating
-  the short deterministic demo as a soak test.
 - Observe the banner/heartbeat and LED behavior on the physical FPGA.
 - Keep the separate external-UART, repeated-reset, and speed-grade checks open.
 
-The Phase 6 initial port is operational in ModelSim and has a routed board
-bitstream, but the full phase remains open until the extended run is added.
-Physical execution remains a Phase 7 gate.
+Phase 6 simulation is complete: both the fast integration profile and the
+separate extended scheduler/context soak are GREEN. The routed board bitstream
+exists, while physical execution remains a Phase 7 gate.

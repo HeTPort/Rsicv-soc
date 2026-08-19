@@ -4,7 +4,7 @@
 
 **Audience:** New contributors and learners
 
-**Last updated:** 2026-08-16
+**Last updated:** 2026-08-18
 
 **Current reference:** `codex/phase2-act4-cleanup`. Phases 1–4 are complete.
 Phase 5 is complete in ModelSim and Vivado OOC synthesis. AR-024 adds the Bo
@@ -13,8 +13,8 @@ MMCM/reset wrapper, and routed bitstreams for all three bare-metal programs.
 JTAG plus physical `timer_gpio` and `timer_irq` execution now pass. External
 UART, repeated reset, and speed-grade identification remain open. AR-025 adds
 the official FreeRTOS V11.3.0 RISC-V port, a GREEN ModelSim vertical slice, and
-a routed exact-board bitstream; extended simulation and physical FPGA execution
-remain open.
+a routed exact-board bitstream. Its separate extended scheduler/context soak is
+GREEN; physical FPGA execution remains open.
 
 > Update this document whenever a change alters a module boundary, pipeline
 > timing, packet field, architectural behavior, memory map, verification
@@ -92,14 +92,16 @@ the minimal architecture needed for the first working system.
 - Generated 16 KiB/64 KiB RAM experiment profiles and paired Vivado 2019.2
   out-of-context utilization and post-synthesis internal timing evidence on
   provisional `xc7z010clg400-1`.
-- Current directed smoke baseline: 22/22 passing after AR-013, with 4/4 Python
-  utilities and the focused regression-result negative test passing.
+- Current directed smoke baseline: 23/23 passing, including the precise
+  illegal-JALR-funct3 case, with 4/4 Python utilities and the focused
+  regression-result negative test passing.
 - Separate AR-018 `tb_riscv_soc` contract manifest: all three data-path runs and
   the instruction-access-fault run are GREEN.
 - Official ACT4 baseline: 39/39 RV32I and 8/8 RV32M tests passing, with
   per-extension manifest tags and a compact checked-in evidence record.
-- Unified release verification: all local gates plus ACT4 47/47 passed from one
-  command on 2026-08-17 in 497.3 seconds.
+- Clean-worktree unified release verification: all local gates, the current
+  23-test smoke suite, regenerated ACT4 I/M artifacts, and ACT4 47/47 passed
+  from one command on 2026-08-18 in 549.2 seconds wall time.
 - Split-region ELF conversion with generated map geometry, independent local
   images, rejection tests, and optional ELF-tail `.bss` poison.
 - Reset-to-C startup with ABI-safe `sp`/`gp`, direct `mtvec`, active `.bss`
@@ -111,6 +113,9 @@ the minimal architecture needed for the first working system.
 - Phase 6 initial regression: 1/1 passing with the official FreeRTOS V11.3.0
   GCC RISC-V port, 11 observed ticks, queue-forced context switching,
   `s2`-`s11` sentinels, UART heartbeat, and GPIO activity.
+- Phase 6 extended regression: PASS at 7,262,975 cycles with 1,428 observed
+  timer interrupts, 1,000 ordered queue/context checks, 1,579 UART bytes,
+  and 286 alternating GPIO transitions.
 - Vivado firmware INIT gate: 32 RAMB36E1 cells split 16 program/16 data, with
   nonzero INIT properties in both image-loaded banks.
 - Exact ZYNQ MINI REVB boundary: K17 50 MHz clock, M20 active-low reset,
@@ -131,8 +136,8 @@ the minimal architecture needed for the first working system.
 - GPIO input/direction/interrupt registers and other additional peripherals;
   polling UART TX/RX and output GPIO are implemented, while UART interrupts/
   PLIC are deferred.
-- Extended FreeRTOS scheduler/stack-corruption simulation and physical FPGA
-  execution; the initial official-port ModelSim vertical slice is implemented.
+- Physical FreeRTOS FPGA execution; both the focused and extended official-port
+  ModelSim profiles are implemented and verified.
 - Physical external-UART `hello` and repeated PL reset observations; JTAG,
   LED, timer progression, and timer interrupt execution are verified.
 - Positive identification of the package speed grade; local builds use
@@ -155,20 +160,20 @@ The current mapping is:
 | AR-009 | Phase 1 split 64 KiB map accepted and adopted by RTL, firmware, simulation, synthesis, and ACT4 consumers |
 | AR-008 | Phase 3 precise timer interrupt/WFI/timer target, implemented and verified |
 | AR-010 | Ongoing verification-depth work across phases |
-| AR-011 | Early FPGA feasibility plus later timing closure |
+| AR-011 | Early FPGA feasibility and exact-board timing/resource closure verified |
 | AR-012 | Retirement owner and public-interface cleanup implemented and verified; obsolete `halt_o` removed |
 | AR-013 | Regression infrastructure fix, implemented and verified |
 | AR-023 | Phase 5 split-image runtime and applications; simulation plus physical timer/GPIO and timer-IRQ verified, UART pending |
 | AR-014 | Accepted-map generation infrastructure, implemented and verified |
 | AR-015 | Paired 16 KiB/64 KiB utilization/timing evidence, implemented and verified |
 | AR-016 | Core-to-SoC environment contract accepted; Phase 1 complete |
-| AR-017 | Radix-2 iterative divider, implemented and verified; physical closure remains Phase 7 |
+| AR-017 | Radix-2 iterative divider, implemented and verified through exact-board route |
 | AR-018 | SoC contract tests: data and instruction access-fault cases GREEN; closed |
 | AR-019 | Centralized data decoder/default target implemented and verified |
 | AR-020 | Minimal polling UART TX implemented and verified through OOC synthesis |
 | AR-021 | Polling UART RX and parameterized default 16-byte FIFO implemented and verified through OOC synthesis |
 | AR-022 | Memory-mapped output GPIO implemented and verified through OOC synthesis |
-| AR-025 | Official FreeRTOS V11.3.0 RISC-V port; initial ModelSim slice and routed bitstream verified, extended/physical gates pending |
+| AR-025 | Official FreeRTOS V11.3.0 RISC-V port; focused and extended ModelSim profiles plus routed bitstream verified, physical execution pending |
 
 The authoritative phase checklist is [`TODO.md`](../TODO.md); the detailed
 finding status is in
@@ -776,6 +781,13 @@ The producer wraps a send with `s2`-`s11` sentinels; waking the higher-priority
 receiver forces a scheduler switch, and any failed restore prevents PASS. See
 [`AR025_OFFICIAL_FREERTOS_RISCV_PORT.md`](AR025_OFFICIAL_FREERTOS_RISCV_PORT.md).
 
+The short profile completes quickly and remains the normal release gate. The
+separately tagged soak raises completion to 1,000 tick hooks and ordered queue
+receives, 100 GPIO updates, and 50 heartbeats. Firmware failure hooks and
+context checks are combined with independent commit-order, timer, UART, and
+GPIO scoreboards, extending runtime evidence without changing production
+defaults or the vendored kernel.
+
 ## 12. Architectural commit interface
 
 `commit_o` is the stable observation record for each valid retired instruction.
@@ -817,6 +829,7 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 ./run_regression.ps1 -Manifest ./phase4_tests.json -Test soc_gpio_out
 ./run_regression.ps1 -Manifest ./phase5_tests.json -Tag phase5
 ./run_regression.ps1 -Manifest ./phase6_tests.json -Tag phase6
+./run_regression.ps1 -Manifest ./phase6_tests.json -Tag phase6-soak
 ./test_regression_result.ps1
 python -m unittest test_elf_to_mem.py test_import_act4.py
 ```
@@ -952,7 +965,7 @@ Recommended waveform groups:
 | UART RX capacity | The 16-byte default FIFO tolerates bounded polling latency but sustained traffic can still overrun | Firmware must monitor errors; revisit interrupts/DMA only after board baseline |
 | Clock gating | Logical WFI is verified, but no safe FPGA clock gating is implemented | Phase 7 after board clock design |
 | Reset-to-BRAM control | Reset deassertion is synchronized, but Vivado `REQP-1839` warns that asynchronously reset control registers feed data-BRAM address/control logic | Physical reset test, then synchronous-reset cleanup if required / AR-024 |
-| FreeRTOS duration/hardware | Initial official-port preemption, queues, context sentinels, UART, and GPIO pass in ModelSim; the board bitstream routes, while extended runtime and physical execution remain unverified | Phases 6-7 / AR-025 |
+| FreeRTOS duration/hardware | Focused and extended official-port preemption, queues, context sentinels, UART, and GPIO pass in ModelSim; the board bitstream routes, while physical execution remains unverified | Phase 7 / AR-025 |
 
 ## 16. Practical study exercises
 
@@ -1026,6 +1039,7 @@ compare RAM data, `load_offset`, extracted value, and committed result.
 - [ZYNQ MINI REVB build and wiring guide](../fpga/zynq_mini_revb/README.md)
 - [ACT4 integration](../verif/act4/README.md)
 - [ACT4 2026-08-17 compact baseline evidence](evidence/act4/BASELINE_2026-08-17.md)
+- [Clean-worktree release baseline, 2026-08-18](evidence/release/BASELINE_2026-08-18.md)
 - [Release-verification command](../sim/regress/README.md#one-command-release-verification)
 - [Interview preparation guide](../docs/INTERVIEW_GUIDE.md)
 - [Project roadmap](../TODO.md)

@@ -38,6 +38,12 @@
       "tags": ["all", "smoke", "trap", "decode"]
     },
     {
+      "name": "illegal_jalr_funct3",
+      "image": "testdata/illegal_jalr_funct3_test.hex",
+      "timeout_cycles": 1000,
+      "tags": ["all", "smoke", "trap", "decode", "jalr", "precise", "ar010"]
+    },
+    {
       "name": "misaligned_lw",
       "image": "testdata/misaligned_lw_test.hex",
       "timeout_cycles": 1000,

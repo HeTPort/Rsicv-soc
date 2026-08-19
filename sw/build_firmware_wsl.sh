@@ -16,7 +16,9 @@ while (($# > 0)); do
       echo "Usage: $0 [--install] [app ...]"
       echo "Builds sw/apps/<app> with the Phase 5 runtime and split memory map."
       echo "FreeRTOS overrides: SOC_FREERTOS_MTIME_HZ, SOC_FREERTOS_DEMO_TIME_SCALE,"
-      echo "SOC_FREERTOS_SIM_COMPLETION, and SOC_FREERTOS_IMAGE_SUFFIX (for example _sim)."
+      echo "SOC_FREERTOS_SIM_COMPLETION, SOC_FREERTOS_IMAGE_SUFFIX (for example _sim),"
+      echo "SOC_FREERTOS_MIN_QUEUE_RECEIVES, SOC_FREERTOS_MIN_LED_UPDATES,"
+      echo "SOC_FREERTOS_MIN_HEARTBEATS, and SOC_FREERTOS_MIN_TICK_HOOKS."
       exit 0
       ;;
     *)
@@ -106,6 +108,10 @@ for app in "${requested_apps[@]}"; do
       "-DconfigCPU_CLOCK_HZ=${SOC_FREERTOS_MTIME_HZ:-25000000}UL"
       "-DSOC_FREERTOS_DEMO_TIME_SCALE=${SOC_FREERTOS_DEMO_TIME_SCALE:-1}U"
       "-DSOC_FREERTOS_SIM_COMPLETION=${SOC_FREERTOS_SIM_COMPLETION:-0}U"
+      "-DSOC_FREERTOS_MIN_QUEUE_RECEIVES=${SOC_FREERTOS_MIN_QUEUE_RECEIVES:-8}U"
+      "-DSOC_FREERTOS_MIN_LED_UPDATES=${SOC_FREERTOS_MIN_LED_UPDATES:-2}U"
+      "-DSOC_FREERTOS_MIN_HEARTBEATS=${SOC_FREERTOS_MIN_HEARTBEATS:-1}U"
+      "-DSOC_FREERTOS_MIN_TICK_HOOKS=${SOC_FREERTOS_MIN_TICK_HOOKS:-0}U"
     )
   fi
 

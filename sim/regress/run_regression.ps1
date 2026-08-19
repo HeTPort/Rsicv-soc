@@ -275,6 +275,12 @@ try {
         if ($null -ne $testCase.PSObject.Properties["freertos_min_timer_irqs"]) {
             $vsimArgs += "-gFREERTOS_MIN_TIMER_IRQS=$([int]$testCase.freertos_min_timer_irqs)"
         }
+        if ($null -ne $testCase.PSObject.Properties["freertos_min_uart_bytes"]) {
+            $vsimArgs += "-gFREERTOS_MIN_UART_BYTES=$([int]$testCase.freertos_min_uart_bytes)"
+        }
+        if ($null -ne $testCase.PSObject.Properties["freertos_min_gpio_transitions"]) {
+            $vsimArgs += "-gFREERTOS_MIN_GPIO_TRANSITIONS=$([int]$testCase.freertos_min_gpio_transitions)"
+        }
         if (-not [string]::IsNullOrWhiteSpace($dataImagePath)) {
             $modelSimDataImagePath = $dataImagePath.Replace("\", "/")
             $vsimArgs += "-gDATA_FILE=$modelSimDataImagePath"

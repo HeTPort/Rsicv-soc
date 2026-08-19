@@ -98,7 +98,8 @@ Implemented:
       completion and packet-owned WB/commit data.
 - [x] Centralized full-address SoC data decoder and one-cycle registered default
   error target, plus registered instruction-access-fault reporting.
-- [x] Existing directed regression last verified at 22/22 passing, with
+- [x] Existing directed regression last verified at 23/23 passing, including
+  the precise illegal-JALR-funct3 case, with
   converter/importer tests at 12/12 and the regression-result negative test
   passing.
 
@@ -114,7 +115,8 @@ Still missing:
   fabric ownership, firmware waveform checking, and OOC synthesis evidence.
 - [x] Bare-metal startup code, linker script, split images, peripheral drivers,
   and three C sanity applications.
-- [x] FreeRTOS application and initial ModelSim vertical slice.
+- [x] FreeRTOS application, focused ModelSim vertical slice, and separate
+  extended scheduler/context soak.
 - [x] FPGA top, XDC constraints, and routed Vivado bitstream build script.
 - [x] Physical-board JTAG discovery plus LED-visible `timer_gpio` and
   `timer_irq` results.
@@ -141,11 +143,11 @@ Current planning position:
   slices pass and both ELF-derived BRAM images retain nonzero initialization.
   Its timer/GPIO and timer-interrupt images now pass on the physical board;
   external-UART `hello` remains part of Phase 7 board work.
-- Phase 6 has a GREEN initial ModelSim vertical slice using the unmodified
+- Phase 6 simulation is complete using the unmodified
   official FreeRTOS V11.3.0 GCC RISC-V port. Tick/preemption, queue traffic,
-  context sentinels, UART, and GPIO pass, and the exact-board bitstream routes
-  with positive timing; the extended run and physical FPGA execution remain
-  open.
+  context sentinels, UART, and GPIO pass in both the focused profile and a
+  1,000-tick/1,000-queue-receive soak. The exact-board bitstream routes with
+  positive timing; physical FPGA execution remains open.
 - Phase 7 is complete through exact-board bitstream generation: AR-024 adds
   the ZYNQ MINI REVB wrapper/XDC/build, removes a routed CPU combinational loop,
   and produces all three Phase 5 bitstreams with non-negative timing. JTAG
@@ -157,7 +159,8 @@ Current planning position:
 - AR-015 records the paired 16 KiB/64 KiB baseline and its failing
   combinational MULDIV path. AR-017 replaces that divider with a verified
   Radix-2 iterative implementation; both profiles now pass the 25/50 MHz OOC
-  post-synthesis checks. Exact-board timing closure remains open.
+  post-synthesis checks, and AR-024 closes exact-board 25 MHz placement,
+  routing, timing, DRC, power-estimate, and resource evidence.
 - AR identifiers are stable finding numbers, not phase numbers. Detailed
   ownership and status are maintained in
   [`doc/ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md`](doc/ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md).
@@ -587,13 +590,18 @@ or context-switch ABI.
   3. send and receive values through a FreeRTOS queue.
 - [x] Verify register/context preservation using sentinel register values across
   forced context switches.
-- [ ] Run long simulation with assertions for illegal traps, duplicate commits,
-  stack corruption, and unexpected writes.
+- [x] Run a separate long simulation with illegal/unexpected-trap failure
+  hooks, ordered-commit assertions, stack/context checks, and UART/GPIO
+  write scoreboards. The 2026-08-18 soak passed after 1,000 tick hooks and
+  ordered queue receives, with 1,428 observed timer IRQs, 1,579 UART bytes,
+  and 286 alternating GPIO transitions.
 
-**Initial exit evidence:** FreeRTOS starts in ModelSim, the tick count advances,
+**Exit evidence:** FreeRTOS starts in ModelSim, the tick count advances,
 tasks preempt through timer and ECALL paths, queue communication succeeds, the
 `s2`-`s11` sentinels survive a forced switch, and UART/GPIO output matches the
-scoreboard. The long-duration item above remains open before Phase 6 is closed.
+scoreboard. The focused profile remains a fast release gate; the separately
+tagged extended profile passed at 7,262,975 cycles without changing the
+production firmware defaults or vendored kernel.
 
 ---
 
@@ -649,9 +657,11 @@ BRAM firmware, prints the FreeRTOS banner and task heartbeats, switches tasks at
 ## Phase 8 — Release verification and definition of done
 
 - [x] All applicable official RV32I and RV32M ACT4 tests pass (47/47 refreshed
-  on 2026-08-17 after regenerating the official artifacts).
-- [x] All directed, CSR/trap, LSU, bus, timer, UART, GPIO, and FreeRTOS tests
-  pass from one documented regression command.
+  from a clean detached worktree on 2026-08-18 after regenerating the official
+  artifacts).
+- [x] All directed, CSR/trap, LSU, bus, timer, UART, GPIO, and focused FreeRTOS
+  tests pass from one documented regression command; the extended FreeRTOS soak
+  passes through its separately documented tag.
 - [x] ModelSim logs contain no fatal errors or unexpected assertions.
 - [x] Vivado synthesis and implementation complete with non-negative timing
   slack at the selected clock.
@@ -690,6 +700,6 @@ for the first FreeRTOS FPGA demonstration:
 2. Repeat PL K2 reset testing and record whether the LED applications restart
    consistently despite the open `REQP-1839` cleanup item.
 3. Confirm the XC7Z010 speed grade from a reliable vendor/device record.
-4. Add the extended FreeRTOS scheduler/stack-corruption run, then program and
-   verify the routed production FreeRTOS image on the FPGA while keeping the
-   47-test ACT4 and board timing/DRC gates active.
+4. Program and verify the routed production FreeRTOS image on the FPGA while
+   keeping the 47-test ACT4, 23-test smoke, scheduler-soak, and board
+   timing/DRC gates active.

@@ -16,6 +16,22 @@
 #define SOC_FREERTOS_SIM_COMPLETION 0U
 #endif
 
+#ifndef SOC_FREERTOS_MIN_QUEUE_RECEIVES
+#define SOC_FREERTOS_MIN_QUEUE_RECEIVES 8U
+#endif
+
+#ifndef SOC_FREERTOS_MIN_LED_UPDATES
+#define SOC_FREERTOS_MIN_LED_UPDATES 2U
+#endif
+
+#ifndef SOC_FREERTOS_MIN_HEARTBEATS
+#define SOC_FREERTOS_MIN_HEARTBEATS 1U
+#endif
+
+#ifndef SOC_FREERTOS_MIN_TICK_HOOKS
+#define SOC_FREERTOS_MIN_TICK_HOOKS 0U
+#endif
+
 #define DEMO_STACK_WORDS 192U
 #define DEMO_QUEUE_DEPTH 4U
 #define DEMO_FAIL_BASE   0xBAD60000u
@@ -32,6 +48,14 @@ static TickType_t demo_delay_ticks(uint32_t milliseconds)
 {
     TickType_t ticks = pdMS_TO_TICKS(milliseconds / SOC_FREERTOS_DEMO_TIME_SCALE);
     return (ticks == 0U) ? 1U : ticks;
+}
+
+static uint32_t demo_required_tick_hooks(void)
+{
+    if (SOC_FREERTOS_MIN_TICK_HOOKS != 0U) {
+        return SOC_FREERTOS_MIN_TICK_HOOKS;
+    }
+    return (uint32_t)demo_delay_ticks(1000U);
 }
 
 static void led_task(void *argument)
@@ -92,8 +116,10 @@ static void queue_receiver_task(void *argument)
         ++queue_receive_count;
 
         if (SOC_FREERTOS_SIM_COMPLETION != 0U &&
-            queue_receive_count >= 8U && led_update_count >= 2U &&
-            heartbeat_count >= 1U && tick_hook_count >= demo_delay_ticks(1000U)) {
+            queue_receive_count >= SOC_FREERTOS_MIN_QUEUE_RECEIVES &&
+            led_update_count >= SOC_FREERTOS_MIN_LED_UPDATES &&
+            heartbeat_count >= SOC_FREERTOS_MIN_HEARTBEATS &&
+            tick_hook_count >= demo_required_tick_hooks()) {
             taskDISABLE_INTERRUPTS();
             tohost_write(1U);
             for (;;) {

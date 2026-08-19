@@ -538,8 +538,8 @@ A: The physical suffix is unreadable. Using the conservative part avoids
 claiming an unverified faster device while still allowing reproducible builds.
 
 **Q: What would you improve next?**
-A: Close external UART/reset/FreeRTOS hardware gates, add a long scheduler soak,
-expand redirect/stall fault tests, then measure before adding forwarding, UART
+A: Close external UART/reset/FreeRTOS hardware gates, expand redirect/stall
+fault tests, then measure before adding forwarding, UART
 interrupts/PLIC, or performance optimizations.
 
 ## 11. Stories worth preparing in STAR format

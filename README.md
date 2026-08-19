@@ -17,13 +17,12 @@ introduction.
 ## Current development status
 
 Phases 1–4 are complete. Phase 5 provides a split-image C runtime, minimal
-drivers, and three bare-metal programs; it is complete. Phase 6 now boots the pinned official
-FreeRTOS V11.3.0 GCC RISC-V port in ModelSim with preemption, queues, UART,
-GPIO, and context sentinels. Phase 7 provides the ZYNQ MINI REVB
-top/XDC and routed bitstreams for all three programs. JTAG plus the physical
+drivers, and three bare-metal programs; it is complete. Phase 6 boots the pinned
+official FreeRTOS V11.3.0 GCC RISC-V port in ModelSim with preemption, queues,
+UART, GPIO, context sentinels, and a separate 1,000-tick scheduler soak. Phase 7
+provides the ZYNQ MINI REVB top/XDC and four routed bitstreams. JTAG plus the physical
 `timer_gpio` and `timer_irq` LED tests pass; external-UART `hello`, repeated
-reset, speed-grade identification, an extended FreeRTOS simulation, and
-FreeRTOS FPGA execution remain open.
+reset, speed-grade identification, and FreeRTOS FPGA execution remain open.
 
 | Area | Implemented now |
 |---|---|
@@ -37,7 +36,7 @@ FreeRTOS FPGA execution remain open.
 | Timer | 64-bit `mtime`/`mtimecmp`, MTIP level, local offsets `0xBFF8`/`0x4000` |
 | UART | Polling 8N1 TX and RX, default 16-byte RX FIFO, sticky overrun/framing errors |
 | GPIO | 32-bit R/W MMIO register driving parameterized low output bits; default width 8 |
-| Verification | Focused protocol tests, 22/22 smoke, 47/47 applicable ACT4 I/M refreshed 2026-08-17, Phase 3 2/2, Phase 4 3/3, Phase 5 4/4, Phase 6 1/1 |
+| Verification | Focused protocol tests, 23/23 smoke, 47/47 applicable ACT4 I/M, Phase 3 2/2, Phase 4 3/3, Phase 5 4/4, Phase 6 focused + soak PASS |
 | FPGA | ZYNQ MINI REVB top/XDC/build; four routed 25 MHz bitstreams including FreeRTOS, 0 DRC errors, WNS +22.093 ns or better; remaining hardware observation open |
 | Software | Reset-to-C runtime, split linker/drivers, three bare-metal apps, and pinned official FreeRTOS V11.3.0 demo |
 
@@ -124,13 +123,13 @@ marker, and zero ModelSim errors, preventing PASS-looking false positives.
 
 | Gate | Current result | What it proves |
 |---|---:|---|
-| Smoke regression | 22/22 PASS | Directed CPU, CSR, trap, LSU, and bus behavior |
-| Applicable ACT4 | 47/47 PASS, refreshed 2026-08-17 | 39 RV32I and 8 RV32M architectural cases |
+| Smoke regression | 23/23 PASS | Directed CPU, CSR, precise illegal-JALR, trap, LSU, and bus behavior |
+| Applicable ACT4 | 47/47 PASS, clean-regenerated 2026-08-18 | 39 RV32I and 8 RV32M architectural cases |
 | Phase 3 | 2/2 PASS | Precise timer/WFI behavior and long-duration timer run |
 | Phase 4 | 3/3 PASS | UART text, 16-byte RX-to-TX echo, and GPIO pin waveform/readback |
 | Phase 5 | 4/4 PASS | Split data image, C startup/UART, timer-polled GPIO, and ten full-context timer interrupts |
-| Phase 6 | 1/1 PASS | Official FreeRTOS tick/preemption, queue traffic, context sentinels, UART heartbeat, and GPIO activity |
-| Unified release command | PASS, 2026-08-17 | Map/tool gates, focused fabric, smoke, Phases 3–6, ACT4 classification, and ACT4 47/47 |
+| Phase 6 | Focused 1/1 + soak PASS | Official FreeRTOS tick/preemption, 1,000 ordered queue/context checks, 1,428 soak IRQs, 1,579 UART bytes, and 286 GPIO transitions |
+| Unified release command | Clean-worktree PASS, 2026-08-18 | Regenerated ACT4 plus map/tool gates, focused fabric, smoke 23/23, Phases 3–6, classification, and ACT4 47/47 |
 | SoC-map generator unit tests | 9/9 PASS | Canonical map validation and generated addresses |
 | UART focused tests | PASS | TX/RX framing, FIFO order/full/error/W1C, and bus semantics |
 | Vivado 2019.2 OOC SoC check | PASS | 0 errors/critical warnings; BRAM, LSU, UART RX/TX, and GPIO hierarchy retained |
@@ -153,6 +152,16 @@ observation contracts. See [AR-012](doc/AR012_RETIREMENT_INTERFACE_CLEANUP.md).
 After per-extension ACT4 tagging and the unified runner were added, the single
 release command passed again in 497.3 seconds: every local gate plus 39 RV32I
 and eight RV32M cases, with zero failed steps and zero nonzero simulator exits.
+
+After adding the precise illegal-JALR case and separate FreeRTOS soak, the
+2026-08-18 preservation run passed the updated 23/23 smoke suite, Phases 3–6,
+and ACT4 47/47 in 502.8 seconds wall time. The soak is intentionally separate
+from this fast release command and passed independently at 7,262,975 cycles.
+
+The final detached clean-worktree run regenerated ACT4 I/M artifacts and
+passed the same complete gate in 549.2 seconds. It also exposed and verified
+the fix for named ACT4 option forwarding in the release wrapper. See the
+[retained clean-release baseline](doc/evidence/release/BASELINE_2026-08-18.md).
 
 ## Try it
 
@@ -203,6 +212,7 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 .\run_regression.ps1 -Manifest .\phase4_tests.json -Tag phase4
 .\run_regression.ps1 -Manifest .\phase5_tests.json -Tag phase5
 .\run_regression.ps1 -Manifest .\phase6_tests.json -Tag phase6
+.\run_regression.ps1 -Manifest .\phase6_tests.json -Tag phase6-soak
 .\test_regression_result.ps1
 python -m unittest test_elf_to_mem.py test_import_act4.py
 ```
@@ -270,6 +280,14 @@ The focused RTL regression uses a distinct time-scaled image while retaining a
 
 ```powershell
 wsl.exe -e bash -lc "cd /mnt/d/Rsicv-soc-worktrees/phase2-act4-cleanup && SOC_FREERTOS_MTIME_HZ=5000000 SOC_FREERTOS_DEMO_TIME_SCALE=100 SOC_FREERTOS_SIM_COMPLETION=1 SOC_FREERTOS_IMAGE_SUFFIX=_sim bash sw/build_firmware_wsl.sh --install freertos_demo"
+```
+
+The separately tagged extended profile keeps the fast release gate short while
+requiring 1,000 tick hooks and queue receives, 100 GPIO updates, and 50
+heartbeats:
+
+```powershell
+wsl.exe -e bash -lc "cd /mnt/d/Rsicv-soc-worktrees/phase2-act4-cleanup && SOC_FREERTOS_MTIME_HZ=5000000 SOC_FREERTOS_DEMO_TIME_SCALE=100 SOC_FREERTOS_SIM_COMPLETION=1 SOC_FREERTOS_IMAGE_SUFFIX=_soak SOC_FREERTOS_MIN_QUEUE_RECEIVES=1000 SOC_FREERTOS_MIN_LED_UPDATES=100 SOC_FREERTOS_MIN_HEARTBEATS=50 SOC_FREERTOS_MIN_TICK_HOOKS=1000 bash sw/build_firmware_wsl.sh --install freertos_demo"
 ```
 
 See [AR-025](doc/AR025_OFFICIAL_FREERTOS_RISCV_PORT.md) for the port boundary,
@@ -350,18 +368,17 @@ or alternatives considered.
 ## Roadmap and open gates
 
 The repository is interview-ready and has a refreshed CPU/SoC simulation
-baseline, but it is not a completed Phase 8 hardware release. One local gate—the
-extended FreeRTOS scheduler/stack-corruption run—remains alongside the external
-UART/reset/speed-grade and FreeRTOS-on-board evidence.
+baseline, including the extended FreeRTOS scheduler/context soak, but it is not
+a completed Phase 8 hardware release. External UART/reset/speed-grade and
+FreeRTOS-on-board evidence remain.
 
 The next practical steps are:
 
 1. wire a 3.3 V external UART on U15/W15 and observe `Hello, UART!`;
 2. repeat PL K2 reset testing and record the result;
 3. confirm the device speed grade from a reliable record;
-4. add the extended FreeRTOS scheduler/stack-corruption simulation;
-5. build and test the production FreeRTOS demonstration on the FPGA;
-6. add UART interrupts/PLIC only after the polling baseline is stable on
+4. build and test the production FreeRTOS demonstration on the FPGA;
+5. add UART interrupts/PLIC only after the polling baseline is stable on
    hardware.
 
 You do not need to connect the FPGA board to develop or verify the RTL. You do

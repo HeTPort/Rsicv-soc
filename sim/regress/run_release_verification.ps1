@@ -176,15 +176,17 @@ try {
 
     if (-not $SkipAct4) {
         if ($RegenerateAct4) {
-            $act4Arguments = @("-Jobs", $Act4Jobs)
+            $act4Arguments = @{
+                Jobs = $Act4Jobs
+            }
             if (-not [string]::IsNullOrWhiteSpace($Act4Root)) {
-                $act4Arguments += @("-Act4Root", $Act4Root)
+                $act4Arguments["Act4Root"] = $Act4Root
             }
             if (-not [string]::IsNullOrWhiteSpace($Act4WorkDir)) {
-                $act4Arguments += @("-Act4WorkDir", $Act4WorkDir)
+                $act4Arguments["Act4WorkDir"] = $Act4WorkDir
             }
             if (-not [string]::IsNullOrWhiteSpace($WslRepoPath)) {
-                $act4Arguments += @("-WslRepoPath", $WslRepoPath)
+                $act4Arguments["WslRepoPath"] = $WslRepoPath
             }
 
             Invoke-ReleaseStep "regenerate ACT4 RV32I artifacts" {

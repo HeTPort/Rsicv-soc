@@ -42,16 +42,16 @@ Current ownership and status:
 | AR-008 | Phase 3 | Implemented and verified; precise timer IRQ/WFI and 10,000-interrupt gate complete |
 | AR-009 | Phase 1 | Accepted; Phase 1 contract and Phase 2 RTL adoption complete, later software consumers pending |
 | AR-010 | Continuous verification track | Ongoing |
-| AR-011 | Early FPGA feasibility, then Phase 7 closure | AR-017 closes the MULDIV OOC blocker; exact-board closure remains open |
+| AR-011 | Early FPGA feasibility, then Phase 7 closure | AR-017 closes the MULDIV OOC blocker; exact-board route/timing/resource closure verified |
 | AR-012 | Cross-stage cleanup | Implemented and verified: retirement owner, control ports, public halt removal, and release documentation complete |
 | AR-013 | Regression infrastructure | Implemented and verified |
 | AR-014 | Phase 1 contract tooling | Accepted contract generation implemented and verified |
 | AR-015 | AR-011 evidence supporting Phase 1 | 16 KiB/64 KiB utilization and post-synthesis timing comparison verified |
 | AR-016 | Phase 1 architecture boundary | Core-to-SoC ownership and environment contract accepted |
-| AR-017 | AR-011 timing optimization | Radix-2 iterative divider implemented and verified; exact-board closure open |
+| AR-017 | AR-011 timing optimization | Radix-2 iterative divider implemented and verified through exact-board route |
 | AR-018 | Phase 2 SoC contract | All data and instruction fault cases GREEN; closed |
 | AR-019 | Phase 2 data fabric | Centralized decoder/default target implemented and verified |
-| AR-025 | Phase 6 FreeRTOS | Official V11.3.0 port initial ModelSim slice and routed bitstream verified; extended run and physical execution open |
+| AR-025 | Phase 6 FreeRTOS | Official V11.3.0 port focused and extended ModelSim runs plus routed bitstream verified; physical execution open |
 
 ## Verified baseline
 
@@ -509,12 +509,13 @@ implementation record is
 
 **Status:** ongoing. **Target:** continuous verification across all phases.
 
-Several trap programs enter a handler and write PASS without checking every
+Several older trap programs enter a handler and write PASS without checking every
 value named in their comments. For example, the handler in
 [`ebreak_test.S`](../testdata/ebreak_test.S#L40) does not read `mcause`, `mepc`,
-or `mtval`. The existing [`illegal_jalr_funct3_test.S`](../testdata/illegal_jalr_funct3_test.S)
-is not in the manifest. Its source now uses committed `tohost` completion, but
-manifest adoption or deliberate removal remains open below.
+or `mtval`. The formerly stale
+[`illegal_jalr_funct3_test.S`](../testdata/illegal_jalr_funct3_test.S) now checks
+`mcause`, `mepc`, `mtval`, and suppressed destination-register writeback before
+reporting through committed `tohost`; it is part of the smoke manifest.
 
 **Handling**
 
@@ -528,24 +529,45 @@ manifest adoption or deliberate removal remains open below.
 - [ ] Add lane tests for LB/LBU/LH/LHU/LW and SB/SH/SW at every legal offset.
 - [ ] Add dependency tests for ALU/load/CSR producers feeding ALU, branch,
       address, and store-data consumers.
-- [ ] Update and add the illegal-JALR test to `tests.json`, or remove it if it is
-      intentionally superseded.
+- [x] Update and add the illegal-JALR test to `tests.json`. Its generated image
+      is reproducible through `build_tests_wsl.sh`, and the focused case passes.
 - [ ] Require every checked-in `.hex` to have a source, build recipe, or clear
       provenance record.
 - [ ] Keep official ACT4 as continuous coverage, but regenerate its artifacts
       after any memory-map change.
 
+#### 2026-08-18 illegal-JALR follow-up
+
+**Problem/root cause:** The checked-in source described an illegal JALR encoding
+but had neither a trap handler nor the repository's `tohost` completion ABI, and
+the manifest did not run it. A later review sentence incorrectly claimed the
+source had already been modernized.
+
+**Options considered:** Remove the stale source, test only decode's illegal bit
+in a module-level bench, or turn the program into an architectural precise-trap
+case. The architectural case was selected because it covers decode, pipeline
+squash, CSR trap state, destination-register suppression, and retirement in one
+small regression.
+
+**Decision/consequences:** The program now verifies `mcause=2`, `mepc` equal to
+the illegal instruction, `mtval=0x000010e7`, and unchanged `x1`, then reports a
+distinct result through committed `tohost`. `build_tests_wsl.sh` produces its
+checked-in image, and the smoke manifest runs it under `trap`, `decode`, `jalr`,
+`precise`, and `ar010` tags. The focused run passes with native simulator exit
+zero; the remaining AR-010 matrix items stay open.
+
 ### AR-011 — FPGA feasibility checks should move earlier
 
-**Status:** paired utilization and early critical-path checkpoints verified;
-AR-017 closes the MULDIV OOC timing blocker, while physical timing closure
-remains open.
+**Status:** implemented and verified. Paired early feasibility evidence is
+complete, AR-017 closes the MULDIV OOC timing blocker, and AR-024 supplies
+exact-board placement, routing, resource, power, DRC, and 25 MHz timing evidence.
 **Target:** an early feasibility checkpoint followed by full Phase 7 timing
 closure. Instruction/data BRAM inference and the 16 KiB/64 KiB resource
 comparison are recorded in AR-015. That RED evidence identifies an 87.102 ns
 combinational divider path that fails both 25 MHz and 50 MHz. AR-017 replaces
 it with a functionally verified iterative divider and both profiles now pass
-the same OOC constraints; exact-board physical acceptance remains open.
+the same OOC constraints. Routed implementation is closed separately from the
+still-open physical UART/reset/FreeRTOS observations and speed-grade identity.
 
 The current roadmap leaves the first divider critical-path and BRAM-inference
 inspection until the FPGA integration phase. A combinational RV32M divider or
@@ -685,8 +707,8 @@ checkpoint are complete.
 9. **Run bare-metal simulation and FPGA sanity programs.** Prove UART, GPIO, and
    timer interrupts before adding the kernel.
 10. **Integrate the pinned official FreeRTOS RISC-V port.** Port, stack/heap,
-    queue, preemption, and context sentinels are GREEN in ModelSim; the extended
-    run remains open. See `AR025_OFFICIAL_FREERTOS_RISCV_PORT.md`.
+    queue, preemption, context sentinels, and the extended scheduler soak are
+    GREEN in ModelSim. See `AR025_OFFICIAL_FREERTOS_RISCV_PORT.md`.
 11. **Complete FPGA timing and physical-board validation.**
 
 Official RV32I/RV32M ACT4 execution remains a continuous parallel track. It is
@@ -700,12 +722,15 @@ document can be considered fully handled only when:
 
 - [ ] Every AR item is either implemented and verified or explicitly deferred
       with a reason and risk statement.
-- [ ] The full directed and Python regression is reproducible from a clean
-      checkout. The unified command passes on the current tree and supports
-      clean-checkout ACT4 generation through `-RegenerateAct4`; a fresh-clone
-      execution remains the final evidence for this checkbox.
-- [ ] ACT4 configuration describes the implemented hardware and final memory
-      map accurately.
+- [x] The full directed and Python regression is reproducible from a clean
+      checkout. A new detached worktree passed `-RegenerateAct4`: map/tool,
+      focused fabric, smoke 23/23, Phases 3–6, regenerated 39 I + 8 M cases,
+      and ACT4 47/47. See
+      [`evidence/release/BASELINE_2026-08-18.md`](evidence/release/BASELINE_2026-08-18.md).
+- [x] ACT4 UDB/Sail configuration describes the implemented ISA and trap
+      behavior accurately and explicitly documents its 256 KiB testbench-only
+      memory window as distinct from the synthesizable split 64 KiB map. Clean
+      regeneration and 47/47 execution verify the configured scope.
 - [x] Vivado reports confirm BRAM inference and non-negative routed timing at
       the selected 25 MHz clock on conservative `xc7z010clg400-1` builds.
 - [x] A bare-metal timer handler survives at least 10,000 interrupts.

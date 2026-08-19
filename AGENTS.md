@@ -203,9 +203,9 @@ IF -> IF/ID -> ID -> ID/EX -> EX -> LSU -> SoC fabric -> RAM/timer/UART/default 
 
 Important: there is **no explicit `ex2mem` or `mem2wb` register**. The LSU
 holds ID/EX during REQUEST/RESPONSE and allows the memory instruction into
-EX/WB only during COMPLETE. Response data is registered in the LSU and still
-feeds `retire_stage`/commit outside `ex2wb`; AR-004 remains open until the response
-data/error are carried by the registered EX/WB packet.
+EX/WB only during COMPLETE. AR-004 is closed: raw/aligned response data and
+response-error status are copied into the registered `ex_wb_pkt_t` during that
+completion, so `retire_stage` and commit consume packet-owned memory results.
 
 ### Pipeline packets (structs)
 

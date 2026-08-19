@@ -14,7 +14,20 @@
       "timeout_cycles": 500000,
       "freertos_check_enable": true,
       "freertos_min_timer_irqs": 10,
+      "freertos_min_uart_bytes": 28,
+      "freertos_min_gpio_transitions": 2,
       "tags": ["phase6", "soc", "freertos", "preemption", "queue", "uart", "gpio"]
+    },
+    {
+      "name": "firmware_freertos_soak",
+      "image": "testdata/firmware_freertos_demo_soak.imem.hex",
+      "data_image": "testdata/firmware_freertos_demo_soak.dmem.hex",
+      "timeout_cycles": 15000000,
+      "freertos_check_enable": true,
+      "freertos_min_timer_irqs": 1000,
+      "freertos_min_uart_bytes": 567,
+      "freertos_min_gpio_transitions": 100,
+      "tags": ["phase6-soak", "soc", "freertos", "soak", "preemption", "queue", "uart", "gpio"]
     }
   ]
 }

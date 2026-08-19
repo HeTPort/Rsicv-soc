@@ -26,6 +26,8 @@ module tb_riscv_soc #(
   parameter int TIMER_IRQ_EXPECTED_COUNT = 10,
   parameter bit FREERTOS_CHECK_ENABLE = 1'b0,
   parameter int FREERTOS_MIN_TIMER_IRQS = 10,
+  parameter int FREERTOS_MIN_UART_BYTES = 28,
+  parameter int FREERTOS_MIN_GPIO_TRANSITIONS = 2,
   parameter bit DATA_FORCE_ERROR = 1'b0,
   parameter bit DATA_ERROR_ADDR_ENABLE = 1'b0,
   parameter logic [31:0] DATA_ERROR_ADDR = '0
@@ -388,22 +390,24 @@ module tb_riscv_soc #(
     $display("[SOC-TB] x10    = 0x%08h", reg_s10);
     $display("[SOC-TB] x11    = 0x%08h", reg_s11);
     $display("[SOC-TB] timer IRQs = %0d", timer_irq_count);
+    $display("[SOC-TB] UART bytes = %0d", uart_byte_count);
+    $display("[SOC-TB] GPIO transitions = %0d", gpio_transition_count);
     $display("[SOC-TB] GPIO pins  = 0x%02h", gpio_out);
     if (tohost_val == 32'd1) begin
       if (FREERTOS_CHECK_ENABLE) begin
-        assert (uart_byte_count >= UART_EXPECTED_BYTES)
+        assert (uart_byte_count >= FREERTOS_MIN_UART_BYTES)
           else $fatal(1, "FreeRTOS UART byte count mismatch: got %0d expected >= %0d",
-                      uart_byte_count, UART_EXPECTED_BYTES);
+                      uart_byte_count, FREERTOS_MIN_UART_BYTES);
       end else if (UART_CHECK_ENABLE || UART_RX_ECHO_ENABLE) begin
         assert (uart_byte_count == UART_EXPECTED_BYTES)
           else $fatal(1, "UART byte count mismatch: got %0d expected %0d",
                       uart_byte_count, UART_EXPECTED_BYTES);
       end
       if (FREERTOS_CHECK_ENABLE) begin
-        assert (gpio_transition_count >= GPIO_EXPECTED_TRANSITIONS)
+        assert (gpio_transition_count >= FREERTOS_MIN_GPIO_TRANSITIONS)
           else $fatal(1,
             "FreeRTOS GPIO transition count mismatch: got %0d expected >= %0d",
-            gpio_transition_count, GPIO_EXPECTED_TRANSITIONS);
+            gpio_transition_count, FREERTOS_MIN_GPIO_TRANSITIONS);
       end else if (GPIO_CHECK_ENABLE) begin
         assert (gpio_transition_count == GPIO_EXPECTED_TRANSITIONS)
           else $fatal(1,

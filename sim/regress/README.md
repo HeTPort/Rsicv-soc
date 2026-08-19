@@ -96,12 +96,18 @@ From a clean checkout with the pinned WSL/ACT4 prerequisites installed:
 ./run_release_verification.ps1 -RegenerateAct4 -Act4Jobs 8
 ```
 
+This exact path passed from a new detached worktree on 2026-08-18. The wrapper
+uses named hashtable splatting for `Jobs` and optional ACT4 paths; positional
+array splatting is incorrect for forwarding named options to another
+PowerShell script. Retained results are in
+[`../../doc/evidence/release/BASELINE_2026-08-18.md`](../../doc/evidence/release/BASELINE_2026-08-18.md).
+
 The command runs, in order:
 
 1. generated SoC-map staleness and 9 map-generator tests;
 2. 12 ELF-converter/ACT4-importer tests and the result-classifier negative test;
 3. the focused SoC data-fabric protocol test;
-4. 22 directed smoke tests;
+4. 23 directed smoke tests, including the precise illegal-JALR-funct3 case;
 5. both Phase 3 tests, including 10,000 timer interrupts;
 6. Phase 4 (3), Phase 5 (4), and Phase 6 (1) regressions;
 7. ACT4 manifest classification (47 total, 39 RV32I, 8 RV32M) and all 47 cases.
@@ -184,6 +190,7 @@ Build the distinct Phase 6 simulation image from the repository root with:
 ```bash
 SOC_FREERTOS_MTIME_HZ=5000000 \
 SOC_FREERTOS_DEMO_TIME_SCALE=100 \
+SOC_FREERTOS_SIM_COMPLETION=1 \
 SOC_FREERTOS_IMAGE_SUFFIX=_sim \
 bash sw/build_firmware_wsl.sh --install freertos_demo
 ```
@@ -197,7 +204,30 @@ Then run:
 The scoreboard checks the FreeRTOS banner/heartbeat stream, alternating GPIO,
 and at least ten timer interrupts. Firmware reports PASS only after ordered
 queue traffic and the queue-forced `s2`-`s11` context sentinels succeed. Build
-the production 25 MHz image without the three simulation overrides.
+the production 25 MHz image without the simulation overrides.
+
+The fast `phase6` case remains the normal release gate. A separate soak image
+raises the firmware completion thresholds to 1,000 tick hooks and queue
+receives, 100 GPIO updates, and 50 heartbeats:
+
+```bash
+SOC_FREERTOS_MTIME_HZ=5000000 \
+SOC_FREERTOS_DEMO_TIME_SCALE=100 \
+SOC_FREERTOS_SIM_COMPLETION=1 \
+SOC_FREERTOS_IMAGE_SUFFIX=_soak \
+SOC_FREERTOS_MIN_QUEUE_RECEIVES=1000 \
+SOC_FREERTOS_MIN_LED_UPDATES=100 \
+SOC_FREERTOS_MIN_HEARTBEATS=50 \
+SOC_FREERTOS_MIN_TICK_HOOKS=1000 \
+bash sw/build_firmware_wsl.sh --install freertos_demo
+```
+
+Run it explicitly; the `phase6-soak` tag is deliberately excluded from the
+fast unified release command:
+
+```powershell
+./run_regression.ps1 -Manifest .\phase6_tests.json -Tag phase6-soak
+```
 
 Success produces process exit code `0`. Manifest, tool, compile, assertion,
 timeout, simulator, or architectural failures produce a nonzero exit code. The
@@ -246,6 +276,9 @@ Important JSON rules:
   synchronous RAM access. Both default to zero.
 - Optional `data_error_addr` makes the RAM adapter return `rsp_error` for one
   selected address while leaving other accesses available to the trap handler.
+- Optional `freertos_min_timer_irqs`, `freertos_min_uart_bytes`, and
+  `freertos_min_gpio_transitions` set independent SoC-testbench minimums for a
+  FreeRTOS profile.
 - Tags describe capabilities and allow one test to belong to several suites.
 
 The runner uses **any-tag matching**. `-Tag csr,mret` selects a test when it has
