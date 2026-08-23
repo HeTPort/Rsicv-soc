@@ -149,24 +149,61 @@ DIV, MRET, and WFI. All eight fault inputs produce the identical canonical
 fault-only packet. The end-to-end `soc_instruction_access_fault` case passes,
 and the preservation smoke suite remains 23/23 PASS.
 
-### Coverage scenarios added to the verification plan
+### Fetch timing corner follow-up — 2026-08-23
 
-| Scenario | Purpose |
-|---|---|
-| Misaligned control-flow target | Confirm low-order address bits trigger instruction-address-misaligned cause 0, not access-fault cause 1. |
-| Fetch above `prog_ram` depth | Confirm out-of-range address triggers cause 1. |
-| Consecutive invalid fetches | Confirm the first fault is precise and the redirect to `mtvec` does not fault again before the handler. |
-| Invalid fetch followed by a taken branch/redirect | Confirm the stale fetch after redirect is killed. |
-| Invalid fetch during a stall | Confirm `if2id` holds the faulting packet and the trap is taken exactly once. |
-| Read/write collision on an invalid address | Confirm the error path works with the existing collision bypass. |
+**Problem/root cause:** The verification plan named consecutive invalid
+responses, errors returned across redirects, and errors held during stalls,
+but none was executable. The existing firmware proved one cause-1 trap without
+controlling the cycle relationship among fetch response, flush, and stall.
+
+**Options considered:** Add three firmware images, force internal pipeline
+state from `tb_riscv_soc`, or drive the public core instruction/data interfaces
+from a dedicated timing testbench. Firmware cannot deterministically place a
+response on the exact flush/stall edge, while hierarchical forcing would
+bypass the interface contract. A direct core-level driver was selected.
+
+**Decision and consequences:** `tb_fetch_error_timing.sv` models the current
+one-cycle instruction target and, like `prog_ram`, holds its registered
+response while `instr_ren_o` is low. It resets between three scenarios:
+
+- consecutive invalid PCs return side-effectful DIV replacement data and must
+  produce only the oldest cause-1 trap;
+- a taken branch receives error-marked wrong-path responses during the
+  immediate flush and delayed fetch-kill cycles, with no wrong-path commit or
+  trap;
+- a load response is delayed four cycles while one error/PC pair is held, then
+  captured and retired exactly once after the LSU stall releases.
+
+The scoreboard checks the canonical ID/EX packet, stable response-PC pairing,
+trap count/cause/PC/value, the resulting `mepc`/`mcause`/`mtval` state, absence
+of RF/memory side effects, handler progress, wrong-path commits, duplicate
+traps, and bounded completion. No production RTL change was required.
+
+**Verification:** `vsim -c -do run_fetch_error_timing.do` passes all three
+scenarios at 980 ns with zero ModelSim errors. The gate is included in
+`run_release_verification.ps1`. Its 2026-08-23 `-SkipAct4` local preflight also
+passed map/tool checks, focused fabric, smoke 23/23, Phase 3 2/2, Phase 4 3/3,
+Phase 5 4/4, and Phase 6 1/1. ACT4 was not rerun because this follow-up changes
+verification only; the recorded applicable baseline remains 47/47.
+
+### Coverage scenarios and status
+
+| Scenario | Purpose | Status |
+|---|---|---|
+| Misaligned control-flow target | Confirm low-order address bits trigger instruction-address-misaligned cause 0, not access-fault cause 1. | Directed branch/JAL/JALR tests PASS |
+| Fetch above `prog_ram` depth | Confirm out-of-range address triggers cause 1. | SoC firmware PASS |
+| Consecutive invalid fetches | Confirm the first fault is precise and the redirect to `mtvec` does not fault again before the handler. | Focused timing PASS |
+| Invalid fetch followed by a taken branch/redirect | Confirm the stale fetch after redirect is killed. | Focused timing PASS |
+| Invalid fetch during a stall | Confirm `if2id` holds the faulting packet and the trap is taken exactly once. | Focused LSU-stall timing PASS |
+| Read/write collision on an invalid address | Confirm the error path works with the existing collision bypass. | Continuous hardening |
 
 ### Remaining deferred hardening priority
 
-The following scenarios and interface refinement remain useful but do not
+The following scenario and interface refinement remain useful but do not
 reopen AR-018 or block later work:
 
-- add executable redirect, consecutive-fault, and stall alignment tests for
-  the fetch error bit;
+- add an explicit invalid-address read/write-collision case if the program-load
+  interface is changed;
 - split response-valid from response-error and introduce SoC-level instruction
   decode only when wait states or multiple instruction targets require it.
 

@@ -16,7 +16,7 @@ logs, and returns a nonzero process status if any test fails.
 - `phase6_tests.json` - official FreeRTOS preemption/queue/UART/GPIO slice.
 - `run_regression.ps1` - Windows PowerShell orchestration and result checking.
 - `run_release_verification.ps1` - fail-fast release entry point for map/tool,
-  focused fabric, directed Phase 3–6, and applicable ACT4 gates.
+  focused fetch-error/fabric, directed Phase 3–6, and applicable ACT4 gates.
 - `regression_result.ps1` - shared simulator result-classification policy.
 - `test_regression_result.ps1` - dependency-free positive/negative classifier
   test, including the nonzero-exit false-pass case.
@@ -106,7 +106,7 @@ The command runs, in order:
 
 1. generated SoC-map staleness and 9 map-generator tests;
 2. 12 ELF-converter/ACT4-importer tests and the result-classifier negative test;
-3. the focused SoC data-fabric protocol test;
+3. the focused fetch-error timing and SoC data-fabric protocol tests;
 4. 23 directed smoke tests, including the precise illegal-JALR-funct3 case;
 5. both Phase 3 tests, including 10,000 timer interrupts;
 6. Phase 4 (3), Phase 5 (4), and Phase 6 (1) regressions;
@@ -133,10 +133,12 @@ pass. Run the instruction-access-fault case separately with:
   -Tag phase2-fetch
 ```
 
-The selected fetch case must also pass. The focused fabric protocol test is:
+The selected fetch case must also pass. The focused fetch timing and fabric
+protocol tests are:
 
 ```powershell
 Set-Location D:\Rsicv-soc\sim
+vsim -c -do run_fetch_error_timing.do
 vsim -c -do run_soc_data_fabric.do
 ```
 

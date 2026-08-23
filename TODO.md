@@ -405,7 +405,7 @@ AR-004 registered-result ownership and access-fault evidence are recorded in
 [`doc/AR004_REGISTERED_MEMORY_RESULT.md`](doc/AR004_REGISTERED_MEMORY_RESULT.md).
 The AR-003/AR-004 sub-gates are satisfied. AR-019 closes centralized data
 decode/default-target ownership with focused protocol coverage, 3/3 SoC data
-fault runs (including inserted RAM waits), 22/22 smoke, and accepted-map OOC
+fault runs (including inserted RAM waits), 23/23 smoke, and accepted-map OOC
 synthesis. AR-018 is GREEN for all four selected SoC runs: three data cases
 and one instruction-access-fault case.
 
@@ -418,7 +418,7 @@ next changed, or earlier only if a regression exposes a real failure.
 - [x] Make a fetch-error decode packet canonical by clearing normal RF, CSR,
   memory, redirect, operand-use, and mul/div controls; verify with deliberately
   side-effectful replacement instruction data.
-- [ ] Turn the AR-018 consecutive-invalid, redirect/stale-response, and
+- [x] Turn the AR-018 consecutive-invalid, redirect/stale-response, and
   fault-during-stall scenarios into executable directed tests.
 - [ ] If instruction wait states or multiple fetch targets are introduced,
   separate response-valid from response-error and move range ownership into a

@@ -3,9 +3,9 @@
   Run the repository's complete release-verification sequence.
 
 .DESCRIPTION
-  Runs deterministic generators/tests, the focused SoC data-fabric test,
-  directed smoke, Phase 3 through Phase 6 regressions, and the applicable ACT4
-  manifest. The sequence stops at the first failed gate.
+  Runs deterministic generators/tests, focused fetch-error and SoC data-fabric
+  tests, directed smoke, Phase 3 through Phase 6 regressions, and the applicable
+  ACT4 manifest. The sequence stops at the first failed gate.
 
   By default, the command consumes build/act4/tests.json. Use -RegenerateAct4
   for a clean checkout with the pinned ACT4/WSL prerequisites installed.
@@ -131,6 +131,15 @@ try {
 
     Invoke-ReleaseStep "regression result classifier" {
         & (Join-Path $scriptDir "test_regression_result.ps1")
+    }
+
+    Invoke-ReleaseStep "focused fetch-error timing" {
+        Push-Location $simDir
+        try {
+            & vsim -c -do run_fetch_error_timing.do
+        } finally {
+            Pop-Location
+        }
     }
 
     Invoke-ReleaseStep "focused SoC data-fabric protocol" {

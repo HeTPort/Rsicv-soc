@@ -219,8 +219,9 @@ python -m unittest test_elf_to_mem.py test_import_act4.py
 
 ### One-command release verification
 
-From `sim/regress/`, run every local map/tool gate, the focused data-fabric
-test, smoke, Phase 3–6, and the existing generated ACT4 manifest with:
+From `sim/regress/`, run every local map/tool gate, the focused fetch-error and
+data-fabric tests, smoke, Phase 3–6, and the existing generated ACT4 manifest
+with:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass

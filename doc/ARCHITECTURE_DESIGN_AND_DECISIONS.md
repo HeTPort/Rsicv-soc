@@ -1048,8 +1048,8 @@ signals, module relationships, commands, and limitations are in
 
 ### AR-018 — SoC fabric contract tests
 
-**State:** Implemented and verified; closed 2026-08-03; canonical decode
-hardening verified 2026-08-23
+**State:** Implemented and verified; closed 2026-08-03; canonical decode and
+fetch timing hardening verified 2026-08-23
 
 **Problem:** The accepted split map and access-fault rules had no executable
 SoC-level negative tests. Core-level error injection proved precise trap entry
@@ -1085,10 +1085,23 @@ the faulting `pc`, and `instr_access_fault`. A focused test proves identical
 fault packets for LOAD, STORE, redirect, CSR, DIV, MRET, and WFI replacement
 encodings; the end-to-end cause-1 case and the current 23/23 smoke suite pass.
 
-**Remaining deferred hardening decision:** Redirect/stall/consecutive-fault
-tests and a richer instruction response contract remain low-priority
-maintenance and do not reopen AR-018 or Phase 2. Reconsider the response
-contract before adding instruction wait states or multiple fetch targets.
+**Fetch timing follow-up:** Firmware-only, hierarchical force, and public-port
+core-level tests were considered for the documented consecutive-invalid,
+redirect/stale-response, and fault-during-stall gaps. The public-port test was
+selected because it schedules exact response/flush/stall edges without
+bypassing the interface. `tb_fetch_error_timing` runs all three scenarios with
+reset isolation and proves canonical ID/EX controls, stable PC/error pairing,
+one precise cause-1 trap and matching `mepc`/`mcause`/`mtval` state where
+expected, no wrong-path or faulting side effects, no duplicate traps, handler
+progress, and bounded completion. It passes at 980 ns and is now a fail-fast
+release gate. No production RTL change was required; the complete local
+preflight remains GREEN.
+
+**Remaining deferred hardening decision:** An explicit invalid-address
+read/write-collision case and a richer instruction response contract remain
+low-priority maintenance and do not reopen AR-018 or Phase 2. Reconsider the
+response contract before adding instruction wait states or multiple fetch
+targets.
 
 ### AR-019 — Centralized data decoder and registered default target
 

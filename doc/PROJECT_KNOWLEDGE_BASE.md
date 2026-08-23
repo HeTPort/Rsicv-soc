@@ -100,6 +100,9 @@ the minimal architecture needed for the first working system.
 - Focused AR-018 decode hardening: errored fetches produce one canonical
   fault-only ID/EX packet for replacement words encoding LOAD, STORE, control
   flow, CSR, DIV, MRET, or WFI; focused PASS plus 23/23 smoke preservation.
+- Focused AR-018 timing hardening: consecutive invalid responses, stale errors
+  across redirect/fetch-kill, and an error held through a four-cycle LSU wait
+  all PASS with exact trap/PC/side-effect scoreboarding.
 - Official ACT4 baseline: 39/39 RV32I and 8/8 RV32M tests passing, with
   per-extension manifest tags and a compact checked-in evidence record.
 - Clean-worktree unified release verification: all local gates, the current
@@ -171,7 +174,7 @@ The current mapping is:
 | AR-015 | Paired 16 KiB/64 KiB utilization/timing evidence, implemented and verified |
 | AR-016 | Core-to-SoC environment contract accepted; Phase 1 complete |
 | AR-017 | Radix-2 iterative divider, implemented and verified through exact-board route |
-| AR-018 | SoC contract tests GREEN; fetch-error decode packet canonicalized and verified against side-effectful replacement words |
+| AR-018 | SoC contract tests GREEN; fetch-error packets are canonical and consecutive/redirect/stall timing corners are executable and passing |
 | AR-019 | Centralized data decoder/default target implemented and verified |
 | AR-020 | Minimal polling UART TX implemented and verified through OOC synthesis |
 | AR-021 | Polling UART RX and parameterized default 16-byte FIFO implemented and verified through OOC synthesis |
@@ -850,6 +853,7 @@ For the original single testbench:
 Set-Location D:\Rsicv-soc-worktrees\phase2-act4-cleanup\sim
 vsim -do run.do
 vsim -c -do run_decode_fetch_error.do
+vsim -c -do run_fetch_error_timing.do
 vsim -c -do run_retire_stage.do
 vsim -c -do run_csr_retire_order.do
 vsim -c -do run_mtime_timer.do
@@ -960,7 +964,7 @@ Recommended waveform groups:
 |---|---|---|
 | Blocking LSU performance | Correct but the front end waits for every memory response | Measure before adding a MEM stage/cache |
 | Memory-map implementation | Timer/UART/GPIO/RAM/default decode, 64 KiB RTL defaults, and fetch errors are implemented; future consumers must continue using generated constants | Continuous / AR-009/AR-014/AR-019/AR-022 |
-| Unmapped access faults | Data load/store and out-of-range instruction fetches trap precisely; fetch faults now carry a canonical zero-control ID/EX packet, while redirect/stall edge cases need broader directed coverage | Continuous verification / AR-018 |
+| Unmapped access faults | Data load/store and out-of-range instruction fetches trap precisely; canonical fetch-fault packets plus consecutive-invalid, redirect/stale-response, and LSU-stall timing cases are directed and passing | Closed for current fixed-latency interface; revisit for instruction wait states/multiple targets / AR-018 |
 | Interrupt boundary | Implemented and verified; broader randomized boundary coverage remains useful | Continuous verification / AR-008/AR-010 |
 | Timer | Implemented word-access timer and polling/interrupt firmware APIs; both exact-board LED-visible timer profiles pass physically | Closed for bare-metal baseline / AR-024 |
 | RV32M timing | Exact-board 25 MHz routing passes with at least +22.093 ns WNS; 50 MHz exact-board closure and multiply-high optimization remain optional | Phase 7 / AR-011/AR-017/AR-024 |

@@ -102,6 +102,14 @@ cd sim
 vsim -c -do run_soc_data_fabric.do
 ```
 
+### Run the focused fetch-error tests
+
+```bash
+cd sim
+vsim -c -do run_decode_fetch_error.do
+vsim -c -do run_fetch_error_timing.do
+```
+
 ### Run the focused UART tests
 
 ```bash
