@@ -1,7 +1,7 @@
 # AR-024 — ZYNQ MINI REVB FPGA Integration
 
-**Date:** 2026-08-15
-**State:** Implemented; routed builds and two LED-visible hardware applications verified, UART/reset pending
+**Date:** 2026-08-15; UART/FreeRTOS/reset follow-up 2026-08-23
+**State:** Implemented; routed builds plus UART, FreeRTOS, LED/timer, and repeated-reset hardware evidence verified
 **Stage:** Phase 7
 
 ## Problem
@@ -116,14 +116,14 @@ RAMB36E1 cells. The utilization envelope is 3,978-3,984 LUTs
 (22.60-22.64%), 2,852-2,873 registers (8.10-8.16%), 32/60 BRAM tiles
 (53.33%), 12/80 DSPs (15%), two BUFGs, and one MMCM.
 
-Physical-board results on 2026-08-15:
+Physical-board results through 2026-08-23:
 
 | Image/path | Result | Observation |
 |---|---|---|
 | FT232HL JTAG | PASS after runtime repair | Vivado programmed the XC7Z010 |
 | `timer_gpio` | PASS | `0001 -> 0010 -> 0100 -> 1000 -> 0101` on D1-D4 |
 | `timer_irq` | PASS | binary interrupt count 1 through 10; final `1010` |
-| `hello` | OPEN | external 3.3 V USB-TTL on U15/W15 not yet observed |
+| `hello` | PASS | exact external 115200 8N1 output observed on W15 through a 3.3 V USB-TTL adapter |
 
 The initial Hardware Manager symptom was `localhost (0)`: local servers were
 connected, but no cable target was enumerated. Windows nevertheless saw
@@ -140,15 +140,14 @@ in [`ZYNQ_MINI_REVB_JTAG_BRINGUP_LOG.md`](ZYNQ_MINI_REVB_JTAG_BRINGUP_LOG.md).
 - No board connection is needed for RTL, constraints, synthesis,
   implementation, timing reports, BRAM checks, or bitstream generation.
 - JTAG/cable discovery, oscillator/BRAM boot, LED polarity, GPIO, timer
-  progression, and timer interrupts now have physical evidence.
-- External UART voltage/crossover/baud and repeated PL reset remain physical
-  gates.
+  progression, timer interrupts, external UART TX, production FreeRTOS, and
+  repeated PL reset now have physical evidence.
 - The real speed grade remains unidentified. `-1` is the conservative build
   assumption and must not be rewritten as a confirmed package property.
 - Vivado warns that asynchronously reset registers feed data-BRAM
-  address/control cones (`REQP-1839`). Reset deassertion is synchronized, but
-  repeated button-reset robustness remains a physical and architectural
-  follow-up; do not suppress this warning.
+  address/control cones (`REQP-1839`). Reset deassertion is synchronized and
+  deliberate K2 restart testing now passes physically, but the structural
+  warning remains a future cleanup candidate and must not be suppressed.
 - DSP pipeline warnings are accepted at 25 MHz because routed slack is large;
   50 MHz remains a separate optimization/closure decision.
 - Vectorless PS7 power is approximate because the retained PS7 macro is not
@@ -159,10 +158,38 @@ in [`ZYNQ_MINI_REVB_JTAG_BRINGUP_LOG.md`](ZYNQ_MINI_REVB_JTAG_BRINGUP_LOG.md).
 1. [x] Set board BOOT to JTAG `00`, discover the cable/device, and program it.
 2. [x] Observe the expected `timer_gpio` LED sequence.
 3. [x] Observe ten `timer_irq` counts and the final `1010` state.
-4. [ ] Connect a 3.3 V TTL adapter: TX->U15, RX<-W15, GND->GND, no VCC.
-5. [ ] Observe exact `Hello, UART!\r\n` at 115200 8N1.
-6. [ ] Repeat PL K2 reset and record restart behavior before FreeRTOS hardware
+4. [x] Connect a 3.3 V TTL adapter: TX->U15, RX<-W15, GND->GND, no VCC.
+5. [x] Observe exact `Hello, UART!\r\n` at 115200 8N1.
+6. [x] Repeat PL K2 reset and record restart behavior before FreeRTOS hardware
    debugging.
 
 Detailed commands and wiring are in
 [`fpga/zynq_mini_revb/README.md`](../fpga/zynq_mini_revb/README.md).
+
+## 2026-08-23 UART, FreeRTOS, and reset closure
+
+**Problem/root cause:** Physical UART, production FreeRTOS, and repeated-reset
+gates lacked external evidence. During observation, a few malformed UART bytes
+and repeated banners could have indicated a baud/signal problem or spontaneous
+reset. The user confirmed every repeated non-heartbeat banner followed a
+deliberate K2 press; readable output was otherwise sustained, so the malformed
+fragments are consistent with manual reset interrupting an in-flight UART
+character rather than a persistent baud mismatch.
+
+**Options considered:** Treat any malformed reset-boundary byte as a failed
+115200 path; require an ILA before accepting external behavior; or separate
+steady-state UART correctness from characters deliberately interrupted by
+reset. The last option was selected because clean exact messages, sustained
+heartbeats, D1 activity, and repeatable restart behavior directly exercise the
+milestone outputs. ILA remains available if later failures require internal
+visibility.
+
+**Decision/consequences/evidence:** Close physical `hello`, production
+FreeRTOS UART/GPIO, and repeated K2 reset observation. Preserve rather than
+suppress `REQP-1839`, keep the unknown speed grade open, and avoid claiming a
+physical UART RX stress test. The retained 7,330-byte PuTTY log has SHA-256
+`620050E9D6515419BEEF0B2ED5F1B7336DA4A5F120BE62C998DBCE7700A3DC2B` and
+contains 74 exact hello strings, 17 deliberate-reset FreeRTOS banners, and 537
+exact heartbeats. Screenshots, hashes, setup, limitations, and observations are
+recorded in
+[`evidence/board_20260823/README.md`](evidence/board_20260823/README.md).

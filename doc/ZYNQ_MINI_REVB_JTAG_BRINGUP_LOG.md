@@ -1,10 +1,10 @@
 # ZYNQ MINI REVB JTAG Bring-Up and Physical Verification Log
 
-**Date:** 2026-08-15
+**Date:** 2026-08-15; UART/FreeRTOS/reset follow-up 2026-08-23
 **Board:** Bo Chen Jing Xin ZYNQ MINI `20240221/REVB`
 **Device:** XC7Z010-CLG400, speed grade not yet independently identified
 **Host tool:** Vivado 2019.2 on Windows
-**Outcome:** JTAG access recovered; `timer_gpio` and `timer_irq` passed on hardware
+**Outcome:** JTAG access recovered; all four routed images and repeated K2 restart passed on hardware
 
 ## Final status
 
@@ -12,11 +12,12 @@
 |---|---|---|
 | USB transport to onboard FT232HL | PASS | Windows enumerated `VID_0403:PID_6014` |
 | Vivado JTAG cable discovery | PASS after driver/runtime repair | Board could be programmed from Hardware Manager |
-| XC7Z010 configuration | PASS | Both LED-visible bitstreams were loaded and executed |
+| XC7Z010 configuration | PASS | All four routed images were loaded and executed across the retained board sessions |
 | `timer_gpio` | PASS | Expected one-second PL LED sequence observed |
 | `timer_irq` | PASS | Expected ten interrupt-driven binary LED counts observed |
-| `hello` UART | OPEN | Requires external 3.3 V USB-TTL on U15/W15 |
-| Repeated PL K2 reset | OPEN | `REQP-1839` follow-up remains |
+| `hello` UART | PASS | Exact 115200 8N1 output observed through external 3.3 V USB-TTL on U15/W15 |
+| FreeRTOS production image | PASS | Sustained heartbeat output and visible PL D1 toggling |
+| Repeated PL K2 reset | PASS observation | Deliberate resets returned hello/FreeRTOS images to normal output; `REQP-1839` remains documented |
 | Device speed grade | OPEN | Package marking still does not prove it |
 
 The original OLED is not a result indicator for these bitstreams. It is driven
@@ -210,5 +211,6 @@ The reusable lessons are:
   Vivado;
 - inspect installation logs, not only command exit appearance;
 - prefer reversible driver/runtime repair over EEPROM mutation;
-- keep physical evidence granular so two LED applications do not accidentally
-  mark the still-unobserved UART/reset checks complete.
+- keep physical evidence granular; the later UART/FreeRTOS/reset observations
+  are retained separately in
+  [`evidence/board_20260823/README.md`](evidence/board_20260823/README.md).

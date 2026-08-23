@@ -14,10 +14,11 @@ No physical board is needed to build the bitstreams. A connected board is
 needed only to verify JTAG discovery, program the device, and observe the real
 clock/reset, LEDs, and UART.
 
-Physical status on 2026-08-15: onboard FT232HL JTAG works after installing the
-bundled Digilent Adept runtime; `timer_gpio` and `timer_irq` pass on the exact
-board. External-UART `hello`, repeated PL K2 reset, and speed-grade
-identification remain open. The detailed recovery evidence is in the
+Physical status through 2026-08-23: onboard FT232HL JTAG works after installing
+the bundled Digilent Adept runtime; `timer_gpio`, `timer_irq`, external-UART
+`hello`, production FreeRTOS heartbeat/D1 behavior, and repeated PL K2 restart
+pass on the exact board. Speed-grade identification remains open. JTAG recovery
+evidence is in the
 [JTAG bring-up log](../../doc/ZYNQ_MINI_REVB_JTAG_BRINGUP_LOG.md).
 
 ## Interfaces
@@ -103,18 +104,23 @@ These are the steps that require the board:
    second, while PL D1 toggles every 500 ms. Leave it running to exercise tick
    preemption, queue blocking/unblocking, and repeated context switches.
 
-Observed on 2026-08-15:
+Observed through 2026-08-23:
 
 - `timer_gpio`: PASS, `0001 -> 0010 -> 0100 -> 1000 -> 0101`, approximately
   one update per second;
 - `timer_irq`: PASS, binary interrupt count `0001` through `1010`,
   approximately one update per second, with final D2/D4 on;
-- `hello`: not yet physically observed because the required external 3.3 V
-  USB-TTL adapter is not connected.
+- `hello`: PASS through an external 3.3 V USB-TTL adapter at 115200 8N1;
+- `freertos_demo`: PASS with sustained `heartbeat`, visible PL D1 toggling,
+  and recovery after deliberate K2 resets.
 
-Programming is volatile: after power is removed, reload the bitstream. JTAG
-operation is proven; QSPI/SD boot-image generation remains deferred until the
-UART and repeated-reset baseline is complete.
+The retained PuTTY transcript contains 74 exact hello strings, 17 banners
+caused by deliberate resets, and 537 exact heartbeats. Evidence and hashes are
+in [`doc/evidence/board_20260823/`](../../doc/evidence/board_20260823/README.md).
+
+Programming is volatile: after power is removed, reload the bitstream. JTAG and
+the UART/repeated-reset baseline are proven; QSPI/SD boot-image generation
+remains deferred beyond the first milestone.
 
 ## JTAG cable recovery
 
@@ -145,13 +151,12 @@ decision tree are in the
 
 - Confirm the physical package's speed grade with a vendor record or readable
   device-identification source. The `-1` build is deliberately conservative.
-- Confirm `Hello, UART!` through an external 3.3 V USB-TTL adapter on U15/W15.
 - The 50 MHz clock, active-high LED mapping, BRAM boot, timer progression, and
-  interrupt-driven execution now have physical evidence. If EXT IO UART or
-  reset behavior differs from the schematic, stop and recheck continuity or
-  vendor documentation before changing package pins.
+  interrupt-driven execution, external UART TX, production FreeRTOS, and K2
+  restarts now have physical evidence. If later behavior differs from the
+  schematic, stop and recheck continuity or vendor documentation before
+  changing package pins.
 - Vivado currently warns that asynchronously reset control registers feed data
-  BRAM address/control logic (`REQP-1839`). Reset deassertion is synchronized,
-  but repeated button-reset robustness is not yet physical evidence; reprogram
-  or power-cycle if a reset test behaves inconsistently and investigate the
-  internal synchronous-reset cleanup before a production design.
+  BRAM address/control logic (`REQP-1839`). Reset deassertion is synchronized
+  and repeated K2 testing passes, but the warning remains a structural cleanup
+  candidate before treating this as a production design.

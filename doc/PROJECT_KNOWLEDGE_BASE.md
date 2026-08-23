@@ -11,10 +11,11 @@ Phase 5 is complete in ModelSim and Vivado OOC synthesis. AR-024 adds the Bo
 Chen Jing Xin ZYNQ MINI `20240221/REVB` top, schematic-derived XDC, 50-to-25 MHz
 MMCM/reset wrapper, and routed bitstreams for all three bare-metal programs.
 JTAG plus physical `timer_gpio` and `timer_irq` execution now pass. External
-UART, repeated reset, and speed-grade identification remain open. AR-025 adds
-the official FreeRTOS V11.3.0 RISC-V port, a GREEN ModelSim vertical slice, and
-a routed exact-board bitstream. Its separate extended scheduler/context soak is
-GREEN; physical FPGA execution remains open.
+UART TX, production FreeRTOS heartbeat/D1 behavior, and repeated K2 restart now
+also pass physically. AR-025 adds the official FreeRTOS V11.3.0 RISC-V port, a
+GREEN ModelSim vertical slice and extended scheduler/context soak, a routed
+exact-board bitstream, and physical execution evidence. Positive speed-grade
+identification remains open.
 
 > Update this document whenever a change alters a module boundary, pipeline
 > timing, packet field, architectural behavior, memory map, verification
@@ -133,6 +134,9 @@ the minimal architecture needed for the first working system.
   WNS, initialized 16+16 BRAMs, and generated bitstreams.
 - Exact-board JTAG configuration and physical execution for `timer_gpio` and
   `timer_irq`, including the expected LED sequence and ten interrupt counts.
+- Exact-board external UART TX and production FreeRTOS execution: 74 retained
+  exact hello strings, 17 deliberate-reset banners, 537 heartbeats, visible D1
+  activity, and repeatable K2 restart behavior on 2026-08-23.
 - A reproducible FT232HL recovery record: diagnose `localhost (0)` at the cable
   layer, confirm Windows `VID_0403:PID_6014`, install the bundled Digilent Adept
   runtime, inspect its log, and retest before changing EEPROM or RTL.
@@ -142,10 +146,6 @@ the minimal architecture needed for the first working system.
 - GPIO input/direction/interrupt registers and other additional peripherals;
   polling UART TX/RX and output GPIO are implemented, while UART interrupts/
   PLIC are deferred.
-- Physical FreeRTOS FPGA execution; both the focused and extended official-port
-  ModelSim profiles are implemented and verified.
-- Physical external-UART `hello` and repeated PL reset observations; JTAG,
-  LED, timer progression, and timer interrupt execution are verified.
 - Positive identification of the package speed grade; local builds use
   conservative `xc7z010clg400-1`.
 
@@ -969,11 +969,11 @@ Recommended waveform groups:
 | Timer | Implemented word-access timer and polling/interrupt firmware APIs; both exact-board LED-visible timer profiles pass physically | Closed for bare-metal baseline / AR-024 |
 | RV32M timing | Exact-board 25 MHz routing passes with at least +22.093 ns WNS; 50 MHz exact-board closure and multiply-high optimization remain optional | Phase 7 / AR-011/AR-017/AR-024 |
 | Retirement ownership | `retire_stage` is the owner; obsolete `halt_o` is removed and the public-interface cleanup is verified | Closed / AR-012 |
-| Peripherals | Timer and GPIO pass physically; polling UART TX/RX is implemented but external-UART hardware validation and UART interrupts/PLIC remain open | Phases 6-7 |
+| Peripherals | Timer, GPIO, and external polling-UART TX pass physically; UART RX remains pin-level simulated, while UART interrupts/PLIC are deferred | Closed for first polling baseline; future interrupt phase if justified |
 | UART RX capacity | The 16-byte default FIFO tolerates bounded polling latency but sustained traffic can still overrun | Firmware must monitor errors; revisit interrupts/DMA only after board baseline |
 | Clock gating | Logical WFI is verified, but no safe FPGA clock gating is implemented | Phase 7 after board clock design |
-| Reset-to-BRAM control | Reset deassertion is synchronized, but Vivado `REQP-1839` warns that asynchronously reset control registers feed data-BRAM address/control logic | Physical reset test, then synchronous-reset cleanup if required / AR-024 |
-| FreeRTOS duration/hardware | Focused and extended official-port preemption, queues, context sentinels, UART, and GPIO pass in ModelSim; the board bitstream routes, while physical execution remains unverified | Phase 7 / AR-025 |
+| Reset-to-BRAM control | Deliberate K2 restart testing passes and reset deassertion is synchronized, but Vivado `REQP-1839` still warns that asynchronously reset control registers feed data-BRAM address/control logic | Keep warning visible; synchronous-reset cleanup if later behavior requires it / AR-024 |
+| FreeRTOS duration/hardware | Focused and extended preemption/queue/context checks pass in ModelSim; physical production output adds 537 retained heartbeats, D1 activity, and repeatable K2 restarts | Closed for first FPGA demonstration / AR-025 |
 
 ## 16. Practical study exercises
 

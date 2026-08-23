@@ -1,8 +1,8 @@
 # AR-025 — Official FreeRTOS RISC-V Port Integration
 
-**Date:** 2026-08-16; extended-run follow-up 2026-08-18
-**State:** Focused and extended ModelSim profiles plus routed FPGA bitstream
-verified; physical FPGA execution remains open
+**Date:** 2026-08-16; extended-run follow-up 2026-08-18; hardware follow-up 2026-08-23
+**State:** Focused and extended ModelSim profiles, routed FPGA bitstream, and
+physical UART/GPIO execution verified
 **Stage:** Phase 6
 
 ## Problem
@@ -208,11 +208,22 @@ Build the production 25 MHz image with real task periods:
 wsl.exe -e bash -lc "cd /mnt/d/Rsicv-soc-worktrees/phase2-act4-cleanup && bash sw/build_firmware_wsl.sh --install freertos_demo"
 ```
 
-## Remaining gates
+## Physical FPGA follow-up
 
-- Observe the banner/heartbeat and LED behavior on the physical FPGA.
-- Keep the separate external-UART, repeated-reset, and speed-grade checks open.
+On 2026-08-23 the production image emitted `FreeRTOS RV32IM` and a sustained
+heartbeat stream while PL D1 visibly toggled. Deliberate K2 resets restarted
+the banner and returned to heartbeat/D1 operation. The preserved transcript
+contains 17 exact banners and 537 exact heartbeats; recurring banners were
+explicitly caused by the manual resets rather than spontaneous rebooting.
+The transcript spans approximately 22 minutes 52 seconds, divided by those
+deliberate resets rather than claimed as one uninterrupted run.
 
-Phase 6 simulation is complete: both the fast integration profile and the
-separate extended scheduler/context soak are GREEN. The routed board bitstream
-exists, while physical execution remains a Phase 7 gate.
+This closes physical FreeRTOS execution and the associated external-UART TX,
+GPIO, and reset observation gates. The simulation soak remains the direct
+1,000-queue-receive and `s2`-`s11` context-sentinel proof; the physical output
+is complementary external behavior evidence. Exact setup, artifacts, hashes,
+and limitations are in
+[`evidence/board_20260823/README.md`](evidence/board_20260823/README.md).
+
+The XC7Z010 speed grade remains unidentified and is separate from FreeRTOS
+port correctness.

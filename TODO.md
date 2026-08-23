@@ -120,8 +120,10 @@ Still missing:
 - [x] FPGA top, XDC constraints, and routed Vivado bitstream build script.
 - [x] Physical-board JTAG discovery plus LED-visible `timer_gpio` and
   `timer_irq` results.
-- [ ] Physical-board external-UART `hello`, repeated PL reset, and speed-grade
-  result.
+- [x] Physical-board external-UART `hello`, production FreeRTOS UART/GPIO, and
+  repeated PL K2 reset result.
+- [ ] Positive XC7Z010 speed-grade identification; the conservative `-1`
+  target remains in use.
 
 Current planning position:
 
@@ -137,22 +139,24 @@ Current planning position:
   complete and verified.
 - Phase 3 is complete. Phase 4 is complete in RTL simulation and OOC
   synthesis: polling UART TX/RX and output GPIO satisfy its combined exit
-  gate. Physical GPIO output now passes; external-UART pin validation remains
-  Phase 7 work.
+  gate. Physical GPIO and external-UART TX output now pass; UART RX remains
+  covered by pin-level simulation rather than a physical-board stress test.
 - Phase 5 is complete in ModelSim and Vivado OOC synthesis: four firmware
   slices pass and both ELF-derived BRAM images retain nonzero initialization.
-  Its timer/GPIO and timer-interrupt images now pass on the physical board;
-  external-UART `hello` remains part of Phase 7 board work.
+  Its timer/GPIO, timer-interrupt, and external-UART `hello` images now pass on
+  the physical board.
 - Phase 6 simulation is complete using the unmodified
   official FreeRTOS V11.3.0 GCC RISC-V port. Tick/preemption, queue traffic,
   context sentinels, UART, and GPIO pass in both the focused profile and a
   1,000-tick/1,000-queue-receive soak. The exact-board bitstream routes with
-  positive timing; physical FPGA execution remains open.
+  positive timing; the production FPGA image now emits sustained heartbeats
+  and toggles PL D1 on the physical board.
 - Phase 7 is complete through exact-board bitstream generation: AR-024 adds
   the ZYNQ MINI REVB wrapper/XDC/build, removes a routed CPU combinational loop,
   and produces all three Phase 5 bitstreams with non-negative timing. JTAG
-  programming, the LED sequence, and ten timer interrupts now pass on hardware;
-  external UART, repeated reset, and speed-grade confirmation remain open.
+  programming, LED/timer applications, external UART, production FreeRTOS, and
+  deliberate K2 restarts now pass on hardware. Only positive speed-grade
+  identification remains open.
 - AR-014 accepted-map generation infrastructure is complete. AR-019 uses its
   SystemVerilog constants in the implemented data decoder/default target;
   remaining software/tool consumers continue in their owning later phases.
@@ -525,10 +529,10 @@ the `01 -> 02 -> 04 -> 08 -> A5` GPIO waveform from bare-metal programs.
 
 ## Phase 5 — Establish bare-metal firmware and FPGA sanity tests
 
-**Status:** complete in ModelSim/Vivado and complete for the physical
-timer-interrupt exit gate. `timer_gpio` and `timer_irq` passed on hardware on
-2026-08-15; external-UART `hello` remains open. The reset/runtime contract,
-decisions, and verification evidence are recorded in
+**Status:** complete in ModelSim/Vivado and on the physical board.
+`timer_gpio` and `timer_irq` passed on 2026-08-15; external-UART `hello` passed
+on 2026-08-23. The reset/runtime contract, decisions, and verification evidence
+are recorded in
 [`docs/phase5-startup-runtime-guide.md`](docs/phase5-startup-runtime-guide.md)
 and [`doc/AR023_PHASE5_BARE_METAL_RUNTIME.md`](doc/AR023_PHASE5_BARE_METAL_RUNTIME.md).
 
@@ -555,7 +559,7 @@ and [`doc/AR023_PHASE5_BARE_METAL_RUNTIME.md`](doc/AR023_PHASE5_BARE_METAL_RUNTI
   3. timer-interrupt counter with `mret`.
 - [x] Run `timer_gpio` and `timer_irq` on the FPGA and observe their expected
   LED sequences.
-- [ ] Run `hello` on the FPGA through an external 3.3 V USB-TTL adapter.
+- [x] Run `hello` on the FPGA through an external 3.3 V USB-TTL adapter.
 
 **Exit gate:** the bare-metal timer-interrupt program works both in ModelSim and
 on the physical board.
@@ -564,9 +568,9 @@ on the physical board.
 
 ## Phase 6 — Integrate the official FreeRTOS RISC-V port
 
-**Status:** initial official-port vertical slice complete in ModelSim and the
-exact-board bitstream routes successfully (2026-08-16); extended simulation
-and physical FPGA execution remain open. See
+**Status:** official-port focused/extended ModelSim profiles and the routed
+exact-board image pass; physical heartbeat/D1/restart execution passed on
+2026-08-23. See
 [`doc/AR025_OFFICIAL_FREERTOS_RISCV_PORT.md`](doc/AR025_OFFICIAL_FREERTOS_RISCV_PORT.md).
 
 **Purpose:** run an existing, reviewed kernel rather than inventing a scheduler
@@ -610,10 +614,10 @@ production firmware defaults or vendored kernel.
 **Purpose:** prove the custom RISC-V SoC in silicon.
 
 The board identity, schematic-derived PL pins, and local implementation flow
-are known. JTAG, clock/BRAM boot, LED GPIO, timer progression, and timer
-interrupt execution now have physical evidence. Speed-grade confirmation,
-external UART, and repeated reset still require external evidence; ACT4 is not
-a blocker for these board checks.
+are known. JTAG, clock/BRAM boot, LED GPIO, timer progression, timer interrupt,
+external-UART TX, production FreeRTOS, and repeated-reset execution now have
+physical evidence. Speed-grade confirmation remains external; ACT4 is not a
+blocker for that identification.
 
 - [x] Record the exact board model, revision, XC7Z010 package, oscillator,
   reset, UART, and LED information.
@@ -640,17 +644,22 @@ a blocker for these board checks.
   timing closes with margin.
 - [x] Capture utilization, WNS/TNS, clock, BRAM, LUT, FF, and power estimates.
 - [x] Program and verify the bare-metal LED and timer-interrupt tests.
-- [ ] Program and verify bare-metal UART `hello` through external 3.3 V
+- [x] Program and verify bare-metal UART `hello` through external 3.3 V
   USB-TTL on U15/W15.
-- [ ] Repeat PL K2 reset testing and record behavior around the existing
+- [x] Repeat PL K2 reset testing and record behavior around the existing
   `REQP-1839` warning.
-- [ ] Program and verify the FreeRTOS demonstration.
-- [ ] Add an ILA for bus requests, interrupt entry, `mepc`, and task heartbeat
-  only if external UART/LED evidence is insufficient.
+- [x] Program and verify the FreeRTOS demonstration.
+- [x] Do not add an ILA: external UART/LED evidence was sufficient for this
+  milestone; retain ILA as a future diagnostic option.
 
 **Exit gate:** after programming or power-up, the custom RISC-V core boots the
 BRAM firmware, prints the FreeRTOS banner and task heartbeats, switches tasks at
 1 kHz, and controls the LED without ARM software executing the application.
+
+**Result:** satisfied on 2026-08-23. The retained PuTTY transcript contains 74
+exact `Hello, UART!` matches, 17 deliberate-reset FreeRTOS banners, and 537
+heartbeats; PL D1 toggled and deliberate K2 restarts recovered. See
+[`doc/evidence/board_20260823/README.md`](doc/evidence/board_20260823/README.md).
 
 ---
 
@@ -666,10 +675,12 @@ BRAM firmware, prints the FreeRTOS banner and task heartbeats, switches tasks at
 - [x] Vivado synthesis and implementation complete with non-negative timing
   slack at the selected clock.
 - [x] BRAM, LUT, FF, clock, and estimated power usage fit the XC7Z010 target.
-- [ ] FPGA UART output demonstrates task scheduling and queue communication.
-- [ ] FPGA LED output demonstrates timed task execution.
-- [ ] Stack-overflow, malloc-failure, and unexpected-trap indicators remain
-  clear during an extended hardware run.
+- [x] FPGA UART output demonstrates task scheduling and sustained operation of
+  the production queue application.
+- [x] FPGA LED output demonstrates timed task execution.
+- [x] Stack-overflow, malloc-failure, and unexpected-trap indicators remain
+  clear during the approximately 23-minute captured hardware session, which
+  included deliberate resets.
 - [x] A reproducible README documents Windows 11, ModelSim, Vivado, WSL Ubuntu,
   GNU RISC-V toolchain, firmware build, simulation, bitstream build, and board
   programming commands.
@@ -695,11 +706,9 @@ for the first FreeRTOS FPGA demonstration:
 
 ## Immediate next action
 
-1. Connect an external 3.3 V USB-TTL adapter to U15/W15/GND and close the
-   physical `hello` UART check.
-2. Repeat PL K2 reset testing and record whether the LED applications restart
-   consistently despite the open `REQP-1839` cleanup item.
-3. Confirm the XC7Z010 speed grade from a reliable vendor/device record.
-4. Program and verify the routed production FreeRTOS image on the FPGA while
-   keeping the 47-test ACT4, 23-test smoke, scheduler-soak, and board
-   timing/DRC gates active.
+1. Confirm the XC7Z010 speed grade from a reliable vendor/device record; keep
+   targeting conservative `xc7z010clg400-1` until then.
+2. When rebuilding board images, retain the exact bitstream SHA-256 and run
+   duration alongside the existing UART/reset evidence.
+3. Keep the 47-test ACT4, 23-test smoke, scheduler-soak, and board timing/DRC
+   gates active for future changes.

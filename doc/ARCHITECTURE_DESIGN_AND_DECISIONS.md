@@ -6,15 +6,13 @@
 
 **Last updated:** 2026-08-23
 
-**Current milestone:** Phase 6 has an initial official FreeRTOS ModelSim slice
-and routed board image. AR-024 implements the ZYNQ MINI REVB boundary; together
-with AR-025 the flow produces four routed 25 MHz bitstreams with non-negative
-timing and no DRC errors. Physical external-UART and repeated-reset observation,
-speed-grade identification, board FreeRTOS execution, and UART interrupts/PLIC
-remain open. JTAG, LED, timer, and the extended FreeRTOS ModelSim run
-evidence pass on the ZYNQ MINI REVB board. AR-025 implements and verifies the
-official FreeRTOS port and its extended ModelSim soak, and routes its board
-bitstream; its physical FPGA gate remains.
+**Current milestone:** The first custom-RV32IM FreeRTOS FPGA demonstration is
+complete. AR-024 implements the ZYNQ MINI REVB boundary; together with AR-025
+the flow produces four routed 25 MHz bitstreams with non-negative timing and no
+DRC errors. JTAG, LED/timer applications, external UART TX, production FreeRTOS
+heartbeat/D1 behavior, deliberate K2 restarts, and the extended ModelSim soak
+all pass. Positive speed-grade identification and optional UART interrupts/PLIC
+remain open.
 
 > This is the consolidated record of what the architecture is, why it evolved
 > this way, what was learned while fixing problems, and which decisions remain
@@ -1139,7 +1137,7 @@ timing, commands, and limitations are in
 
 ### AR-020 — Minimal polling UART TX
 
-**State:** Implemented and verified through OOC synthesis; hardware validation deferred
+**State:** Implemented and verified through OOC synthesis and physical UART TX output
 
 **Problem/root cause:** The SoC lacked observable character output, and the
 available example UARTs coupled unrelated packet/CRC or APB behavior to serial
@@ -1159,13 +1157,14 @@ base-subtracts the UART window and registers `TARGET_UART` until response.
 **Consequences/evidence:** CPU and serial timing are decoupled with effective
 two-byte capacity. Focused timing, target, and fabric suites pass; serial-pin
 scoreboarding confirms `Hello, UART!\r\n`; Phase 3 remains 2/2 and smoke 22/22.
-Vivado retains the UART hierarchy with 0 errors and 0 critical warnings. Exact-board
-clock/pin/voltage and terminal evidence remain Phase 7. Full details are in
+Vivado retains the UART hierarchy with 0 errors and 0 critical warnings. The
+2026-08-23 exact-board follow-up verifies 115200 8N1 output through W15 and an
+external 3.3 V USB-TTL adapter. Full details are in
 [`AR020_MINIMAL_POLLING_UART_TX.md`](AR020_MINIMAL_POLLING_UART_TX.md).
 
 ### AR-021 — Polling UART RX with parameterized FIFO
 
-**State:** Implemented and verified through OOC synthesis; hardware validation deferred
+**State:** Implemented and verified through OOC synthesis; physical RX stress validation deferred
 
 **Problem/root cause:** RX frames arrive independently of CPU bus transactions.
 A one-cycle byte pulse cannot tolerate polling latency, and an asynchronous pin
@@ -1192,7 +1191,7 @@ UART IRQ/PLIC and exact-board evidence remain deferred. Full details are in
 
 ### AR-022 — Memory-mapped GPIO output
 
-**State:** Implemented and verified through OOC synthesis; hardware validation deferred
+**State:** Implemented and verified through OOC synthesis and physical GPIO output
 
 **Problem/root cause:** Reserving a GPIO region in the canonical map did not
 create register state, bus behavior, or an external pin connection. Adding the
@@ -1217,7 +1216,7 @@ the stimulus preserved the assertion. Full details are in
 
 ### AR-023 — Phase 5 split-image firmware runtime
 
-**State:** Implemented and verified in simulation and OOC synthesis; physical hardware validation deferred
+**State:** Implemented and verified in simulation, OOC synthesis, and physical hardware
 
 **Problem/root cause:** The original ELF conversion path flattened loadable
 segments into instruction memory and therefore could not represent writable
@@ -1244,14 +1243,14 @@ hello/runtime, timer/GPIO polling, and ten timer interrupts. The input data
 image deliberately poisons the `.bss` tail, so the hello test proves startup
 clears it. Phase 3 remains 2/2, Phase 4 remains 3/3, smoke remains 22/22, and
 the Vivado check retains 16 program plus 16 data BRAMs with nonzero
-initialization properties in both banks. AR-024 now provides the board
-clock/reset/pins, routed constraints, and three bitstreams; programmed-hardware
-evidence remains a Phase 7 gate. Full details are in
+initialization properties in both banks. AR-024 provides the board
+clock/reset/pins and routed constraints; all three bare-metal images now have
+programmed-hardware evidence. Full details are in
 [`AR023_PHASE5_BARE_METAL_RUNTIME.md`](AR023_PHASE5_BARE_METAL_RUNTIME.md).
 
 ### AR-024 — ZYNQ MINI REVB board boundary and routed feedback fix
 
-**State:** Implemented; bitstreams plus physical timer/GPIO and timer-IRQ verified, UART/reset pending
+**State:** Implemented; bitstreams plus physical timer/GPIO, timer IRQ, UART TX, FreeRTOS, and repeated reset verified
 
 **Problem/root cause:** The repository had no board top/XDC or routed timing
 flow. The first exact-board route also exposed a nine-LUT combinational loop:
@@ -1275,13 +1274,14 @@ all pass. The three exact-board builds retain 16+16 initialized BRAMs, have 0
 DRC errors and TNS 0, and report WNS +22.824/+22.093/+22.555 ns before writing
 their bitstreams. On hardware, FT232HL JTAG access was recovered by installing
 the bundled Digilent Adept runtime, and `timer_gpio` plus ten-count `timer_irq`
-LED behavior passed. `REQP-1839`, external UART, repeated reset, and speed-grade
-identification remain open. Full details are in
+LED behavior passed. The 2026-08-23 follow-up adds external UART TX, production
+FreeRTOS heartbeat/D1, and deliberate K2 restart evidence. `REQP-1839` remains
+documented and speed-grade identification remains open. Full details are in
 [`AR024_ZYNQ_MINI_REVB_FPGA_INTEGRATION.md`](AR024_ZYNQ_MINI_REVB_FPGA_INTEGRATION.md).
 
 ### AR-025 — Official FreeRTOS V11.3.0 RISC-V port
 
-**State:** Initial ModelSim vertical slice and routed bitstream verified; extended run and physical FPGA execution pending
+**State:** Focused/extended ModelSim and physical FPGA UART/GPIO execution verified
 
 **Problem/root cause:** The SoC had a precise timer/trap path and bare-metal
 runtime but no scheduler. Replacing the official context ABI with local
@@ -1344,10 +1344,10 @@ changing ISA claims. The retained result is
 | Phase 2: external data bus | Complete: data decode/default, EX/WB response packet, precise data/instruction access faults, LSU FSM/backpressure | 4/4 SoC fault runs, data-fabric protocol suite, 23/23 smoke |
 | Phase 3: timer interrupt | Complete: MTIP ownership, effective eligibility, retirement boundary, MRET exclusion, logical WFI, timer target | Precise firmware plus 10,000 repeated interrupts, focused assertions, 23/23 smoke, OOC synthesis |
 | Phase 4: UART/GPIO | Complete: native UART TX/RX plus parameterized output GPIO, registered target responses, and five-owner fabric exclusivity | UART focused tests, TX text, RX echo, GPIO target/fabric, readback, and pin waveform PASS |
-| Phase 5: firmware | Complete: split-image ELF conversion, startup/linker ABI, drivers, and four sanity applications | 4/4 ModelSim, preservation regressions, exact-image Vivado initialization, and physical timer/GPIO plus timer-IRQ PASS; UART pending in Phase 7 |
+| Phase 5: firmware | Complete: split-image ELF conversion, startup/linker ABI, drivers, and four sanity applications | 4/4 ModelSim, preservation regressions, exact-image Vivado initialization, and physical timer/GPIO, timer-IRQ, plus external-UART hello PASS |
 | Phase 6: FreeRTOS | Official V11.3.0 port, tick source, heap/stack policy, preemption, queues, and context sentinels complete | Focused 1/1 plus separate 1,000-tick/queue-receive soak PASS |
-| Phase 7: FPGA | Board top/XDC, 25 MHz MMCM/reset, BRAM init, route, timing, and bitstreams complete; JTAG/LED/timer physically proven | 0-error DRC, TNS 0, four bitstreams including FreeRTOS, `timer_gpio` and `timer_irq` hardware PASS; FreeRTOS/UART/reset/speed grade still required |
-| Phase 8: release | Applicable ACT4 set plus fail-fast unified release command implemented | Clean-worktree regeneration PASS: map/tool, focused fabric, smoke 23/23, Phases 3–6, regenerated 39 I/8 M, and ACT4 47/47; physical gates remain separate |
+| Phase 7: FPGA | Board top/XDC, 25 MHz MMCM/reset, BRAM init, route, timing, and bitstreams complete | 0-error DRC, TNS 0, four bitstreams; JTAG, LED/timer, external UART TX, production FreeRTOS heartbeat/D1, and K2 restart hardware PASS; speed grade still unidentified |
+| Phase 8: release | Applicable ACT4 set plus fail-fast unified release command and physical demonstration implemented | Clean-worktree map/tool/fabric/smoke/Phases 3–6/ACT4 47/47 PASS plus retained 2026-08-23 board UART/FreeRTOS/reset evidence |
 
 ## 10. Architecture decision template
 

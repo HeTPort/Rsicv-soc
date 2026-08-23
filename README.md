@@ -21,8 +21,9 @@ drivers, and three bare-metal programs; it is complete. Phase 6 boots the pinned
 official FreeRTOS V11.3.0 GCC RISC-V port in ModelSim with preemption, queues,
 UART, GPIO, context sentinels, and a separate 1,000-tick scheduler soak. Phase 7
 provides the ZYNQ MINI REVB top/XDC and four routed bitstreams. JTAG plus the physical
-`timer_gpio` and `timer_irq` LED tests pass; external-UART `hello`, repeated
-reset, speed-grade identification, and FreeRTOS FPGA execution remain open.
+`timer_gpio` and `timer_irq` LED tests pass. External-UART `hello`, production
+FreeRTOS heartbeat/D1 behavior, and repeated K2 restart also pass physically;
+only positive speed-grade identification remains open.
 
 | Area | Implemented now |
 |---|---|
@@ -37,7 +38,7 @@ reset, speed-grade identification, and FreeRTOS FPGA execution remain open.
 | UART | Polling 8N1 TX and RX, default 16-byte RX FIFO, sticky overrun/framing errors |
 | GPIO | 32-bit R/W MMIO register driving parameterized low output bits; default width 8 |
 | Verification | Focused protocol tests, 23/23 smoke, 47/47 applicable ACT4 I/M, Phase 3 2/2, Phase 4 3/3, Phase 5 4/4, Phase 6 focused + soak PASS |
-| FPGA | ZYNQ MINI REVB top/XDC/build; four routed 25 MHz bitstreams including FreeRTOS, 0 DRC errors, WNS +22.093 ns or better; remaining hardware observation open |
+| FPGA | ZYNQ MINI REVB top/XDC/build; four routed 25 MHz bitstreams including FreeRTOS, 0 DRC errors, WNS +22.093 ns or better; all four images physically observed |
 | Software | Reset-to-C runtime, split linker/drivers, three bare-metal apps, and pinned official FreeRTOS V11.3.0 demo |
 
 This is a verified development baseline, not a complete ISA-compliance or
@@ -134,7 +135,7 @@ marker, and zero ModelSim errors, preventing PASS-looking false positives.
 | UART focused tests | PASS | TX/RX framing, FIFO order/full/error/W1C, and bus semantics |
 | Vivado 2019.2 OOC SoC check | PASS | 0 errors/critical warnings; BRAM, LSU, UART RX/TX, and GPIO hierarchy retained |
 | ZYNQ MINI REVB route/bitgen | 4/4 PASS | Three bare-metal plus one FreeRTOS bitstream; 0 DRC errors, TNS 0, WNS +22.093 ns or better, and initialized program/data BRAM |
-| ZYNQ MINI REVB hardware | 2/3 applications PASS | JTAG recovered; `timer_gpio` LED sequence and ten-count `timer_irq` observed; external-UART `hello` pending |
+| ZYNQ MINI REVB hardware | 4/4 images PASS | JTAG recovered; `timer_gpio`, `timer_irq`, external-UART `hello`, and production FreeRTOS heartbeat/D1 plus K2 restart observed |
 
 The Phase 4 echo test drives actual 8N1 waveforms into `uart_rx_i`. Firmware
 polls and drains a 16-byte stream, writes each byte to TX, and an independent
@@ -369,24 +370,23 @@ or alternatives considered.
 ## Roadmap and open gates
 
 The repository is interview-ready and has a refreshed CPU/SoC simulation
-baseline, including the extended FreeRTOS scheduler/context soak, but it is not
-a completed Phase 8 hardware release. External UART/reset/speed-grade and
-FreeRTOS-on-board evidence remain.
+baseline, including the extended FreeRTOS scheduler/context soak. The first
+FreeRTOS hardware milestone is complete: external UART TX, heartbeat/D1, and
+repeated K2 restart pass. Positive speed-grade identification remains open, and
+the design is not presented as a production-ready SoC.
 
 The next practical steps are:
 
-1. wire a 3.3 V external UART on U15/W15 and observe `Hello, UART!`;
-2. repeat PL K2 reset testing and record the result;
-3. confirm the device speed grade from a reliable record;
-4. build and test the production FreeRTOS demonstration on the FPGA;
-5. add UART interrupts/PLIC only after the polling baseline is stable on
-   hardware.
+1. confirm the device speed grade from a reliable record;
+2. retain exact bitstream hashes and wall-time metadata for future board runs;
+3. add UART interrupts/PLIC only if a later requirement justifies moving beyond
+   the now-stable polling baseline.
 
-You do not need to connect the FPGA board to develop or verify the RTL. You do
-need it to close the remaining hardware gate. JTAG compatibility, oscillator,
-LED polarity, BRAM boot, GPIO, timer progression, and timer interrupts now have
-physical evidence. Repeated reset and the external-UART crossover/baud path
-still cannot be closed by implementation reports.
+You do not need to connect the FPGA board to develop or verify the RTL. JTAG
+compatibility, oscillator, LED polarity, BRAM boot, GPIO, timer progression,
+timer interrupts, external UART TX, FreeRTOS heartbeat/D1, and repeated reset
+now have physical evidence. The retained transcript and screenshots are in
+[`doc/evidence/board_20260823/`](doc/evidence/board_20260823/README.md).
 
 [`TODO.md`](TODO.md) is the authoritative checklist. Design semantics and
 naming standards are in
