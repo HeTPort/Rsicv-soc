@@ -415,7 +415,7 @@ These maintenance items do not reopen Phase 2 and are not prerequisites for
 Phase 3. Schedule them when the related fetch or verification interface is
 next changed, or earlier only if a regression exposes a real failure.
 
-- [ ] Make a fetch-error decode packet canonical by clearing normal RF, CSR,
+- [x] Make a fetch-error decode packet canonical by clearing normal RF, CSR,
   memory, redirect, operand-use, and mul/div controls; verify with deliberately
   side-effectful replacement instruction data.
 - [ ] Turn the AR-018 consecutive-invalid, redirect/stale-response, and

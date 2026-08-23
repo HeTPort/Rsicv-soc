@@ -4,17 +4,17 @@
 
 **Audience:** Designers, reviewers, learners, and future maintainers
 
-**Last updated:** 2026-08-18
+**Last updated:** 2026-08-23
 
 **Current milestone:** Phase 6 has an initial official FreeRTOS ModelSim slice
 and routed board image. AR-024 implements the ZYNQ MINI REVB boundary; together
 with AR-025 the flow produces four routed 25 MHz bitstreams with non-negative
 timing and no DRC errors. Physical external-UART and repeated-reset observation,
-speed-grade identification, the extended FreeRTOS run, board FreeRTOS execution,
-and UART interrupts/PLIC remain open. JTAG, LED, and timer
+speed-grade identification, board FreeRTOS execution, and UART interrupts/PLIC
+remain open. JTAG, LED, timer, and the extended FreeRTOS ModelSim run
 evidence pass on the ZYNQ MINI REVB board. AR-025 implements and verifies the
-initial official FreeRTOS port in ModelSim and routes its board bitstream; its
-long run and physical FPGA gate remain.
+official FreeRTOS port and its extended ModelSim soak, and routes its board
+bitstream; its physical FPGA gate remains.
 
 > This is the consolidated record of what the architecture is, why it evolved
 > this way, what was learned while fixing problems, and which decisions remain
@@ -1048,7 +1048,8 @@ signals, module relationships, commands, and limitations are in
 
 ### AR-018 — SoC fabric contract tests
 
-**State:** Implemented and verified; closed 2026-08-03
+**State:** Implemented and verified; closed 2026-08-03; canonical decode
+hardening verified 2026-08-23
 
 **Problem:** The accepted split map and access-fault rules had no executable
 SoC-level negative tests. Core-level error injection proved precise trap entry
@@ -1072,14 +1073,21 @@ fetch error through `fetch_pkt_t` and give it priority over replacement data.
 **Evidence and consequences:** The original 3/3 RED baseline is preserved.
 All four current SoC runs pass: the data cases report precise causes 5/7 with
 no invalid-store RAM side effect, and the out-of-range fetch reports cause 1
-with `mepc=mtval=PC`. The smoke suite remains 22/22. Detailed evidence is in
+with `mepc=mtval=PC`. The current smoke suite remains 23/23. Detailed evidence is in
 [`AR018_SOC_FABRIC_RED_TESTS.md`](AR018_SOC_FABRIC_RED_TESTS.md).
 
-**Deferred hardening decision:** Canonical fetch-error decode controls,
-redirect/stall/consecutive-fault tests, and a richer instruction response
-contract are retained as low-priority maintenance. Existing downstream kill
-and exception gating is sufficient for the verified fixed-latency RAM design,
-so these items do not reopen AR-018 or Phase 2. Reconsider the response
+**Canonical decode follow-up:** The original error path cleared competing
+exceptions but still decoded normal controls from replacement data. Masking
+individual controls or expanding downstream kill logic were considered;
+constructing the fault packet from `ID_EX_PKT_BUBBLE` was selected because it
+also clears future packet fields by default. Decode now restores only `valid`,
+the faulting `pc`, and `instr_access_fault`. A focused test proves identical
+fault packets for LOAD, STORE, redirect, CSR, DIV, MRET, and WFI replacement
+encodings; the end-to-end cause-1 case and the current 23/23 smoke suite pass.
+
+**Remaining deferred hardening decision:** Redirect/stall/consecutive-fault
+tests and a richer instruction response contract remain low-priority
+maintenance and do not reopen AR-018 or Phase 2. Reconsider the response
 contract before adding instruction wait states or multiple fetch targets.
 
 ### AR-019 — Centralized data decoder and registered default target

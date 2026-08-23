@@ -95,6 +95,7 @@ module decode #(
   logic          illegal_instr_o, ecall_o, ebreak_o;
   logic          is_mret_o, is_wfi_o;
   csr_pkt_t      csr_o;
+  id_ex_pkt_t    decoded_pkt;
 
   // ============================================================
   // 性能优化核心区：数据通路提前，物理直连
@@ -451,46 +452,58 @@ module decode #(
     endcase
   end
 
-  assign pktd_o.valid    = pktd_i.valid;
-  assign pktd_o.pc       = pc_i;
-  assign pktd_o.instr    = instr_i;
-  assign pktd_o.use_rs1  = use_rs1_o;
-  assign pktd_o.use_rs2  = use_rs2_o;
-  assign pktd_o.is_mret  = is_mret_o;
-  assign pktd_o.is_wfi   = is_wfi_o;
+  assign decoded_pkt.valid    = pktd_i.valid;
+  assign decoded_pkt.pc       = pc_i;
+  assign decoded_pkt.instr    = instr_i;
+  assign decoded_pkt.use_rs1  = use_rs1_o;
+  assign decoded_pkt.use_rs2  = use_rs2_o;
+  assign decoded_pkt.is_mret  = is_mret_o;
+  assign decoded_pkt.is_wfi   = is_wfi_o;
 
   // rf_pkt_t
-  assign pktd_o.rf.we    = rf_we_o;
-  assign pktd_o.rf.addr  = rd_o;
+  assign decoded_pkt.rf.we    = rf_we_o;
+  assign decoded_pkt.rf.addr  = rd_o;
 
   // ex_data_pkt_t
-  assign pktd_o.ex_data.op1        = op1_o;
-  assign pktd_o.ex_data.op2        = op2_o;
-  assign pktd_o.ex_data.imm        = imm_o;
-  assign pktd_o.ex_data.store_data = store_data_o;
+  assign decoded_pkt.ex_data.op1        = op1_o;
+  assign decoded_pkt.ex_data.op2        = op2_o;
+  assign decoded_pkt.ex_data.imm        = imm_o;
+  assign decoded_pkt.ex_data.store_data = store_data_o;
 
   // ex_ctrl_pkt_t
-  assign pktd_o.ex_ctrl.alu_op       = alu_op_o;
-  assign pktd_o.ex_ctrl.branch_op    = branch_op_o;
-  assign pktd_o.ex_ctrl.jump_op      = jump_op_o;
-  assign pktd_o.ex_ctrl.mem_req      = mem_req_o;
-  assign pktd_o.ex_ctrl.mem_we       = mem_we_o;
-  assign pktd_o.ex_ctrl.mem_size     = mem_size_o;
-  assign pktd_o.ex_ctrl.mem_unsigned = mem_unsigned_o;
-  assign pktd_o.ex_ctrl.wb_sel       = wb_sel_o;
-  assign pktd_o.ex_ctrl.muldiv_valid = muldiv_valid_o;
-  assign pktd_o.ex_ctrl.muldiv_op    = muldiv_op_o;
+  assign decoded_pkt.ex_ctrl.alu_op       = alu_op_o;
+  assign decoded_pkt.ex_ctrl.branch_op    = branch_op_o;
+  assign decoded_pkt.ex_ctrl.jump_op      = jump_op_o;
+  assign decoded_pkt.ex_ctrl.mem_req      = mem_req_o;
+  assign decoded_pkt.ex_ctrl.mem_we       = mem_we_o;
+  assign decoded_pkt.ex_ctrl.mem_size     = mem_size_o;
+  assign decoded_pkt.ex_ctrl.mem_unsigned = mem_unsigned_o;
+  assign decoded_pkt.ex_ctrl.wb_sel       = wb_sel_o;
+  assign decoded_pkt.ex_ctrl.muldiv_valid = muldiv_valid_o;
+  assign decoded_pkt.ex_ctrl.muldiv_op    = muldiv_op_o;
 
   // exc_pkt_t
-  // A fetch-time error takes precedence over any decode-time exception:
-  // the returned instruction bits are architecturally meaningless.
-  assign pktd_o.exc.illegal_instr     = ~pktd_i.error & illegal_instr_o;
-  assign pktd_o.exc.instr_access_fault = pktd_i.error;
-  assign pktd_o.exc.ecall             = ~pktd_i.error & ecall_o;
-  assign pktd_o.exc.ebreak            = ~pktd_i.error & ebreak_o;
+  assign decoded_pkt.exc.illegal_instr      = illegal_instr_o;
+  assign decoded_pkt.exc.instr_access_fault = 1'b0;
+  assign decoded_pkt.exc.ecall              = ecall_o;
+  assign decoded_pkt.exc.ebreak             = ebreak_o;
 
   // csr_pkt_t
-  assign pktd_o.csr                  = csr_o;
+  assign decoded_pkt.csr = csr_o;
+
+  // A fetch-time error means instr_i is replacement data, not an instruction.
+  // Preserve only the valid fault identity and clear every normal data/control
+  // field so bogus LOAD/STORE, redirect, CSR, MRET/WFI, or MULDIV encodings
+  // cannot start work, create a false hazard, or hold the pipeline waiting.
+  always_comb begin
+    pktd_o = decoded_pkt;
+    if (pktd_i.error) begin
+      pktd_o = ID_EX_PKT_BUBBLE;
+      pktd_o.valid = pktd_i.valid;
+      pktd_o.pc = pktd_i.pc;
+      pktd_o.exc.instr_access_fault = pktd_i.valid;
+    end
+  end
 
 
 endmodule

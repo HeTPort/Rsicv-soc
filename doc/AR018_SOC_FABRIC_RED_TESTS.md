@@ -108,18 +108,46 @@ AR-018 closed after all of the following became true:
 ### Implementation notes
 
 - `fetch_pkt_t` gained an `error` field; `exc_pkt_t` gained
-  `instr_access_fault`. The decode stage forces `exc.instr_access_fault = 1`
-  and clears the other decode exceptions whenever a fetch error is present,
-  so the bogus instruction bits cannot create an illegal-instruction or EBREAK
-  trap.
+  `instr_access_fault`. The decode stage now replaces every errored decode with
+  `ID_EX_PKT_BUBBLE`, then restores only `valid`, the faulting `pc`, and
+  `exc.instr_access_fault`. The replacement instruction, RF/CSR controls,
+  operands, memory/redirect controls, MRET/WFI flags, and multiply/divide
+  controls are therefore all zero.
 - `execute.sv` checks `instr_access_fault_i` first in the trap-cause mux and
   reports `MCAUSE_INST_ACCESS` with `mtval = pc`.
-- `riscv.sv` adds `instr_access_fault` to both `wb_trap_event` and `ex_kill`;
-  the latter prevents a faulting fetch from starting an LSU transaction or an
-  iterative divide.
+- `riscv.sv` adds `instr_access_fault` to both `wb_trap_event` and `ex_kill`.
+  That downstream kill remains defense-in-depth, while the canonical decode
+  packet prevents the LSU/divider from classifying replacement data as work in
+  the first place.
 - `tb_riscv_core.sv` connects the new error signal and guards every assertion
   that compares fetched data against `u_prog_ram.mem` so an invalid fetch does
   not trigger a false mismatch.
+
+### Canonical decode follow-up — 2026-08-23
+
+**Problem/root cause:** Decode previously suppressed only the bogus
+instruction's exception interpretation. Other controls still came directly
+from the replacement word. The fixed EBREAK replacement did not expose that a
+future LOAD/STORE could create false LSU pending state or that a DIV encoding
+could assert `div_wait` while `ex_kill` prevented `div_start`.
+
+**Options considered:** Mask each side-effect control individually, add more
+downstream kill conditions, or construct one fault-only packet from the
+existing canonical bubble. Individual masks are easy to miss when packet
+fields grow, while downstream gating retains unnecessary owner/hazard
+coupling. Whole-packet canonicalization was selected.
+
+**Decision and consequences:** `decode.sv` first constructs the ordinary
+decoded packet. When `fetch_pkt_t.error=1`, its final output instead starts as
+`ID_EX_PKT_BUBBLE` and restores only `valid`, `pc`, and
+`exc.instr_access_fault`. The packet remains valid so cause 1 reaches
+retirement, but its instruction and every normal data/control field are zero.
+
+**Verification:** `run_decode_fetch_error.do` passes at 9 ns with a normal ADDI
+control case and fault replacements encoding LOAD, STORE, JAL, branch, CSR,
+DIV, MRET, and WFI. All eight fault inputs produce the identical canonical
+fault-only packet. The end-to-end `soc_instruction_access_fault` case passes,
+and the preservation smoke suite remains 23/23 PASS.
 
 ### Coverage scenarios added to the verification plan
 
@@ -132,14 +160,11 @@ AR-018 closed after all of the following became true:
 | Invalid fetch during a stall | Confirm `if2id` holds the faulting packet and the trap is taken exactly once. |
 | Read/write collision on an invalid address | Confirm the error path works with the existing collision bypass. |
 
-### Deferred hardening priority
+### Remaining deferred hardening priority
 
-The scenarios above and the following interface refinements are useful but do
-not reopen AR-018 or block Phase 3:
+The following scenarios and interface refinement remain useful but do not
+reopen AR-018 or block later work:
 
-- clear every normal decode/control field when `fetch_pkt_t.error=1`, even
-  though the current execute/kill paths already suppress architectural side
-  effects;
 - add executable redirect, consecutive-fault, and stall alignment tests for
   the fetch error bit;
 - split response-valid from response-error and introduce SoC-level instruction
