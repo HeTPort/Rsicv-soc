@@ -4,7 +4,7 @@
 
 **Audience:** New contributors and learners
 
-**Last updated:** 2026-08-23
+**Last updated:** 2026-09-02
 
 **Current reference:** `codex/phase2-act4-cleanup`. Phases 1–4 are complete.
 Phase 5 is complete in ModelSim and Vivado OOC synthesis. AR-024 adds the Bo
@@ -16,6 +16,13 @@ also pass physically. AR-025 adds the official FreeRTOS V11.3.0 RISC-V port, a
 GREEN ModelSim vertical slice and extended scheduler/context soak, a routed
 exact-board bitstream, and physical execution evidence. Positive speed-grade
 identification remains open.
+
+AR-026 accepts a future scalable UVM verification architecture based on stable
+retirement, memory, translation, coherence, and accelerator transactions above
+protocol-specific interfaces and VIP. This is a plan, not an implementation or
+new coverage claim. The first slice will passively adapt the existing
+`commit_pkt_t` into a `retire_event`, preserve `trap_entry_t` as a separate
+`trap_entry_event`, and feed an ordered scoreboard.
 
 > Update this document whenever a change alters a module boundary, pipeline
 > timing, packet field, architectural behavior, memory map, verification
@@ -148,6 +155,9 @@ the minimal architecture needed for the first working system.
   PLIC are deferred.
 - Positive identification of the package speed grade; local builds use
   conservative `xc7z010clg400-1`.
+- The AR-026 UVM framework, ISS differential adapter, reactive memory agents,
+  riscv-dv integration, generated RAL, and accelerator/cache/MMU domains are
+  accepted future work, not implemented verification features.
 
 The implementation contract and ordered verification gates for the first item
 are defined in the
@@ -180,6 +190,7 @@ The current mapping is:
 | AR-021 | Polling UART RX and parameterized default 16-byte FIFO implemented and verified through OOC synthesis |
 | AR-022 | Memory-mapped output GPIO implemented and verified through OOC synthesis |
 | AR-025 | Official FreeRTOS V11.3.0 RISC-V port; focused and extended ModelSim profiles plus routed bitstream verified, physical execution pending |
+| AR-026 | Scalable UVM architecture accepted; passive retirement vertical slice not implemented |
 
 The authoritative phase checklist is [`TODO.md`](../TODO.md); the detailed
 finding status is in
@@ -936,6 +947,36 @@ Recommended waveform groups:
 - CSR address/read/write/effective values;
 - `commit_o`.
 
+### 13.4 Planned UVM growth path
+
+The current testbenches remain the release baseline. UVM will be introduced in
+small vertical slices so the new framework is checked against known-good tests
+before it begins driving the DUT.
+
+```text
+current directed program
+        |
+        v
+registered commit_pkt_t + trap_entry_t
+        |
+        v
+passive commit interface and UVM monitor
+        |
+        v
+retire_event + trap_entry_event -> scoreboard -> tohost/coverage subscribers
+```
+
+This is the first step because `commit_pkt_t` already owns the architectural
+identity and 64-bit retirement order, while `trap_entry_t` separately reports
+synchronous/asynchronous trap entry. A SystemVerilog `interface` will group
+clocked physical observations; the two UVM events preserve their distinct
+architectural meanings. Later CoreBus, AXI, cache, MMU, GPU, or NPU agents may
+change pin-level adapters without changing the retirement scoreboard.
+
+The planned ownership tree and gates are documented in the
+[verification framework](../docs/verification_framework.md) and
+[`AR026_SCALABLE_UVM_VERIFICATION_ARCHITECTURE.md`](AR026_SCALABLE_UVM_VERIFICATION_ARCHITECTURE.md).
+
 ## 14. Design invariants worth memorizing
 
 1. Every architectural side effect requires a valid owner.
@@ -957,6 +998,8 @@ Recommended waveform groups:
     contracts.
 14. WFI is a one-time retirement plus logical state, never a repeatedly valid
     pipeline instruction.
+15. Verification reuse boundaries preserve semantic identity and ordering;
+    physical protocol conversion remains explicit in an adapter.
 
 ## 15. Current architecture risks and open questions
 
@@ -974,6 +1017,7 @@ Recommended waveform groups:
 | Clock gating | Logical WFI is verified, but no safe FPGA clock gating is implemented | Phase 7 after board clock design |
 | Reset-to-BRAM control | Deliberate K2 restart testing passes and reset deassertion is synchronized, but Vivado `REQP-1839` still warns that asynchronously reset control registers feed data-BRAM address/control logic | Keep warning visible; synchronous-reset cleanup if later behavior requires it / AR-024 |
 | FreeRTOS duration/hardware | Focused and extended preemption/queue/context checks pass in ModelSim; physical production output adds 537 retained heartbeats, D1 activity, and repeatable K2 restarts | Closed for first FPGA demonstration / AR-025 |
+| UVM scalability | AR-026 accepts the abstraction and directory boundaries, but no UVM component or coverage result exists yet; future concurrency also requires ID/partial-order scoreboards and one authoritative memory model | Start with passive retirement slice; continuous verification / AR-026 |
 
 ## 16. Practical study exercises
 
@@ -1041,6 +1085,7 @@ compare RAM data, `load_offset`, extracted value, and committed result.
 - [AR-023 Phase 5 bare-metal runtime](AR023_PHASE5_BARE_METAL_RUNTIME.md)
 - [AR-024 ZYNQ MINI REVB FPGA integration](AR024_ZYNQ_MINI_REVB_FPGA_INTEGRATION.md)
 - [AR-025 official FreeRTOS RISC-V port](AR025_OFFICIAL_FREERTOS_RISCV_PORT.md)
+- [AR-026 scalable UVM verification architecture](AR026_SCALABLE_UVM_VERIFICATION_ARCHITECTURE.md)
 - [Phase 4 UART implementation guide](../docs/phase4-uart-guide.md)
 - [Phase 4 GPIO implementation guide](../docs/phase4-gpio-guide.md)
 - [Phase 5 startup/runtime implementation guide](../docs/phase5-startup-runtime-guide.md)

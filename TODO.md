@@ -81,8 +81,9 @@ Implemented:
 - [x] Explicit M-mode CSR legality, no-write rules, WARL filtering, and
       same-address dependency bypass.
 - [x] Lightweight JSON/PowerShell ModelSim regression runner with native
-  simulator-exit and transcript result gates; UVM is not required for this
-  target.
+  simulator-exit and transcript result gates; UVM was not required to close
+  the completed FreeRTOS target, and AR-026 adds it only as a future expansion
+  track.
 - [x] Separate instruction/data image support and commit-based `tohost`
   completion checking.
 - [x] ELF-to-memory converter and ACT4 import/runner adapters.
@@ -168,6 +169,9 @@ Current planning position:
 - AR identifiers are stable finding numbers, not phase numbers. Detailed
   ownership and status are maintained in
   [`doc/ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md`](doc/ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md).
+- AR-026 accepts the scalable UVM architecture but does not claim an
+  implementation. Its first gate is a passive `commit_pkt_t` retirement
+  monitor and scoreboard that preserves all current regressions.
 
 ---
 
@@ -687,6 +691,86 @@ heartbeats; PL D1 toggled and deliberate K2 restarts recovered. See
 
 ---
 
+## Continuous Track U — Scalable UVM adoption
+
+**Status:** architecture accepted in AR-026; implementation not started.
+
+This track is additive. Directed smoke, ACT4, focused SVA testbenches,
+firmware, synthesis/timing, and board checks remain required evidence. Create
+only directories needed by the current slice; do not add empty cache/MMU/GPU/
+NPU placeholders.
+
+Detailed design and directory ownership are in
+[`doc/AR026_SCALABLE_UVM_VERIFICATION_ARCHITECTURE.md`](doc/AR026_SCALABLE_UVM_VERIFICATION_ARCHITECTURE.md)
+and [`docs/verification_framework.md`](docs/verification_framework.md).
+
+### U0 — Toolchain and passive retirement vertical slice (do first)
+
+- [ ] Prove which UVM version the installed ModelSim/Questa toolchain can
+      compile and run; pin the version and command line in the repository.
+- [ ] Create the minimum real tree: `verif/uvm/domains/retirement`,
+      `verif/uvm/tb/interfaces`, `verif/uvm/adapters`,
+      `verif/uvm/envs/core`, `verif/uvm/tests`, and the required simulation
+      filelist/script. Do not create unused future directories.
+- [ ] Define `retire_event` with a lossless mapping from `commit_pkt_t` and a
+      separate `trap_entry_event` mapping from `trap_entry_t`; preserve
+      instruction commit versus asynchronous entry semantics and include
+      64-bit `order`, `hart_id=0`, and `retire_lane=0` from the start.
+- [ ] Add a clocking-block-based passive commit interface and monitor. The
+      slice must not drive the DUT or change memory/fetch timing.
+- [ ] Add an ordered retirement scoreboard plus independent committed-`tohost`
+      and retirement-coverage subscribers.
+- [ ] Reproduce existing commit order/count, trap/write exclusion, and test
+      completion on a small smoke subset.
+- [ ] Add a negative infrastructure test proving an injected mismatch produces
+      a native nonzero simulator result and cannot be classified PASS.
+- [ ] Run focused retirement plus 23/23 smoke and keep the unified release flow
+      green; record compile/runtime overhead.
+
+**U0 exit gate:** the passive UVM slice agrees with the existing architectural
+checks, detects a deliberate mismatch, introduces no DUT timing/behavior
+change, and leaves every existing release gate available.
+
+### U1 — ISA differential checking
+
+- [ ] Place Spike, Sail, or another selected model behind a typed adapter; the
+      core environment and scoreboard must not depend on model-specific APIs.
+- [ ] Establish one authoritative memory view and define interrupt/MMIO/model
+      synchronization rules before continuous comparison.
+- [ ] Compare existing directed programs first, including traps, CSR behavior,
+      loads/stores, and `tohost`, then preserve every mismatch as a regression.
+
+### U2 — Generated instruction workloads
+
+- [ ] Integrate riscv-dv through a target capability description and
+      machine-readable testlist.
+- [ ] Archive generator configuration, seed, generated program, tool/model
+      versions, and failure signature for exact reproduction.
+- [ ] Keep ACT4 as the architectural standards gate; random generation is
+      complementary coverage, not a replacement.
+
+### U3 — Active memory and register verification
+
+- [ ] Add reactive instruction/data memory agents only after their latency,
+      error, reset, kill, and authoritative-state contracts are documented.
+- [ ] Extend the accepted SoC-map schema with access policy and side-effect
+      metadata needed to generate UVM RAL; do not hand-maintain a parallel map.
+- [ ] Add block/core/SoC virtual sequences without exposing protocol handles
+      directly to domain scoreboards.
+
+### U4 — Cache, MMU, multicore, GPU, and NPU expansion
+
+- [ ] Add translation, coherence, and accelerator domains only with the RTL
+      feature that consumes them.
+- [ ] Use `source_id`, `hart_id`, `txn_id`, `epoch`, and explicit order rules;
+      add warp/lane/context identity only to the accelerator domain.
+- [ ] Replace FIFO-only comparison with associative or partial-order checking
+      wherever legal completion order is not unique.
+- [ ] Add SVA/formal checks for protocol safety, coherence invariants,
+      deadlock, starvation, barriers/fences, and forward progress.
+
+---
+
 ## Deferred work after the FreeRTOS milestone
 
 These may improve performance or broaden the SoC, but they are not prerequisites
@@ -700,15 +784,21 @@ for the first FreeRTOS FPGA demonstration:
 - [ ] PLIC or a small external interrupt controller.
 - [ ] AXI bridge and access to Zynq PS DDR.
 - [ ] JTAG RISC-V Debug Module and GDB integration.
-- [ ] Random instruction generation and continuous Spike differential testing.
+- [ ] Random instruction generation and continuous Spike differential testing;
+      execute through U1/U2 rather than as an ad-hoc standalone environment.
 - [ ] Performance counters and profiling.
 - [ ] Linux research: S/U modes, MMU, atomics, OpenSBI, DDR, and a larger ISA.
 
 ## Immediate next action
 
-1. Confirm the XC7Z010 speed grade from a reliable vendor/device record; keep
+1. Start U0 by compiling the smallest UVM smoke test with the installed
+   ModelSim/Questa version, then pin the supported UVM version and invocation.
+2. Implement only the passive `commit_pkt_t`/`trap_entry_t` interface and
+   lossless retirement-domain mappings before adding an ISS, active driver,
+   RAL, or riscv-dv.
+3. Confirm the XC7Z010 speed grade from a reliable vendor/device record; keep
    targeting conservative `xc7z010clg400-1` until then.
-2. When rebuilding board images, retain the exact bitstream SHA-256 and run
+4. When rebuilding board images, retain the exact bitstream SHA-256 and run
    duration alongside the existing UART/reset evidence.
-3. Keep the 47-test ACT4, 23-test smoke, scheduler-soak, and board timing/DRC
+5. Keep the 47-test ACT4, 23-test smoke, scheduler-soak, and board timing/DRC
    gates active for future changes.

@@ -4,7 +4,7 @@
 
 **Audience:** Designers, reviewers, learners, and future maintainers
 
-**Last updated:** 2026-08-23
+**Last updated:** 2026-09-02
 
 **Current milestone:** The first custom-RV32IM FreeRTOS FPGA demonstration is
 complete. AR-024 implements the ZYNQ MINI REVB boundary; together with AR-025
@@ -13,6 +13,11 @@ DRC errors. JTAG, LED/timer applications, external UART TX, production FreeRTOS
 heartbeat/D1 behavior, deliberate K2 restarts, and the extended ModelSim soak
 all pass. Positive speed-grade identification and optional UART interrupts/PLIC
 remain open.
+
+AR-026 now accepts a scalable UVM verification direction for post-release
+growth. It is documentation-only: no UVM source or new verification claim is
+implemented yet. The first gated slice is a passive adapter from the existing
+`commit_pkt_t` to a stable retirement transaction and ordered scoreboard.
 
 > This is the consolidated record of what the architecture is, why it evolved
 > this way, what was learned while fixing problems, and which decisions remain
@@ -845,6 +850,51 @@ Required decisions:
 - Provenance requirements for checked-in `.hex` files.
 - Release gate for official ACT4 coverage.
 
+### AR-026 — Scalable UVM verification architecture
+
+**State:** Accepted; implementation not started
+
+**Owning stage:** Continuous verification and post-release expansion
+
+**Problem:** The directed/ACT4/SVA/firmware framework is effective for the
+current single-hart SoC but does not yet provide reusable constrained-random
+components for cache, MMU, multicore, heterogeneous ISA, GPU, or NPU work.
+Binding tests and models directly to current pins would make every transport or
+module-boundary change expensive; one universal transaction would instead mix
+unrelated semantic domains.
+
+**Options:** Continue only with directed testbenches; build one SoC-specific
+UVM environment around current pins; create one universal transaction; or
+separate protocol VIP from small semantic domain transactions through explicit
+adapters.
+
+**Decision:** Add UVM incrementally and preserve all existing gates. Use
+`retire_event`, `mem_access`, `translation_event`, `coherence_event`, and
+accelerator job/completion transactions as independent stable domains.
+SystemVerilog interfaces own physical signal grouping, clocking blocks,
+modports, and protocol assertions. VIP owns pin timing; adapters translate;
+models/scoreboards own prediction and checking. Generate future RAL/address
+collateral from the accepted SoC-map source.
+
+The first implementation slice is passive: map the registered architectural
+`commit_pkt_t` losslessly into `retire_event` and `trap_entry_t` into a separate
+`trap_entry_event`, retain 64-bit `order` plus future-compatible hart/lane
+identity, and reproduce current retirement, trap/write-exclusion,
+asynchronous-entry, and committed-`tohost` checks before adding active agents
+or an ISS.
+
+**Consequences:** Present directed tests become immediate stimulus, later bus
+changes do not force scoreboard rewrites, and block/core/SoC environments can
+grow independently. UVM build/tool complexity, semantic-type governance,
+multiple-clock handling, partial-order scoreboarding, coherence, and model
+configuration remain explicit risks rather than solved features.
+
+**Evidence:** This is an accepted documentation decision only. Existing commit
+and regression behavior justifies the first seam but does not count as UVM
+verification. Full rationale, open-source influences, directory ownership,
+exit gates, and risks are in
+[`AR026_SCALABLE_UVM_VERIFICATION_ARCHITECTURE.md`](AR026_SCALABLE_UVM_VERIFICATION_ARCHITECTURE.md).
+
 ### AR-011 — Early FPGA feasibility
 
 **State:** Implemented and verified through exact-board route; AR-017 closes
@@ -1348,6 +1398,7 @@ changing ISA claims. The retained result is
 | Phase 6: FreeRTOS | Official V11.3.0 port, tick source, heap/stack policy, preemption, queues, and context sentinels complete | Focused 1/1 plus separate 1,000-tick/queue-receive soak PASS |
 | Phase 7: FPGA | Board top/XDC, 25 MHz MMCM/reset, BRAM init, route, timing, and bitstreams complete | 0-error DRC, TNS 0, four bitstreams; JTAG, LED/timer, external UART TX, production FreeRTOS heartbeat/D1, and K2 restart hardware PASS; speed grade still unidentified |
 | Phase 8: release | Applicable ACT4 set plus fail-fast unified release command and physical demonstration implemented | Clean-worktree map/tool/fabric/smoke/Phases 3–6/ACT4 47/47 PASS plus retained 2026-08-23 board UART/FreeRTOS/reset evidence |
+| Continuous UVM expansion | Accepted AR-026 layers semantic domains above protocol VIP and preserves existing verification gates | First passive retirement slice passes its mismatch-negative test, focused retirement, smoke, and unchanged release flow before active agents/ISS |
 
 ## 10. Architecture decision template
 
@@ -1457,6 +1508,7 @@ An architecture-changing task is incomplete until this document is updated.
 - [AR-023 Phase 5 bare-metal runtime](AR023_PHASE5_BARE_METAL_RUNTIME.md)
 - [AR-024 ZYNQ MINI REVB FPGA integration](AR024_ZYNQ_MINI_REVB_FPGA_INTEGRATION.md)
 - [AR-025 official FreeRTOS RISC-V port](AR025_OFFICIAL_FREERTOS_RISCV_PORT.md)
+- [AR-026 scalable UVM verification architecture](AR026_SCALABLE_UVM_VERIFICATION_ARCHITECTURE.md)
 - [Phase 5 startup/runtime implementation guide](../docs/phase5-startup-runtime-guide.md)
 - [ACT4 integration handoff](ACT4_RV32I_INTEGRATION_HANDOFF_2026-07-27.md)
 - [ACT4 integration guide](../verif/act4/README.md)

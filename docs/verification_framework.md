@@ -702,17 +702,126 @@ Invalid instruction
 
 ---
 
-## 10. Future Improvements
+## 10. Accepted Scalable UVM Expansion
 
-后续可在现有框架上扩展：
+UVM 作为增量验证层加入现有框架，不替代定向测试、ACT4、`tohost`、
+SVA/formal、固件测试、综合时序和板级验证。详细决策、来源项目、风险和
+阶段门槛见
+[`AR026_SCALABLE_UVM_VERIFICATION_ARCHITECTURE.md`](../doc/AR026_SCALABLE_UVM_VERIFICATION_ARCHITECTURE.md)。
 
-- 使用 RISC-V architectural tests 或其他参考模型进行差分验证；
-- 添加随机指令生成和 constrained-random 场景；
-- 建立 commit trace，并与 ISA reference model 对比；
+### 10.1 Stable abstraction boundary
+
+稳定边界不是当前 CoreBus 或 DUT 引脚，而是少量具有明确语义的事务：
+
+| Domain | Transaction | Meaning |
+| --- | --- | --- |
+| Retirement | `retire_event`, `trap_entry_event` | 已完成指令及同步 trap；独立的同步/异步 trap-entry 观察 |
+| Memory | `mem_access` | 与 CoreBus/AXI 引脚无关的读写请求和完成 |
+| Translation | `translation_event` | 地址翻译、权限、特权级和 fault |
+| Coherence | `coherence_event` | cache-line 状态、probe、响应和数据传输 |
+| Accelerator | `accel_job`, `accel_completion` | GPU/NPU 命令、上下文、完成和异常 |
+
+SystemVerilog `interface` 负责信号分组、clocking block、modport 和协议
+Assertion；UVM sequence item / analysis transaction 负责组件间的语义数据。
+协议 agent 只处理引脚时序，adapter 显式完成 protocol/domain/model 之间的
+转换，scoreboard 和 reference model 不依赖当前物理接口。
+
+```text
+test / workload / virtual sequence
+                 |
+                 v
+       domain transaction + coverage
+                 |
+       +---------+----------+
+       |                    |
+       v                    v
+scoreboard/model       explicit adapter
+                            |
+                            v
+                    protocol VIP/interface
+                            |
+                            v
+                           DUT
+```
+
+### 10.2 Planned ownership and directories
+
+```text
+verif/
+├── act4/                existing architecture-test integration
+├── uvm/
+│   ├── common/          base config, reset/clock, reporting
+│   ├── domains/         retirement, memory, translation, coherence, accelerator
+│   ├── vip/             pin-level agents, monitors, local protocol coverage
+│   ├── adapters/        protocol/domain/reference-model conversion
+│   ├── models/          authoritative memory, ISS, cache, accelerator models
+│   ├── ral/             generated UVM register models
+│   ├── envs/            block, core, and SoC environments
+│   ├── sequences/       protocol and multi-agent virtual sequences
+│   ├── coverage/        cross-domain functional coverage
+│   ├── tests/           small configuration/policy selections
+│   └── tb/              interfaces, wrappers, assertions, static top
+├── generators/          riscv-dv and later workload generators
+├── workloads/           assembly, C, kernels, tensors, signatures
+├── testplans/           requirement-to-test/coverage traceability
+├── sim/                 UVM filelists, scripts, manifests, CI entry
+└── generated/           disposable generated tests/RAL/results
+```
+
+只在真实组件出现时创建对应目录，不预先提交空的 cache/MMU/GPU/NPU
+占位实现。agent-local coverage 留在 `vip/`，只有跨 agent/domain 的 coverage
+进入顶层 `coverage/`。
+
+### 10.3 Concurrency rules
+
+为避免未来多核、乱序、多退休端口和 GPU 并发导致接口重写：
+
+- 基础事务保留 `source_id`、`hart_id`、`txn_id`、`epoch` 和 `order`；
+- `retire_lane`、`context_id`、`warp_id`、`lane_id` 只进入需要它们的 domain；
+- 只有协议保证严格顺序时才能使用 FIFO scoreboard；其他情况按 ID 和显式
+  ordering rule 做 associative/partial-order matching；
+- active memory responder、scoreboard 和 ISS 共享一个 authoritative memory
+  service，不能各自维护会漂移的存储器副本；
+- 配置对象描述 width、outstanding depth、ordering、coherence、ISA extension、
+  hart/lane 数量，不把能力矩阵散落为测试中的 `ifdef`；
+- RAL 和 address map 从已接受的 SoC map 生成，不手工复制常量。
+
+### 10.4 First implementation slice
+
+第一步只建立被动的 core-level retirement vertical slice：
+
+```text
+commit_pkt_t + trap_entry_t
+    -> clocking-block commit interface
+    -> passive UVM monitor
+    -> lossless retire_event / trap_entry_event adapters
+    -> ordered scoreboard / tohost subscriber / retirement coverage
+```
+
+该步骤首先复用现有定向程序，不驱动 DUT，也不改变 memory timing。它必须：
+
+1. 固定并记录实际 ModelSim/Questa 支持的 UVM 版本；
+2. 无损映射现有 `commit_pkt_t` 和 `trap_entry_t`，区分 instruction commit
+   与 asynchronous trap entry，并从第一天保留 `hart_id=0`、
+   `retire_lane=0` 和 64-bit `order`；
+3. 重现 retirement 顺序、trap/write exclusion 和 committed-`tohost` 结果；
+4. 证明一个故意注入的 scoreboard mismatch 会产生 native failing exit；
+5. 保持 focused retirement、23-test smoke 和现有 release flow 通过；
+6. 记录编译和运行开销。
+
+完成该 slice 后，第二步才加入 Spike/Sail differential adapter；随后再按需求
+加入 reactive memory agent、riscv-dv、generated RAL 和 SoC virtual sequence。
+
+## 11. Future Improvements
+
+在已接受的分层结构中逐步扩展：
+
+- 使用 Spike、Sail 或其他参考模型进行差分验证；
+- 集成 riscv-dv 随机指令生成和可复现 seed；
 - 增加 trap、CSR、流水线 flush 的 functional coverage；
 - 使用 formal property 验证“无效指令永不改变架构状态”；
-- 在 CI 中自动执行回归并归档日志、波形和覆盖率报告；
-- 对失败进行自动聚类，区分软件失败码、Assertion 和 timeout。
+- 在 CI 中归档日志、波形、seed 和覆盖率报告；
+- 对失败进行自动聚类，区分软件失败码、Assertion、scoreboard mismatch 和 timeout。
 
 长期目标是让验证流程同时具备：
 
@@ -726,7 +835,7 @@ Continuous regression-> 防止修复引入退化
 
 ---
 
-## 11. Resume Highlight
+## 12. Resume Highlight
 
 ### English
 

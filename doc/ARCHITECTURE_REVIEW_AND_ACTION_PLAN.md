@@ -52,6 +52,7 @@ Current ownership and status:
 | AR-018 | Phase 2 SoC contract | All data and instruction fault cases GREEN; closed |
 | AR-019 | Phase 2 data fabric | Centralized decoder/default target implemented and verified |
 | AR-025 | Phase 6 FreeRTOS | Official V11.3.0 port focused and extended ModelSim runs plus routed bitstream verified; physical execution open |
+| AR-026 | Continuous verification and post-release expansion | Scalable UVM architecture accepted; passive retirement slice not implemented |
 
 ## Verified baseline
 
