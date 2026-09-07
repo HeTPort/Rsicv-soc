@@ -1,0 +1,102 @@
+HeTPort Noncommercial Source-Available License 1.0
+
+Copyright (c) 2026 HeTPort. All rights reserved.
+Commercial licensing contact: Hetport@outlook.com
+
+This license is a source-available, noncommercial license. It is not an
+open-source license as that term is defined by the Open Source Initiative.
+
+1. Licensed Materials
+
+"Licensed Materials" means the original source code, hardware-description
+source, firmware, scripts, tests, configuration, documentation, diagrams, and
+other material in this repository, except material that is located in a
+third-party directory or carries a separate license or copyright notice.
+
+2. Noncommercial permission
+
+Subject to all terms of this license, HeTPort grants you a non-exclusive,
+worldwide, royalty-free copyright permission to use, copy, run, simulate,
+synthesize, study, and modify the Licensed Materials solely for:
+
+  a. personal learning and experimentation;
+  b. noncommercial teaching; or
+  c. noncommercial academic research.
+
+You may create FPGA images, netlists, and limited physical prototypes only for
+those permitted purposes. You may redistribute the Licensed Materials or your
+modified source form only when you:
+
+  a. retain this license, the copyright notice, and all attribution notices;
+  b. clearly identify your changes;
+  c. apply this same license to the redistributed Licensed Materials and
+     modifications; and
+  d. do not charge for access, support, manufacture, or use beyond reasonable
+     at-cost media or hosting expenses.
+
+3. Commercial and organizational use requires a separate license
+
+No permission is granted under this license for commercial use. A separate
+written agreement from HeTPort is required before any use by or for a
+for-profit business, or any activity primarily intended for commercial
+advantage or monetary compensation, including:
+
+  a. internal commercial research, product evaluation, or development;
+  b. incorporation into a product, service, silicon design, FPGA image,
+     netlist, semiconductor mask set, manufactured device, or licensed IP;
+  c. paid consulting, hosted services, training, support, or distribution;
+  d. manufacture, sale, lease, sublicense, or other commercial exploitation;
+     or
+  e. use to obtain investment, customer commitments, or commercial contracts
+     for a product substantially based on the Licensed Materials.
+
+Merely viewing the public repository to decide whether to request a commercial
+license is permitted. Contact Hetport@outlook.com before any broader commercial
+evaluation or use.
+
+4. No patent, trademark, or endorsement license
+
+This license grants copyright permission only. It grants no patent, trademark,
+trade-name, logo, publicity, or endorsement rights. "HeTPort" may be used only
+as reasonably necessary to preserve attribution and describe the origin of the
+Licensed Materials.
+
+5. Third-party material
+
+Third-party material is not relicensed by this license. It remains governed by
+its own notices and license terms. In particular,
+`third_party/FreeRTOS-Kernel/` remains under its upstream MIT License. See
+`THIRD_PARTY_NOTICES.md` and the notices inside each third-party directory.
+
+6. Safety-critical and human-carrying systems
+
+No permission is granted to use the Licensed Materials in a safety-critical,
+life-supporting, weapon, certified airborne, or human-carrying propulsion or
+flight-control system. Any such use requires a separate written agreement and
+independent engineering, safety, and regulatory assurance.
+
+7. Compliance and termination
+
+Your permissions terminate automatically if you violate this license. They
+are reinstated if you cure the violation within 30 days after becoming aware
+of it, unless HeTPort has already notified you of an uncured prior violation.
+Sections 4, 5, 6, 8, and 9 survive termination.
+
+8. No warranty
+
+THE LICENSED MATERIALS ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND NON-INFRINGEMENT. YOU BEAR ALL
+RISK ARISING FROM USE, SIMULATION, SYNTHESIS, FABRICATION, OR OPERATION.
+
+9. Limitation of liability
+
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, HEPORT AND CONTRIBUTORS WILL NOT BE
+LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN CONTRACT, TORT,
+OR OTHERWISE, ARISING FROM OR RELATED TO THE LICENSED MATERIALS OR THEIR USE.
+
+10. Separate permission
+
+Any permission outside this license must be stated in a separate written
+agreement signed by an authorized rights holder. Questions and commercial
+license requests may be sent to Hetport@outlook.com.

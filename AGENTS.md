@@ -18,6 +18,59 @@ updated in the same change:
   from the consolidated documents.
 - Update `TODO.md` when phase ordering, exit gates, or milestone scope changes.
 
+## Phase evidence packages for long-running work
+
+Cross-conversation development must not rely on chat history as the source of
+requirements, decisions, or proof. For every new substantial feature, IP block,
+architecture change, verification expansion, or system experiment:
+
+1. Create `doc/plans/<phase-id>/` when the phase becomes active; do not create
+   empty directories for distant ideas.
+2. Use [`doc/PHASE_EVIDENCE_TEMPLATE.md`](doc/PHASE_EVIDENCE_TEMPLATE.md) and
+   maintain, as applicable:
+   - `requirements.md` — scope, non-goals, assumptions, failure consequences,
+     and measurable performance/power/safety targets;
+   - `architecture.md` — boundary, block/data flow, interfaces, clocks/resets,
+     CDC/RDC, state/timing, units/numeric formats, faults, and alternatives;
+   - `registers.rdl` plus generated `registers.md` — addresses, fields, access
+     attributes, reset values, side effects, and software sequences;
+   - `verification_plan.md` — positive, boundary, negative, fault, reset/race,
+     coverage, assertions, reproducibility, and pass/fail oracle;
+   - `results.md` — actual regression, waveform, synthesis, timing, area,
+     power, hardware/model evidence, limitations, and exit verdict.
+3. Tailor rather than fabricate: omit `registers.*` when there is no MMIO,
+   mark unexecuted results `NOT RUN`, and never write expected results as proof.
+4. Give requirements stable IDs and trace them into tests/assertions/results.
+5. Keep large generated outputs out of Git where practical; retain compact
+   reports, hashes, failing seeds, commands, tool versions, and assumptions.
+6. Link focused problem/root-cause and RED/GREEN evidence in `doc/AR*.md`; do
+   not duplicate or silently supersede existing AR and phase-guide records.
+
+The staged dependency/learning order is in
+[`doc/ROADMAP_AND_LEARNING_PATH.md`](doc/ROADMAP_AND_LEARNING_PATH.md), and
+reference implementations/standards are indexed in
+[`doc/REFERENCE_INDEX.md`](doc/REFERENCE_INDEX.md). `TODO.md` remains the
+authoritative checkbox ledger.
+
+## License and provenance boundary
+
+- Original repository material is governed by the root noncommercial
+  source-available `LICENSE`; commercial-use requests go to
+  `Hetport@outlook.com`.
+- Never describe this repository as OSI open source while the commercial-use
+  restriction remains in force.
+- Never relicense `third_party/FreeRTOS-Kernel/`; retain its MIT license and
+  `UPSTREAM.md` provenance unchanged.
+- Record every new third-party source, model, generated artifact, or copied
+  implementation in `THIRD_PARTY_NOTICES.md` with upstream revision and
+  license before committing it.
+- Do not copy CoralNPU or another reference implementation merely to match its
+  directory structure. Reuse ideas only through an independently specified
+  local contract unless compatible source reuse and notices are deliberately
+  reviewed.
+- Do not accept substantial external code/RTL contributions until written
+  contribution terms preserve the project's licensing options.
+
 ## Project overview
 
 This is a small RV32IM RISC-V CPU + SoC written in SystemVerilog.

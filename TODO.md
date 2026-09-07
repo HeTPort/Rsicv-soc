@@ -39,6 +39,25 @@ recommended Phase 0A gate are recorded in
 5. Prefer the smallest design that meets the FreeRTOS target. Add AXI, PLIC,
    DDR, and advanced debug only when a later requirement justifies them.
 
+New post-FreeRTOS work is coordinated by
+[`doc/ROADMAP_AND_LEARNING_PATH.md`](doc/ROADMAP_AND_LEARNING_PATH.md). When a
+substantial phase becomes active, create its evidence package under
+`doc/plans/<phase-id>/` using
+[`doc/PHASE_EVIDENCE_TEMPLATE.md`](doc/PHASE_EVIDENCE_TEMPLATE.md). Standards,
+mature repositories, and reuse limits are indexed in
+[`doc/REFERENCE_INDEX.md`](doc/REFERENCE_INDEX.md); release and licensing gates
+are in [`doc/RELEASE_CHECKLIST.md`](doc/RELEASE_CHECKLIST.md) and
+[`doc/LICENSE_STRATEGY.md`](doc/LICENSE_STRATEGY.md).
+
+The repository license decision is now adopted: original material uses the
+root noncommercial source-available terms, commercial requests go to
+`Hetport@outlook.com`, and FreeRTOS retains its upstream MIT license.
+
+The long-term atmospheric propulsion idea is a research-program vision. This
+repository remains the experimental control-SoC foundation until later phases
+produce model, control, power, and bench evidence. A longer TODO does not turn
+future work into implemented capability.
+
 ---
 
 ## ACT4 policy: parallel verification, not a starting barrier
@@ -704,7 +723,7 @@ Detailed design and directory ownership are in
 [`doc/AR026_SCALABLE_UVM_VERIFICATION_ARCHITECTURE.md`](doc/AR026_SCALABLE_UVM_VERIFICATION_ARCHITECTURE.md)
 and [`docs/verification_framework.md`](docs/verification_framework.md).
 
-### U0 — Toolchain and passive retirement vertical slice (do first)
+### U0 — Toolchain and passive retirement vertical slice (optional parallel track)
 
 - [ ] Prove which UVM version the installed ModelSim/Questa toolchain can
       compile and run; pin the version and command line in the repository.
@@ -771,6 +790,48 @@ change, and leaves every existing release gate available.
 
 ---
 
+## Active Track P0 — Reproducible workload power baseline
+
+**Status:** requirements and measurement architecture accepted; one VCD/SAIF
+format spike ran, but its 4% Vivado mapping/no-clock result is rejected and no
+power baseline is accepted.
+
+The authoritative package is
+[`doc/plans/p0-power-baseline/`](doc/plans/p0-power-baseline/). P0 changes
+measurement only; it does not add clock gating, power domains, or MMIO.
+
+- [x] Confirm the installed ModelSim exposes VCD capture commands.
+- [x] Confirm the installed ModelSim exposes `power add/on/off/report` and
+      backward-SAIF output; this is capability evidence, not a power result.
+- [x] Define stable P0 requirements, workload classes, measurement identity,
+      negative test, repeatability gate, and explicit limitations.
+- [x] Select one short compute/memory test and run its existing functional
+      oracle with `-DumpWaves`; record image/configuration, cycles, file size,
+      command, tool version, and hashes.
+- [ ] Add a narrow, deterministic capture window after reset/warmup and emit a
+      backward-SAIF for the SoC hierarchy; keep large activity under ignored
+      build output.
+- [ ] Freeze one matching implemented Vivado checkpoint and record part/speed
+      grade, XDC clock, WNS/TNS, DRC, LUT/FF/BRAM/DSP, and environmental
+      assumptions.
+- [ ] Run `read_saif` with the explicit testbench strip path; retain parse,
+      matched/unmatched hierarchy, and fallback information.
+- [ ] Produce vectorless and activity-based reports from the same checkpoint
+      and compare total/static/dynamic plus clock/logic/signal/BRAM/DSP/I/O.
+- [ ] Repeat an identical workload independently and meet the 2% dynamic-power
+      repeatability gate or explain/mark the result PARTIAL.
+- [ ] Add WFI+timer, UART polling, and FreeRTOS steady-state windows only after
+      the first end-to-end path is valid.
+- [ ] Run one deliberate missing-file or bad-strip-path case and require a
+      native error or explicit FAIL.
+
+**P0 exit gate:** at least two representative workloads pass functionally,
+map activity into the same valid routed design with retained annotation
+summaries, repeat within the stated bound, and distinguish estimate from
+unmeasured board/ASIC power.
+
+---
+
 ## Deferred work after the FreeRTOS milestone
 
 These may improve performance or broaden the SoC, but they are not prerequisites
@@ -786,19 +847,31 @@ for the first FreeRTOS FPGA demonstration:
 - [ ] JTAG RISC-V Debug Module and GDB integration.
 - [ ] Random instruction generation and continuous Spike differential testing;
       execute through U1/U2 rather than as an ad-hoc standalone environment.
-- [ ] Performance counters and profiling.
+- [ ] Additional performance events, `mcountinhibit`, and profiling beyond the
+      existing `mcycle`/`minstret` baseline.
 - [ ] Linux research: S/U modes, MMU, atomics, OpenSBI, DDR, and a larger ISA.
 
 ## Immediate next action
 
-1. Start U0 by compiling the smallest UVM smoke test with the installed
-   ModelSim/Questa version, then pin the supported UVM version and invocation.
-2. Implement only the passive `commit_pkt_t`/`trap_entry_t` interface and
-   lossless retirement-domain mappings before adding an ISS, active driver,
-   RAL, or riscv-dv.
-3. Confirm the XC7Z010 speed grade from a reliable vendor/device record; keep
+1. Execute the first P0 compute/memory workload from functional PASS through
+   VCD/backward-SAIF generation and Vivado `read_saif` mapping. Do not claim
+   low-power design from the current vectorless estimate.
+2. Preserve the user's recent 75 MHz experiment with exact part, clock,
+   synthesis/route stage, WNS/TNS, critical path/cells, DSP count, and report
+   hash before deciding whether to pipeline multiplication.
+3. Keep the current combinational multiplier until AR-027's routed timing or
+   workload/energy gate triggers; if it does, create a separate phase package
+   and implement a kill-safe start/busy/complete blocking unit.
+4. Start U0 later or in parallel only through a legally entitled tool path.
+   The installed tree already contains UVM 1.2; no separate pirated download is
+   technically required. U0 does not block P0.
+5. Confirm the XC7Z010 speed grade from a reliable vendor/device record; keep
    targeting conservative `xc7z010clg400-1` until then.
-4. When rebuilding board images, retain the exact bitstream SHA-256 and run
+6. When rebuilding board images, retain the exact bitstream SHA-256 and run
    duration alongside the existing UART/reset evidence.
-5. Keep the 47-test ACT4, 23-test smoke, scheduler-soak, and board timing/DRC
+7. Keep the 47-test ACT4, 23-test smoke, scheduler-soak, and board timing/DRC
    gates active for future changes.
+
+Default-branch integration is deliberately deferred. It must later follow the
+reviewed [`doc/RELEASE_CHECKLIST.md`](doc/RELEASE_CHECKLIST.md); merely switching
+the GitHub default branch is not an implementation or release gate.

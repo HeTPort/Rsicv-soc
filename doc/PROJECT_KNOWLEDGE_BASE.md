@@ -4,7 +4,7 @@
 
 **Audience:** New contributors and learners
 
-**Last updated:** 2026-09-02
+**Last updated:** 2026-09-07
 
 **Current reference:** `codex/phase2-act4-cleanup`. Phases 1–4 are complete.
 Phase 5 is complete in ModelSim and Vivado OOC synthesis. AR-024 adds the Bo
@@ -23,6 +23,23 @@ protocol-specific interfaces and VIP. This is a plan, not an implementation or
 new coverage claim. The first slice will passively adapt the existing
 `commit_pkt_t` into a `retire_event`, preserve `trap_entry_t` as a separate
 `trap_entry_event`, and feed an ordered scoreboard.
+
+Post-FreeRTOS growth is now organized by an evidence-gated roadmap rather than
+one flat wish list. Each active substantial phase records requirements,
+architecture, registers when applicable, verification plan, and observed
+results using [`PHASE_EVIDENCE_TEMPLATE.md`](PHASE_EVIDENCE_TEMPLATE.md).
+The detailed sequence and learning prerequisites are in
+[`ROADMAP_AND_LEARNING_PATH.md`](ROADMAP_AND_LEARNING_PATH.md). This planning
+change adds no RTL, UVM, low-power, accelerator, or propulsion capability.
+
+The repository now has an adopted noncommercial source-available license and
+commercial contact (`Hetport@outlook.com`); FreeRTOS remains under its upstream
+MIT terms. P0 is the active measurement-only phase. One passing RV32IM run
+produced VCD/backward-SAIF and Vivado parsed the format, but only 4% of the
+older OOC checkpoint's nets mapped and no clock was defined; that power number
+is rejected. AR-027 accepts a small contract-driven future `src/common/` policy
+and defers multiplier pipelining until exact routed timing or workload/energy
+evidence justifies its latency and control cost.
 
 > Update this document whenever a change alters a module boundary, pipeline
 > timing, packet field, architectural behavior, memory map, verification
@@ -158,6 +175,11 @@ the minimal architecture needed for the first working system.
 - The AR-026 UVM framework, ISS differential adapter, reactive memory agents,
   riscv-dv integration, generated RAL, and accelerator/cache/MMU domains are
   accepted future work, not implemented verification features.
+- An accepted P0 workload-derived Vivado power result; the current format spike
+  has only 4% mapping, includes reset, lacks a clock, and is deliberately
+  rejected.
+- A `src/common/` primitive library or registered multiplier; AR-027 defines
+  entry and verification gates but changes no RTL.
 
 The implementation contract and ordered verification gates for the first item
 are defined in the
@@ -1010,14 +1032,14 @@ The planned ownership tree and gates are documented in the
 | Unmapped access faults | Data load/store and out-of-range instruction fetches trap precisely; canonical fetch-fault packets plus consecutive-invalid, redirect/stale-response, and LSU-stall timing cases are directed and passing | Closed for current fixed-latency interface; revisit for instruction wait states/multiple targets / AR-018 |
 | Interrupt boundary | Implemented and verified; broader randomized boundary coverage remains useful | Continuous verification / AR-008/AR-010 |
 | Timer | Implemented word-access timer and polling/interrupt firmware APIs; both exact-board LED-visible timer profiles pass physically | Closed for bare-metal baseline / AR-024 |
-| RV32M timing | Exact-board 25 MHz routing passes with at least +22.093 ns WNS; 50 MHz exact-board closure and multiply-high optimization remain optional | Phase 7 / AR-011/AR-017/AR-024 |
+| RV32M timing | Exact-board 25 MHz routing passes; AR-017's 12.605 ns OOC multiply-high path explains a possible ~75–79 MHz ceiling but is not routed Fmax. Preserve the user's new exact report before changing latency | AR-017/AR-027; pipeline only after routed/workload gate |
 | Retirement ownership | `retire_stage` is the owner; obsolete `halt_o` is removed and the public-interface cleanup is verified | Closed / AR-012 |
 | Peripherals | Timer, GPIO, and external polling-UART TX pass physically; UART RX remains pin-level simulated, while UART interrupts/PLIC are deferred | Closed for first polling baseline; future interrupt phase if justified |
 | UART RX capacity | The 16-byte default FIFO tolerates bounded polling latency but sustained traffic can still overrun | Firmware must monitor errors; revisit interrupts/DMA only after board baseline |
-| Clock gating | Logical WFI is verified, but no safe FPGA clock gating is implemented | Phase 7 after board clock design |
+| Power and clock gating | Logical WFI is verified, but current reports are vectorless and no safe FPGA clock gating exists. P0 measures first; P1 later uses clock enables/vendor clock resources and keeps wake sources alive | P0 then P1 / AR-027 |
 | Reset-to-BRAM control | Deliberate K2 restart testing passes and reset deassertion is synchronized, but Vivado `REQP-1839` still warns that asynchronously reset control registers feed data-BRAM address/control logic | Keep warning visible; synchronous-reset cleanup if later behavior requires it / AR-024 |
 | FreeRTOS duration/hardware | Focused and extended preemption/queue/context checks pass in ModelSim; physical production output adds 537 retained heartbeats, D1 activity, and repeatable K2 restarts | Closed for first FPGA demonstration / AR-025 |
-| UVM scalability | AR-026 accepts the abstraction and directory boundaries, but no UVM component or coverage result exists yet; future concurrency also requires ID/partial-order scoreboards and one authoritative memory model | Start with passive retirement slice; continuous verification / AR-026 |
+| UVM scalability | AR-026 accepts the abstraction but no UVM component/coverage result exists. ModelSim's installed tree contains UVM 1.2, so no separate pirated package is technically needed; entitlement and a minimal smoke still must be proved | Optional parallel U0 / AR-026 |
 
 ## 16. Practical study exercises
 
@@ -1058,6 +1080,14 @@ compare RAM data, `load_offset`, extracted value, and committed result.
 
 ## 17. Where to read next
 
+- [Post-FreeRTOS roadmap and learning path](ROADMAP_AND_LEARNING_PATH.md)
+- [Phase evidence package template](PHASE_EVIDENCE_TEMPLATE.md)
+- [Phase planning/evidence index](plans/README.md)
+- [Engineering reference index](REFERENCE_INDEX.md)
+- [Release readiness checklist](RELEASE_CHECKLIST.md)
+- [License and IP strategy](LICENSE_STRATEGY.md)
+- [P0 power-baseline requirements](plans/p0-power-baseline/requirements.md)
+- [P0 current results and NOT-RUN ledger](plans/p0-power-baseline/results.md)
 - [Architecture design and decisions](ARCHITECTURE_DESIGN_AND_DECISIONS.md)
 - [Architecture review and action plan](ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md)
 - [Verification framework](../docs/verification_framework.md)
@@ -1086,6 +1116,7 @@ compare RAM data, `load_offset`, extracted value, and committed result.
 - [AR-024 ZYNQ MINI REVB FPGA integration](AR024_ZYNQ_MINI_REVB_FPGA_INTEGRATION.md)
 - [AR-025 official FreeRTOS RISC-V port](AR025_OFFICIAL_FREERTOS_RISCV_PORT.md)
 - [AR-026 scalable UVM verification architecture](AR026_SCALABLE_UVM_VERIFICATION_ARCHITECTURE.md)
+- [AR-027 common-library and multiplier-pipeline review](AR027_RTL_COMMON_AND_MULTIPLIER_PIPELINE_REVIEW.md)
 - [Phase 4 UART implementation guide](../docs/phase4-uart-guide.md)
 - [Phase 4 GPIO implementation guide](../docs/phase4-gpio-guide.md)
 - [Phase 5 startup/runtime implementation guide](../docs/phase5-startup-runtime-guide.md)

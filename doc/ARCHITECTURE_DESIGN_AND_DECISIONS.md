@@ -4,7 +4,7 @@
 
 **Audience:** Designers, reviewers, learners, and future maintainers
 
-**Last updated:** 2026-09-02
+**Last updated:** 2026-09-07
 
 **Current milestone:** The first custom-RV32IM FreeRTOS FPGA demonstration is
 complete. AR-024 implements the ZYNQ MINI REVB boundary; together with AR-025
@@ -18,6 +18,15 @@ AR-026 now accepts a scalable UVM verification direction for post-release
 growth. It is documentation-only: no UVM source or new verification claim is
 implemented yet. The first gated slice is a passive adapter from the existing
 `commit_pkt_t` to a stable retirement transaction and ordered scoreboard.
+
+AR-027 accepts a constrained `src/common/` admission policy and an
+evidence-gated multiplier-pipeline direction. No common RTL or multiplier
+register is added: P0 workload activity and an exact routed timing report must
+precede such a latency-changing decision. P0 is now active as a measurement-
+only phase. One RV32IM VCD/backward-SAIF format spike ran, but the clockless
+OOC import mapped only 4% of design nets and its power number is rejected. The
+repository licensing policy is also adopted as noncommercial source-available
+with commercial use handled through a separate written agreement.
 
 > This is the consolidated record of what the architecture is, why it evolved
 > this way, what was learned while fixing problems, and which decisions remain
@@ -1399,6 +1408,82 @@ changing ISA claims. The retained result is
 | Phase 7: FPGA | Board top/XDC, 25 MHz MMCM/reset, BRAM init, route, timing, and bitstreams complete | 0-error DRC, TNS 0, four bitstreams; JTAG, LED/timer, external UART TX, production FreeRTOS heartbeat/D1, and K2 restart hardware PASS; speed grade still unidentified |
 | Phase 8: release | Applicable ACT4 set plus fail-fast unified release command and physical demonstration implemented | Clean-worktree map/tool/fabric/smoke/Phases 3–6/ACT4 47/47 PASS plus retained 2026-08-23 board UART/FreeRTOS/reset evidence |
 | Continuous UVM expansion | Accepted AR-026 layers semantic domains above protocol VIP and preserves existing verification gates | First passive retirement slice passes its mismatch-negative test, focused retirement, smoke, and unchanged release flow before active agents/ISS |
+| P0 power baseline | Accepted measurement package reuses functional workloads, ModelSim VCD/backward-SAIF, and Vivado activity mapping without changing RTL | Two representative workloads pass, map with retained annotation summaries, and repeat within the stated bound |
+| Common RTL / multiplier | AR-027 accepts contract-driven common primitives and a future kill-safe blocking multiplier only after measured gates | No RTL yet; exact routed target failure or workload benefit, protocol tests, regression, timing/resource, and P0 energy comparison required |
+
+### Planning governance — evidence-gated program roadmap
+
+**Date:** 2026-09-06
+
+**State:** Accepted; documentation implemented, future technical phases not
+implemented by this decision
+
+**Stage:** Post-FreeRTOS planning and cross-conversation development
+
+**Problem:** The completed CPU/FreeRTOS/FPGA work, open UVM track, proposed
+low-power/control/model work, and optional accelerator/NPU/GPU ideas span
+different engineering layers. Treating them as one long undifferentiated TODO
+would hide prerequisites and could make planned capabilities look implemented.
+Transient chat descriptions also do not survive reliably as project authority.
+
+**Options considered:** Keep extending `TODO.md` alone; create one giant product
+specification; immediately create placeholder trees for every future idea; or
+use a staged roadmap plus phase-local evidence packages created only when a
+phase becomes active.
+
+**Decision:** Keep `TODO.md` as the authoritative checkbox ledger and adopt
+[`ROADMAP_AND_LEARNING_PATH.md`](ROADMAP_AND_LEARNING_PATH.md) for dependencies,
+learning topics, and entry/exit gates. New substantial phases use
+[`PHASE_EVIDENCE_TEMPLATE.md`](PHASE_EVIDENCE_TEMPLATE.md) under
+`doc/plans/<phase-id>/`: requirements, architecture, registers when applicable,
+verification plan, and observed results. `AGENTS.md` enforces this across later
+conversations. Existing AR reports and phase guides remain valid and are linked,
+not mechanically migrated.
+
+The long-term atmospheric propulsion platform is recorded as a research-program
+vision. This repository remains the experimental control-SoC foundation; model,
+power, control, bench, accelerator, and flight claims require their own gates.
+Default-branch integration is deferred and later follows
+[`RELEASE_CHECKLIST.md`](RELEASE_CHECKLIST.md).
+
+**Consequences:** Phase scope and knowledge prerequisites become reviewable;
+evidence cannot be replaced by expected results; phases without MMIO can omit
+register files; optional RVV/NPU/GPU work stays gated by workloads and system
+budgets. More documentation is required when work becomes active, but empty
+future scaffolding and duplicated historical records are avoided.
+
+**Verification evidence:** Documentation links, template tailoring matrix, and
+release/license decision gates can be checked statically. This decision changes
+no RTL, firmware, test outcome, FPGA result, or GitHub default-branch setting.
+
+### AR-027 — Common-library and multiplier pipeline are contract-driven
+
+**Date:** 2026-09-07
+
+**State:** Accepted direction; implementation deferred
+
+**Problem/evidence:** CoralNPU demonstrates a broad reusable RTL library, while
+the local `execute.sv` multiply-high path is the documented 12.605 ns OOC
+critical path. The local repository already has a normative naming/ownership
+specification and a kill-safe multicycle divider contract. Folder structure
+alone cannot fix timing; registering multiplication changes architectural
+latency, stalls, kill, retirement, performance, and power.
+
+**Decision:** Admit a helper to `src/common/` only with real reuse or an
+accepted interface, domain-independent semantics, explicit latency/reset/
+handshake behavior, synthesis support, and a focused test. Keep ISA-specific
+execution units in `src/core`. Do not copy CoralNPU source. Preserve the
+combinational multiplier for current goals until an exact routed target or a
+fixed workload demonstrates need. If triggered, use a core-owned
+`start/busy/complete/result/kill` contract compatible in semantics—not latency—
+with the divider, and prove exactly-once launch/completion and no post-kill
+effect.
+
+**Consequences/verification:** A future registered multiplier may improve Fmax
+but can increase CPI and clock power. Acceptance requires protocol/corner/kill
+tests, full RV32M/regression preservation, same-target routed timing/resources,
+and P0 energy per fixed workload. Full analysis is in
+[`AR027_RTL_COMMON_AND_MULTIPLIER_PIPELINE_REVIEW.md`](AR027_RTL_COMMON_AND_MULTIPLIER_PIPELINE_REVIEW.md).
 
 ## 10. Architecture decision template
 
@@ -1481,6 +1566,12 @@ An architecture-changing task is incomplete until this document is updated.
 
 ## 12. Source documents and evidence
 
+- [Post-FreeRTOS roadmap and learning path](ROADMAP_AND_LEARNING_PATH.md)
+- [Phase evidence package template](PHASE_EVIDENCE_TEMPLATE.md)
+- [Engineering reference index](REFERENCE_INDEX.md)
+- [Release readiness checklist](RELEASE_CHECKLIST.md)
+- [License and IP strategy](LICENSE_STRATEGY.md)
+- [P0 power-baseline evidence package](plans/p0-power-baseline/requirements.md)
 - [Project roadmap](../TODO.md)
 - [Phase 0 baseline](PHASE0_BASELINE_2026-07-24.md)
 - [Architecture review](ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md)
@@ -1509,6 +1600,7 @@ An architecture-changing task is incomplete until this document is updated.
 - [AR-024 ZYNQ MINI REVB FPGA integration](AR024_ZYNQ_MINI_REVB_FPGA_INTEGRATION.md)
 - [AR-025 official FreeRTOS RISC-V port](AR025_OFFICIAL_FREERTOS_RISCV_PORT.md)
 - [AR-026 scalable UVM verification architecture](AR026_SCALABLE_UVM_VERIFICATION_ARCHITECTURE.md)
+- [AR-027 common-library and multiplier-pipeline review](AR027_RTL_COMMON_AND_MULTIPLIER_PIPELINE_REVIEW.md)
 - [Phase 5 startup/runtime implementation guide](../docs/phase5-startup-runtime-guide.md)
 - [ACT4 integration handoff](ACT4_RV32I_INTEGRATION_HANDOFF_2026-07-27.md)
 - [ACT4 integration guide](../verif/act4/README.md)

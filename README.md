@@ -5,6 +5,10 @@ project. The immediate goal is a transparent, testable path from instruction
 fetch to bare-metal UART interaction and eventually preemptive FreeRTOS on an
 FPGA—not maximum performance or Linux compatibility.
 
+**License status:** the original project material is source-available for
+noncommercial learning, teaching, and academic research. Commercial use
+requires a separate written license; see [License and commercial use](#license-and-commercial-use).
+
 > I want to understand why every instruction retires exactly once, even when
 > memory stalls, a branch redirects the pipeline, or a trap interrupts the
 > normal path.
@@ -393,6 +397,31 @@ naming standards are in
 [`doc/SEMANTIC_SIGNAL_SPEC.md`](doc/SEMANTIC_SIGNAL_SPEC.md); accepted choices
 and their history are in
 [`doc/ARCHITECTURE_DESIGN_AND_DECISIONS.md`](doc/ARCHITECTURE_DESIGN_AND_DECISIONS.md).
+
+## License and commercial use
+
+Original HeTPort material in this repository is available under the
+[`HeTPort Noncommercial Source-Available License 1.0`](LICENSE). It is
+**source-available, not OSI open source**: commercial R&D, product integration,
+FPGA/ASIC deployment, manufacture, paid services, and other commercial use
+require a separate written agreement. Contact **Hetport@outlook.com** and see
+[`COMMERCIAL_LICENSE.md`](COMMERCIAL_LICENSE.md).
+
+The public copyright identifier is `HeTPort`; a legal name does not need to be
+published in this README. A later commercial agreement, patent filing, or
+legal enforcement may require the legal person or company that owns the
+rights.
+
+Third-party material keeps its own license. In particular,
+`third_party/FreeRTOS-Kernel/` remains under the upstream MIT License and is
+not relicensed by the project terms. See
+[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md). Substantial external
+contributions require prior written contribution terms; see
+[`CONTRIBUTING.md`](CONTRIBUTING.md).
+
+The custom license expresses the present project policy, but is not legal
+advice. Obtain jurisdiction-specific IP advice before fundraising, patent
+filing, tape-out, sale, or the first commercial license.
 
 ## A personal note
 
