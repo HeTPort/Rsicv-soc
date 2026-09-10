@@ -4,7 +4,7 @@
 
 **Audience:** Designers, reviewers, learners, and future maintainers
 
-**Last updated:** 2026-09-07
+**Last updated:** 2026-09-10
 
 **Current milestone:** The first custom-RV32IM FreeRTOS FPGA demonstration is
 complete. AR-024 implements the ZYNQ MINI REVB boundary; together with AR-025
@@ -938,6 +938,17 @@ path or the new multiply-high path. The baseline is in
 [`AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md`](AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md)
 and the implemented follow-up is in
 [`AR017_RADIX2_ITERATIVE_DIVIDER.md`](AR017_RADIX2_ITERATIVE_DIVIDER.md).
+
+The 2026-09-10 divider learning lab adds no architectural decision or RTL
+change. It reruns the current 42-case test, records post-NBA protocol/datapath
+samples, routes the isolated divider for internal-path STA, compares the same
+routing at 40 ns and a deliberately failing 5 ns requirement, and establishes a
+two-warning Verilator baseline. Its reported +30.402 ns setup and +0.107 ns hold
+slacks apply only to internal register paths under the teaching constraints;
+incomplete OOC port routing produces a separate global hold failure and prevents
+board-signoff interpretation. See
+[`DIVIDER_DIGITAL_DESIGN_LAB.md`](DIVIDER_DIGITAL_DESIGN_LAB.md) and
+[`plans/divider-design-lab/results.md`](plans/divider-design-lab/results.md).
 
 ### AR-012 — Retirement and interface cleanup
 

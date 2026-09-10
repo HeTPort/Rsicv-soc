@@ -1,0 +1,9 @@
+`verilator_config
+// Teaching-only review; this is not a project-wide waiver.
+// remainder_work_q[DW] is not consumed: the next iteration explicitly shifts
+// the low DW bits plus one dividend bit. The combinational shifted_remainder
+// and next_remainder remain DW+1 bits for comparison/subtraction.
+// A functional invariant still needs verification; suppressing this warning
+// does not prove the divider algorithm, reset behavior, or parameter support.
+// Only the generated teaching copy's matching signal warning is waived.
+lint_off -rule UNUSEDSIGNAL -file "*/build/divider_lab/lint/width_explicit/radix2_divider.sv" -match "*Bits of signal are not used: 'remainder_work_q'*"

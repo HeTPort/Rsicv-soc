@@ -4,7 +4,7 @@
 
 **Audience:** New contributors and learners
 
-**Last updated:** 2026-09-07
+**Last updated:** 2026-09-10
 
 **Current reference:** `codex/phase2-act4-cleanup`. Phases 1–4 are complete.
 Phase 5 is complete in ModelSim and Vivado OOC synthesis. AR-024 adds the Bo
@@ -251,6 +251,16 @@ remain unmeasured. See
 for the RED baseline and
 [`AR017_RADIX2_ITERATIVE_DIVIDER.md`](AR017_RADIX2_ITERATIVE_DIVIDER.md) for the
 GREEN optimization.
+
+A separate learner-facing experiment now demonstrates the divider workflow on
+the current source: deterministic ModelSim waves and a deliberate checker RED,
+divider-only Vivado routed internal-path STA at 25 MHz plus a same-route 5 ns
+negative constraint, RTL/netlist correspondence, and Verilator warning triage.
+It changes no production RTL and deliberately does not claim board, P0 power,
+reset-release, or ASIC signoff. Follow
+[`DIVIDER_DIGITAL_DESIGN_LAB.md`](DIVIDER_DIGITAL_DESIGN_LAB.md); retained
+scope, requirements and measured results are in
+[`plans/divider-design-lab/results.md`](plans/divider-design-lab/results.md).
 
 ## 3. Recommended learning order
 
