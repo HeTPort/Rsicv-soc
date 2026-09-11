@@ -1,9 +1,20 @@
-# RV32IM RISC-V SoC
+# RV32IM RISC-V Control SoC — Foundation for Propulsion Research
 
-A small 32-bit RISC-V processor and SoC written in SystemVerilog as a learning
-project. The immediate goal is a transparent, testable path from instruction
-fetch to bare-metal UART interaction and eventually preemptive FreeRTOS on an
-FPGA—not maximum performance or Linux compatibility.
+This repository currently implements a small 32-bit RISC-V processor and SoC
+in SystemVerilog. It is the transparent, testable computing and control
+foundation for a much larger research program; it is not the final system.
+
+> **Long-term vision:** explore an atmospheric propulsion and control platform
+> that combines a mechanically compressed inlet/front end with electrically
+> assisted or electric propulsion at altitude, supported by safe power
+> electronics, sensing, closed-loop control, and heterogeneous computation.
+
+The first milestone—booting bare-metal software and preemptive FreeRTOS on the
+custom RV32IM core in FPGA programmable logic—is complete. The **active stage is
+P0**, which is building a reproducible workload power-measurement baseline.
+There is not yet an accepted activity-based power result, power-management IP,
+motor/compressor controller, validated plant model, thrust-producing hardware,
+or propulsion-feasibility evidence.
 
 **License status:** the original project material is source-available for
 noncommercial learning, teaching, and academic research. Commercial use
@@ -20,14 +31,20 @@ introduction.
 
 ## Current development status
 
-Phases 1–4 are complete. Phase 5 provides a split-image C runtime, minimal
-drivers, and three bare-metal programs; it is complete. Phase 6 boots the pinned
-official FreeRTOS V11.3.0 GCC RISC-V port in ModelSim with preemption, queues,
-UART, GPIO, context sentinels, and a separate 1,000-tick scheduler soak. Phase 7
-provides the ZYNQ MINI REVB top/XDC and four routed bitstreams. JTAG plus the physical
+The current deliverable is a **verified small control SoC**, not a propulsion
+controller. Phases 1–4 are complete. Phase 5 provides a split-image C runtime,
+minimal drivers, and three bare-metal programs; it is complete. Phase 6 boots
+the pinned official FreeRTOS V11.3.0 GCC RISC-V port in ModelSim with preemption,
+queues, UART, GPIO, context sentinels, and a separate 1,000-tick scheduler soak.
+Phase 7 provides the ZYNQ MINI REVB top/XDC and four routed bitstreams. JTAG plus
+the physical
 `timer_gpio` and `timer_irq` LED tests pass. External-UART `hello`, production
 FreeRTOS heartbeat/D1 behavior, and repeated K2 restart also pass physically;
 only positive speed-grade identification remains open.
+
+P0 power-baseline work is now active. One VCD/backward-SAIF format experiment
+ran, but only 4% of the older OOC netlist mapped and no valid clock was present;
+its 17.583 W estimate is rejected and is not a project power conclusion.
 
 | Area | Implemented now |
 |---|---|
@@ -47,7 +64,12 @@ only positive speed-grade identification remains open.
 
 This is a verified development baseline, not a complete ISA-compliance or
 production-readiness claim. There is no cache, MMU, S-mode, PLIC, AXI fabric,
-or full forwarding network.
+or full forwarding network. More importantly for the long-term vision, there is
+currently no safe PWM/fault-shutdown slice, ADC/SPI/DMA sampled-data path,
+power-state controller, motor/inverter interface, compressor/flow model,
+MIL/SIL/HIL loop, high-energy bench evidence, or integrated propulsion system.
+RVV/NPU/GPU work is optional and remains deferred until real workloads and
+memory/power measurements justify it.
 
 ## Architecture at a glance
 
@@ -373,18 +395,36 @@ or alternatives considered.
 
 ## Roadmap and open gates
 
-The repository is interview-ready and has a refreshed CPU/SoC simulation
-baseline, including the extended FreeRTOS scheduler/context soak. The first
-FreeRTOS hardware milestone is complete: external UART TX, heartbeat/D1, and
-repeated K2 restart pass. Positive speed-grade identification remains open, and
-the design is not presented as a production-ready SoC.
+The final destination is the propulsion research program stated at the top;
+the repository is presently at its first computing/control foundation. These
+levels are evidence gates, not claims that later capability already exists:
+
+| Level | Intended outcome | Status |
+| --- | --- | --- |
+| 1. Small control SoC | RV32IM, bus/RAM, timer, UART/GPIO, firmware, FreeRTOS and FPGA proof | **Current foundation complete** |
+| 2. Power characterization and management | Representative workloads and valid SAIF mapping, followed by counters and truthful low-power state | **P0 active; P1 gated** |
+| 3. Safe control and low-order model | PWM/capture/watchdog/fault kill in C0; motor/inverter/compressor/flow MIL/SIL in M0 | Planned C0/M0 parallel wave |
+| 4. Sampled-data path and bench | SPI/ADC/interrupt/DMA in C1; then HIL and low-energy correlation in M1 | Planned C1/M1 |
+| 5. Profile-driven compute | One justified accelerator; RVV/NPU/GPU only if measured workloads require them | Deferred and gated |
+| 6. Propulsion feasibility/integration | Energy, thermal, flow and mission trade studies followed much later by integrated hardware | Long-term research vision |
 
 The next practical steps are:
 
-1. confirm the device speed grade from a reliable record;
-2. retain exact bitstream hashes and wall-time metadata for future board runs;
-3. add UART interrupts/PLIC only if a later requirement justifies moving beyond
-   the now-stable polling baseline.
+1. repair P0's activity window, checkpoint/XDC/clock identity and SAIF hierarchy
+   mapping, then meet the repeatability gate;
+2. add counters and a truthful low-power state only after P0 provides a valid
+   comparison baseline;
+3. begin C0 safe control and M0 low-order plant modelling as the first
+   propulsion-relevant vertical slices;
+4. add C1 sensing/data movement before attempting a real closed-loop platform;
+5. keep NPU/GPU and high-energy propulsion hardware deferred until their entry
+   requirements, safety analysis and measured workload/physics evidence exist;
+6. continue the ancillary speed-grade and retained bitstream-evidence work
+   without confusing it with propulsion progress.
+
+The dependency order, learning prerequisites, phase gates, and separation
+between this repository and later model/bench projects are defined in
+[`doc/ROADMAP_AND_LEARNING_PATH.md`](doc/ROADMAP_AND_LEARNING_PATH.md).
 
 You do not need to connect the FPGA board to develop or verify the RTL. JTAG
 compatibility, oscillator, LED polarity, BRAM boot, GPIO, timer progression,

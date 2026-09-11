@@ -1,9 +1,29 @@
-# TODO.md — FreeRTOS on the Custom RV32IM Core in Zynq-7010 PL
+# TODO.md — From a Custom RV32IM SoC Toward a Propulsion Research Platform
 
-## Primary target
+## Program vision, current position, and active target
 
-Boot **FreeRTOS on this repository's custom RV32IM CPU**, synthesized into the
-programmable logic (PL) of a Zynq XC7Z010 device. Demonstrate:
+The long-term goal is not merely to finish a small SoC. It is to explore an
+atmospheric propulsion and control platform combining a mechanically compressed
+inlet/front end with electrically assisted or electric propulsion at altitude,
+supported by safe power electronics, sensing, closed-loop control, and
+heterogeneous computation.
+
+The current repository is only the **small control-SoC foundation**. It does not
+yet implement or prove a power-management platform, motor/compressor controller,
+plant model, thrust-producing device, or flight system.
+
+| Program level | Exit evidence | Status |
+| --- | --- | --- |
+| Small control SoC | RV32IM + timer/UART/GPIO + firmware/FreeRTOS + FPGA execution | **Complete baseline** |
+| Reproducible power measurement | Representative activity maps to the matching routed checkpoint and repeats within the gate | **P0 active; current 4%/no-clock result rejected** |
+| Power-aware SoC state | Hardware counters and a truthful, wake-safe low-power state | Planned P1 after P0 |
+| Safe control and low-order model | C0 PWM/capture/watchdog/fault kill plus M0 motor/inverter/compressor/flow MIL/SIL | Planned parallel C0/M0 wave |
+| Sampled data and bench correlation | C1 ADC/SPI/IRQ/DMA followed by M1 HIL and low-energy measurements | Planned C1/M1 |
+| Optional acceleration | Profiled A0 accelerator; RVV/NPU/GPU only after measured entry gates | Deferred |
+| Propulsion feasibility and integration | Energy/thermal/flow/mission evidence, then much later integrated hardware | Long-term vision |
+
+The former primary target was to boot **FreeRTOS on this repository's custom
+RV32IM CPU** in the programmable logic (PL) of a Zynq XC7Z010 and demonstrate:
 
 - preemptive task switching from a machine-timer interrupt;
 - UART console output;
@@ -11,9 +31,19 @@ programmable logic (PL) of a Zynq XC7Z010 device. Demonstrate:
 - repeatable ModelSim regression and Vivado bitstream generation;
 - stable execution on the physical FPGA board.
 
-FreeRTOS must execute on the custom RISC-V core, not on the Zynq ARM processing
-system. The ARM processing system may be used only to provide a PL clock/reset
-if the selected board does not expose a suitable oscillator directly to the PL.
+That first hardware milestone is now complete. It remains below as historical
+and regression evidence; completing it did not complete the propulsion program.
+
+The immediate active target is **P0 — Reproducible workload power baseline**.
+Its current VCD/backward-SAIF spike mapped only 4% of an incompatible older OOC
+netlist and had no valid clock, so the 17.583 W estimate is rejected. The next
+accepted result must use a deterministic post-reset window, a matching routed
+checkpoint/XDC/25 MHz clock, reviewed activity coverage and repeatability.
+
+For that completed milestone, FreeRTOS had to execute on the custom RISC-V core,
+not on the Zynq ARM processing system. The ARM processing system could be used
+only to provide a PL clock/reset if the selected board did not expose a suitable
+oscillator directly to the PL.
 
 Linux is intentionally deferred. This target does **not** require S-mode, an
 MMU, OpenSBI, U-Boot, DDR, caches, RV64GC, AXI, or a PLIC.
@@ -36,8 +66,9 @@ recommended Phase 0A gate are recorded in
    evidence both exist.
 4. Before completing a phase, be able to explain why the interface or mechanism
    is needed, not only how it was coded.
-5. Prefer the smallest design that meets the FreeRTOS target. Add AXI, PLIC,
-   DDR, and advanced debug only when a later requirement justifies them.
+5. Prefer the smallest design that meets the active phase's measurable exit
+   gate. Add AXI, PLIC, DDR, accelerators, NPU/GPU, or advanced debug only when a
+   later requirement and workload justify them.
 
 New post-FreeRTOS work is coordinated by
 [`doc/ROADMAP_AND_LEARNING_PATH.md`](doc/ROADMAP_AND_LEARNING_PATH.md). When a
@@ -88,7 +119,7 @@ while still preventing FreeRTOS from hiding CPU correctness defects.
 
 ---
 
-## Current project state
+## Current project state — small SoC foundation, not a propulsion system
 
 Implemented:
 
@@ -123,7 +154,7 @@ Implemented:
   converter/importer tests at 12/12 and the regression-result negative test
   passing.
 
-Still missing:
+Completed after the original CPU-only baseline:
 
 - [x] Hardware interrupt input and precise interrupt entry.
 - [x] `mtime`/`mtimecmp` machine timer with registered core-bus target.
@@ -142,13 +173,26 @@ Still missing:
   `timer_irq` results.
 - [x] Physical-board external-UART `hello`, production FreeRTOS UART/GPIO, and
   repeated PL K2 reset result.
+
+Not implemented yet—the actual gap between this SoC and the long-term vision:
+
 - [ ] Positive XC7Z010 speed-grade identification; the conservative `-1`
   target remains in use.
+- [ ] Accepted representative workload power baseline; the 4% mapping/no-clock
+  spike and its 17.583 W estimate remain rejected.
+- [ ] Performance/activity counters and a verified safe low-power state.
+- [ ] PWM, capture, watchdog and CPU-independent external-fault shutdown.
+- [ ] ADC/SPI, interrupt controller and DMA sampled-data path.
+- [ ] Versioned motor/inverter/compressor/flow model with MIL/SIL evidence.
+- [ ] HIL and low-energy bench correlation with measured uncertainty.
+- [ ] Workload-justified accelerator; RVV/NPU/GPU are not current requirements.
+- [ ] Propulsion energy/thermal/flow feasibility, high-energy safety case,
+  thrust-producing hardware, integrated vehicle, or flight qualification.
 
 Current planning position:
 
 - Phase 0A is complete; this closes its correctness gate, not the whole
-  architecture review or FreeRTOS roadmap.
+  architecture review or post-FreeRTOS propulsion roadmap.
 - Phase 1 is complete: AR-009 and the generated
   `freertos_split_64k_v1` hardware/software ABI are accepted.
 - Phase 2 is complete: AR-003/AR-004 close transaction/result ownership,
@@ -851,7 +895,7 @@ for the first FreeRTOS FPGA demonstration:
       existing `mcycle`/`minstret` baseline.
 - [ ] Linux research: S/U modes, MMU, atomics, OpenSBI, DDR, and a larger ISA.
 
-## Immediate next action
+## Immediate next action — advance from the SoC foundation, not skip to hardware
 
 1. Execute the first P0 compute/memory workload from functional PASS through
    VCD/backward-SAIF generation and Vivado `read_saif` mapping. Do not claim
@@ -865,12 +909,21 @@ for the first FreeRTOS FPGA demonstration:
 4. Start U0 later or in parallel only through a legally entitled tool path.
    The installed tree already contains UVM 1.2; no separate pirated download is
    technically required. U0 does not block P0.
-5. Confirm the XC7Z010 speed grade from a reliable vendor/device record; keep
+5. After P0, open the P1 measurement-driven low-power slice and the C0/M0
+   low-energy control/model evidence packages; do not treat documentation as
+   implementation evidence.
+6. Confirm the XC7Z010 speed grade from a reliable vendor/device record; keep
    targeting conservative `xc7z010clg400-1` until then.
-6. When rebuilding board images, retain the exact bitstream SHA-256 and run
+7. When rebuilding board images, retain the exact bitstream SHA-256 and run
    duration alongside the existing UART/reset evidence.
-7. Keep the 47-test ACT4, 23-test smoke, scheduler-soak, and board timing/DRC
+8. Keep the 47-test ACT4, 23-test smoke, scheduler-soak, and board timing/DRC
    gates active for future changes.
+
+Do not jump directly from the present SoC to a motor, compressor, plasma/electric
+thruster, or human-carrying platform. The first propulsion-relevant work starts
+only after P0 with C0 safe low-energy control and M0 versioned plant modelling;
+C1 sensing, M1 HIL/bench correlation, energy/thermal/flow feasibility and an
+explicit safety case must precede any integrated high-energy experiment.
 
 Default-branch integration is deliberately deferred. It must later follow the
 reviewed [`doc/RELEASE_CHECKLIST.md`](doc/RELEASE_CHECKLIST.md); merely switching
