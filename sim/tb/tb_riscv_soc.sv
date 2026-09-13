@@ -49,9 +49,6 @@ module tb_riscv_soc #(
   logic prog_wr_en;
   logic [AW-1:0] prog_wr_addr;
   logic [DW-1:0] prog_wr_data;
-  logic [DW-1:0] test_case;
-  logic [DW-1:0] reg_s10;
-  logic [DW-1:0] reg_s11;
   commit_pkt_t commit;
   trap_entry_t trap_entry;
   logic cpu_rst_n;
@@ -114,9 +111,6 @@ module tb_riscv_soc #(
     .prog_wr_data(prog_wr_data),
     .load_done   (load_done),
     .uart_rx_i   (uart_rx),
-    .test_case   (test_case),
-    .reg_s10     (reg_s10),
-    .reg_s11     (reg_s11),
     .commit_o    (commit),
     .trap_entry_o(trap_entry),
     .uart_tx_o  (uart_tx),
@@ -387,8 +381,6 @@ module tb_riscv_soc #(
     $display("============================================================");
     $display("[SOC-TB] cycle  = %0d", cycle_count);
     $display("[SOC-TB] tohost = 0x%08h", tohost_val);
-    $display("[SOC-TB] x10    = 0x%08h", reg_s10);
-    $display("[SOC-TB] x11    = 0x%08h", reg_s11);
     $display("[SOC-TB] timer IRQs = %0d", timer_irq_count);
     $display("[SOC-TB] UART bytes = %0d", uart_byte_count);
     $display("[SOC-TB] GPIO transitions = %0d", gpio_transition_count);

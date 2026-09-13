@@ -1,5 +1,5 @@
 `timescale 1ns / 1ps
-`default_nettype wire
+`default_nettype none
 // ============================================================
 // Module: data_ram
 // Description:
@@ -14,7 +14,6 @@ module data_ram #(
   parameter INIT_FILE = ""  // Vivado 2019.2-compatible string parameter
 )(
   input  wire logic            clk_i,
-  input  wire logic            rst_ni,  // 保留接口兼容，但内部仅用于仿真复位
   input  wire logic            ren_i,
   input  wire logic            wen_i,
   input  wire logic [DW/8-1:0] wstrb_i,
@@ -68,13 +67,6 @@ module data_ram #(
     // 这保证了 Vivado 会将其无缝推断为 Block RAM 的输出寄存器
     if (ren_i) begin
       rdata_o <= mem[word_addr];
-    end 
-    else begin
-      // 当 ren_i 为低时，BRAM 输出默认保持上一次的值。
-      // 如果你的外层 CPU 需要在 ren_i 为低时输出为 0，
-      // 应该在 CPU 内部的 LSU (Load Store Unit) 里处理，而不是在 RAM 里。
-      // 但为了不改变你原本“不读时就清零”的行为，这里保留：
-      rdata_o <= '0; // 注意：这可能会消耗少量LUT，如果追求极致BRAM利用率可删掉此else。
     end
   end
 

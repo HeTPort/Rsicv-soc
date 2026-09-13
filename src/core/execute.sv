@@ -22,8 +22,8 @@ module execute #(
   input  logic          csr_privilege_ok_i,
   input  logic [AW-1:0] mepc_i,
 
-  // Completed multi-cycle divider result selected by the core top level.
-  input  logic [DW-1:0] div_result_i,
+  // Completed RV32M result selected by the replaceable arithmetic facade.
+  input  logic [DW-1:0] rv32m_result_i,
 
   // 横向输出信号
   output logic          redirect_en_o,
@@ -37,13 +37,13 @@ module execute #(
 
   logic          valid_i;
   logic [AW-1:0] pc_i;
-  logic [DW-1:0] instr_i, op1_i, op2_i, store_data_i, imm_i;
+  logic [DW-1:0] instr_i, op1_i, op2_i, imm_i;
   logic [4:0]    rd_i;
   logic          rf_we_i;
   alu_op_e       alu_op_i;
   branch_op_e    branch_op_i;
   jump_op_e      jump_op_i;
-  logic          mem_req_i, mem_we_i, mem_unsigned_i;
+  logic          mem_we_i, mem_unsigned_i;
   mem_size_e     mem_size_i;
   wb_sel_e       wb_sel_i;
   logic          muldiv_valid_i;
@@ -57,14 +57,12 @@ module execute #(
   assign instr_i         = pkt_exe_i.instr;
   assign op1_i           = pkt_exe_i.ex_data.op1;
   assign op2_i           = pkt_exe_i.ex_data.op2;
-  assign store_data_i    = pkt_exe_i.ex_data.store_data;
   assign imm_i           = pkt_exe_i.ex_data.imm;
   assign rd_i            = pkt_exe_i.rf.addr;
   assign rf_we_i         = pkt_exe_i.rf.we;
   assign alu_op_i        = pkt_exe_i.ex_ctrl.alu_op;
   assign branch_op_i     = pkt_exe_i.ex_ctrl.branch_op;
   assign jump_op_i       = pkt_exe_i.ex_ctrl.jump_op;
-  assign mem_req_i       = pkt_exe_i.ex_ctrl.mem_req;
   assign mem_we_i        = pkt_exe_i.ex_ctrl.mem_we;
   assign mem_size_i      = pkt_exe_i.ex_ctrl.mem_size;
   assign mem_unsigned_i  = pkt_exe_i.ex_ctrl.mem_unsigned;
@@ -78,13 +76,6 @@ module execute #(
   assign is_mret_i       = pkt_exe_i.is_mret;
   assign is_wfi_i        = pkt_exe_i.is_wfi;
   assign csr_i           = pkt_exe_i.csr;
-
-  // Suppress unused warnings for signals now handled by LSU
-  logic _unused_mem;
-  assign _unused_mem = mem_req_i | mem_we_i | (&store_data_i) | mem_unsigned_i | (mem_size_i == MEM_SIZE_BYTE);
-
-  logic [DW-1:0] instr_dbg_unused;
-  assign instr_dbg_unused = instr_i;
 
   // ------------------------------------------------------------
   // Effective address (still needed for JALR target)
@@ -175,62 +166,10 @@ module execute #(
       (control_target[IALIGN_LSB-1:0] != '0);
 
   // ------------------------------------------------------------
-  // RV32M combinational multiply. Division is provided by radix2_divider.
+  // RV32M arithmetic is owned by rv32m_unit.
   // ------------------------------------------------------------
-  logic signed [(2*DW)-1:0] mul_op1_ss;
-  logic signed [(2*DW)-1:0] mul_op2_ss;
-  logic signed [(2*DW)-1:0] mul_op1_su;
-  logic signed [(2*DW)-1:0] mul_op2_su;
-  logic        [(2*DW)-1:0] mul_op1_uu;
-  logic        [(2*DW)-1:0] mul_op2_uu;
-  logic signed [(2*DW)-1:0] product_ss;
-  logic signed [(2*DW)-1:0] product_su;
-  logic        [(2*DW)-1:0] product_uu;
-  assign mul_op1_ss = {{DW{op1_i[DW-1]}}, op1_i};
-  assign mul_op2_ss = {{DW{op2_i[DW-1]}}, op2_i};
-  assign mul_op1_su = {{DW{op1_i[DW-1]}}, op1_i};
-  assign mul_op2_su = {DW'(0), op2_i};
-  assign mul_op1_uu = {DW'(0), op1_i};
-  assign mul_op2_uu = {DW'(0), op2_i};
-  assign product_ss = mul_op1_ss * mul_op2_ss;
-  assign product_su = mul_op1_su * mul_op2_su;
-  assign product_uu = mul_op1_uu * mul_op2_uu;
   logic [DW-1:0] muldiv_result;
-  always_comb begin
-    muldiv_result = '0;
-    unique case (muldiv_op_i)
-      MULDIV_NONE: begin
-        muldiv_result = '0;
-      end
-      MULDIV_MUL: begin
-        muldiv_result = product_ss[DW-1:0];
-      end
-      MULDIV_MULH: begin
-        muldiv_result = product_ss[(2*DW)-1:DW];
-      end
-      MULDIV_MULHSU: begin
-        muldiv_result = product_su[(2*DW)-1:DW];
-      end
-      MULDIV_MULHU: begin
-        muldiv_result = product_uu[(2*DW)-1:DW];
-      end
-      MULDIV_DIV: begin
-        muldiv_result = div_result_i;
-      end
-      MULDIV_DIVU: begin
-        muldiv_result = div_result_i;
-      end
-      MULDIV_REM: begin
-        muldiv_result = div_result_i;
-      end
-      MULDIV_REMU: begin
-        muldiv_result = div_result_i;
-      end
-      default: begin
-        muldiv_result = '0;
-      end
-    endcase
-  end
+  assign muldiv_result = (muldiv_op_i == MULDIV_NONE) ? '0 : rv32m_result_i;
 
   // ------------------------------------------------------------
   // CSR write data computation

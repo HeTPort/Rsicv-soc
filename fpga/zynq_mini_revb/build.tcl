@@ -15,6 +15,17 @@ if {$argc > 1} {
 }
 set app_name [expr {$argc == 1 ? [lindex $argv 0] : "hello"}]
 
+if {[info exists ::env(ZYNQ_MINI_CORE_CLOCK_HZ)] &&
+    $::env(ZYNQ_MINI_CORE_CLOCK_HZ) ne ""} {
+  set core_clock_hz $::env(ZYNQ_MINI_CORE_CLOCK_HZ)
+} else {
+  set core_clock_hz 25000000
+}
+if {$core_clock_hz ni {25000000 100000000}} {
+  error "Unsupported ZYNQ_MINI_CORE_CLOCK_HZ '$core_clock_hz'; expected 25000000 or 100000000"
+}
+set core_clock_mhz [expr {$core_clock_hz / 1000000}]
+
 # Hardware-visible timer profiles.  The firmware images are unchanged; only
 # the mtime prescaler differs so LED changes and interrupts can be observed.
 array set timer_ticks {
@@ -26,7 +37,9 @@ array set timer_ticks {
 if {![info exists timer_ticks($app_name)]} {
   error "Unknown application '$app_name'; expected hello, timer_gpio, timer_irq, or freertos_demo"
 }
-set timer_tick_cycles $timer_ticks($app_name)
+set timer_tick_cycles [expr {
+  $timer_ticks($app_name) * $core_clock_hz / 25000000
+}]
 
 if {[info exists ::env(ZYNQ_MINI_PART)] && $::env(ZYNQ_MINI_PART) ne ""} {
   set part_name $::env(ZYNQ_MINI_PART)
@@ -39,7 +52,10 @@ if {[info exists ::env(ZYNQ_MINI_PART)] && $::env(ZYNQ_MINI_PART) ne ""} {
 set program_image [file normalize [file join $repo_root testdata firmware_${app_name}.imem.hex]]
 set data_image    [file normalize [file join $repo_root testdata firmware_${app_name}.dmem.hex]]
 set xdc_file      [file normalize [file join $script_dir constraints.xdc]]
-set output_dir    [file normalize [file join $repo_root build zynq_mini_revb $app_name]]
+set build_name [expr {
+  $core_clock_hz == 25000000 ? $app_name : "${app_name}_${core_clock_mhz}mhz"
+}]
+set output_dir [file normalize [file join $repo_root build zynq_mini_revb $build_name]]
 
 foreach required_file [list $program_image $data_image $xdc_file] {
   if {![file exists $required_file]} {
@@ -57,6 +73,8 @@ set rtl_files [list \
   [file join $repo_root src core ex2wb.sv] \
   [file join $repo_root src core decode.sv] \
   [file join $repo_root src core radix2_divider.sv] \
+  [file join $repo_root src core rv32m_mul_comb.sv] \
+  [file join $repo_root src core rv32m_unit.sv] \
   [file join $repo_root src core execute.sv] \
   [file join $repo_root src core lsu.sv] \
   [file join $repo_root src core retire_stage.sv] \
@@ -90,6 +108,7 @@ synth_design \
     PROGRAM_INIT_FILE=$program_image \
     DATA_INIT_FILE=$data_image \
     TIMER_TICK_CYCLES=$timer_tick_cycles \
+    CORE_CLOCK_HZ=$core_clock_hz \
   ]
 
 set bram_cells [get_cells -hier -filter {
@@ -166,7 +185,7 @@ puts $metadata "PART_ASSUMPTION=conservative -1 speed grade; package mark not re
 puts $metadata "APPLICATION=$app_name"
 puts $metadata "PROGRAM_IMAGE=$program_image"
 puts $metadata "DATA_IMAGE=$data_image"
-puts $metadata "CORE_CLOCK_HZ=25000000"
+puts $metadata "CORE_CLOCK_HZ=$core_clock_hz"
 puts $metadata "TIMER_TICK_CYCLES=$timer_tick_cycles"
 puts $metadata "ROUTED_WNS_NS=$routed_wns"
 puts $metadata "BRAM_COUNT=[llength $bram_cells]"
@@ -184,6 +203,7 @@ write_bitstream -force $bitstream_file
 puts "ZYNQ_MINI_BOARD=20240221/REVB"
 puts "ZYNQ_MINI_PART=$part_name"
 puts "ZYNQ_MINI_APPLICATION=$app_name"
+puts "ZYNQ_MINI_CORE_CLOCK_HZ=$core_clock_hz"
 puts "ZYNQ_MINI_TIMER_TICK_CYCLES=$timer_tick_cycles"
 puts "ZYNQ_MINI_ROUTED_WNS_NS=$routed_wns"
 puts "ZYNQ_MINI_BITSTREAM=$bitstream_file"

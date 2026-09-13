@@ -882,8 +882,14 @@ These may improve performance or broaden the SoC, but they are not prerequisites
 for the first FreeRTOS FPGA demonstration:
 
 - [ ] EX/MEM/WB forwarding and reduced RAW stalls.
-- [ ] Further RV32M throughput optimization only if measured software workload
-  or routed timing justifies it; AR-017's required divider fix is verified.
+- [x] Add the AR-027 replaceable RV32M facade and shared single-product
+  combinational multiplier; focused protocol/corner/kill tests, smoke 23/23,
+  ACT4 RV32M 8/8, FreeRTOS demo, layered lint, 4-DSP OOC synthesis, and the
+  exact-board 25 MHz route at WNS +17.517 ns pass.
+- [ ] Implement and evaluate a registered multiplier backend behind
+  `rv32m_unit`; the exact-board 100 MHz route triggered this gate with WNS
+  -0.387 ns, TNS -3.637 ns, and a 2-DSP48E1/11-CARRY4 worst path. Do not accept
+  it until protocol/regression, routed timing, CPI, and workload-energy gates pass.
 - [x] UART RX FIFO baseline; keep external UART interrupt deferred.
 - [ ] Machine software interrupt (`msip`).
 - [ ] PLIC or a small external interrupt controller.
@@ -900,12 +906,12 @@ for the first FreeRTOS FPGA demonstration:
 1. Execute the first P0 compute/memory workload from functional PASS through
    VCD/backward-SAIF generation and Vivado `read_saif` mapping. Do not claim
    low-power design from the current vectorless estimate.
-2. Preserve the user's recent 75 MHz experiment with exact part, clock,
-   synthesis/route stage, WNS/TNS, critical path/cells, DSP count, and report
-   hash before deciding whether to pipeline multiplication.
-3. Keep the current combinational multiplier until AR-027's routed timing or
-   workload/energy gate triggers; if it does, create a separate phase package
-   and implement a kill-safe start/busy/complete blocking unit.
+2. Implement a registered multiplier candidate behind AR-027's verified
+   `rv32m_unit` contract. The retained 100 MHz route failed with WNS -0.387 ns
+   on the multiplier path, so the timing gate has triggered.
+3. Compare that candidate against the combinational backend for 100 MHz routed
+   timing, resource use, architectural regressions, CPI, and fixed-workload
+   energy before changing the production default.
 4. Start U0 later or in parallel only through a legally entitled tool path.
    The installed tree already contains UVM 1.2; no separate pirated download is
    technically required. U0 does not block P0.

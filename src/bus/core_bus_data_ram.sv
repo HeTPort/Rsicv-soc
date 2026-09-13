@@ -86,7 +86,6 @@ module core_bus_data_ram #(
     .INIT_FILE(INIT_FILE)
   ) u_data_ram (
     .clk_i   (clk_i),
-    .rst_ni  (rst_ni),
     .ren_i   (ram_ren),
     .wen_i   (ram_wen),
     .wstrb_i (ram_wstrb),
@@ -133,7 +132,10 @@ module core_bus_data_ram #(
         end
 
         ADAPTER_RAM_CAPTURE: begin
-          rsp_q.rdata <= ram_rdata;
+          // Storage output is meaningful only for a successful read. Keeping
+          // this normalization in the protocol adapter lets the physical RAM
+          // use its native hold-last-value BRAM template.
+          rsp_q.rdata <= (active_req.write || request_error) ? '0 : ram_rdata;
           rsp_q.error <= request_error;
           if (RSP_WAIT_CYCLES == 0) begin
             rsp_valid_q <= 1'b1;

@@ -4,14 +4,16 @@
 // Bo Chen Jing Xin ZYNQ MINI 20240221/REVB programmable-logic wrapper.
 //
 // The board supplies a 50 MHz clock directly to the PL on K17.  The MMCM
-// produces the conservative 25 MHz clock used by the first hardware profile.
+// produces either the conservative 25 MHz board clock or the 100 MHz timing
+// evaluation clock selected by CORE_CLOCK_HZ.
 // PL K2 is active low.  Reset asserts asynchronously and is released only
 // after the MMCM is locked and four core-clock edges have passed.
 module top #(
   // Untyped filename parameters are intentional for Vivado 2019.2.
   parameter PROGRAM_INIT_FILE = "",
   parameter DATA_INIT_FILE = "",
-  parameter integer TIMER_TICK_CYCLES = 1
+  parameter integer TIMER_TICK_CYCLES = 1,
+  parameter integer CORE_CLOCK_HZ = 25_000_000
 )(
   input  wire        clk_50m_i,
   input  wire        reset_n_i,
@@ -21,8 +23,8 @@ module top #(
 );
   wire clkfb_mmcm;
   wire clkfb_bufg;
-  wire clk_25m_mmcm;
-  wire clk_25m;
+  wire clk_core_mmcm;
+  wire clk_core;
   wire mmcm_locked;
   wire reset_async_n;
   wire soc_reset_n;
@@ -35,13 +37,14 @@ module top #(
   // application execution remains in u_soc in programmable logic.
   (* DONT_TOUCH = "TRUE" *) PS7 u_ps7 ();
 
-  // 50 MHz input, 1000 MHz VCO, 25 MHz output.
+  // 50 MHz input and 1000 MHz VCO. Supported output dividers are 40 for
+  // 25 MHz and 10 for the 100 MHz timing profile.
   MMCME2_BASE #(
     .BANDWIDTH          ("OPTIMIZED"),
     .CLKFBOUT_MULT_F    (20.0),
     .CLKFBOUT_PHASE     (0.0),
     .CLKIN1_PERIOD      (20.0),
-    .CLKOUT0_DIVIDE_F   (40.0),
+    .CLKOUT0_DIVIDE_F   (CORE_CLOCK_HZ == 100_000_000 ? 10.0 : 40.0),
     .CLKOUT0_DUTY_CYCLE (0.5),
     .CLKOUT0_PHASE      (0.0),
     .DIVCLK_DIVIDE      (1),
@@ -49,7 +52,7 @@ module top #(
     .STARTUP_WAIT       ("FALSE")
   ) u_core_mmcm (
     .CLKFBOUT  (clkfb_mmcm),
-    .CLKOUT0   (clk_25m_mmcm),
+    .CLKOUT0   (clk_core_mmcm),
     .LOCKED    (mmcm_locked),
     .CLKFBIN   (clkfb_bufg),
     .CLKIN1    (clk_50m_i),
@@ -63,13 +66,13 @@ module top #(
   );
 
   BUFG u_core_clk_bufg (
-    .I (clk_25m_mmcm),
-    .O (clk_25m)
+    .I (clk_core_mmcm),
+    .O (clk_core)
   );
 
   assign reset_async_n = reset_n_i & mmcm_locked;
 
-  always @(posedge clk_25m or negedge reset_async_n) begin
+  always @(posedge clk_core or negedge reset_async_n) begin
     if (!reset_async_n) begin
       reset_sync_q <= 4'b0000;
     end else begin
@@ -82,22 +85,19 @@ module top #(
 
   riscv_soc #(
     .TIMER_TICK_CYCLES (TIMER_TICK_CYCLES),
-    .UART_CLK_FREQ_HZ  (25_000_000),
+    .UART_CLK_FREQ_HZ  (CORE_CLOCK_HZ),
     .UART_BAUD_RATE    (115_200),
     .GPIO_WIDTH        (8),
     .PROGRAM_INIT_FILE (PROGRAM_INIT_FILE),
     .DATA_INIT_FILE    (DATA_INIT_FILE)
   ) u_soc (
-    .clk          (clk_25m),
+    .clk          (clk_core),
     .rst_n        (soc_reset_n),
     .prog_wr_en   (1'b0),
     .prog_wr_addr (32'b0),
     .prog_wr_data (32'b0),
     .load_done    (1'b1),
     .uart_rx_i    (uart_rx_i),
-    .test_case    (),
-    .reg_s10      (),
-    .reg_s11      (),
     .commit_o     (),
     .trap_entry_o (),
     .uart_tx_o    (uart_tx_o),

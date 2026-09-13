@@ -1,28 +1,25 @@
 `timescale 1ns / 1ps
-`default_nettype wire
+`default_nettype none
 import riscv_pkg::*;
 
 module riscv #(
   parameter int AW = riscv_pkg::AW,
   parameter int DW = riscv_pkg::DW
 )(
-  input  logic          clk_i,
-  input  logic          rst_ni,
+  input  wire logic          clk_i,
+  input  wire logic          rst_ni,
   output logic          instr_ren_o,
   output logic [AW-1:0] instr_addr_o,
-  input  logic [DW-1:0] instr_rdata_i,
-  input  logic          instr_fetch_error_i,
+  input  wire logic [DW-1:0] instr_rdata_i,
+  input  wire logic          instr_fetch_error_i,
   output logic          data_req_valid_o,
-  input  logic          data_req_ready_i,
+  input  wire logic          data_req_ready_i,
   output core_bus_req_t data_req_o,
-  input  logic          data_rsp_valid_i,
-  input  core_bus_rsp_t data_rsp_i,
-  input  logic          irq_mti_i,
+  input  wire logic          data_rsp_valid_i,
+  input  wire core_bus_rsp_t data_rsp_i,
+  input  wire logic          irq_mti_i,
   output logic          wfi_wait_o,
   output trap_entry_t   trap_entry_o,
-  output logic [DW-1:0] dbg_x3_o,
-  output logic [DW-1:0] dbg_x10_o,
-  output logic [DW-1:0] dbg_x11_o,
   output logic          illegal_instr_o,
   output logic          exception_o,
   output commit_pkt_t   commit_o
@@ -53,7 +50,6 @@ module riscv #(
   logic [DW-1:0] id_rs1_rdata;
   logic [DW-1:0] id_rs2_rdata;
   logic          wb_rf_wen;
-  logic          wb_rf_wen_safe;
   logic [4:0]    wb_rf_waddr;
   logic [DW-1:0] wb_rf_wdata;
 
@@ -64,7 +60,6 @@ module riscv #(
   csr_irq_context_t csr_irq_context;
   redirect_t        retire_redirect;
   trap_entry_t      retire_trap_entry;
-  logic             retire_irq_taken;
   logic             retire_wfi_enter;
   logic             retire_wfi_wait;
 
@@ -79,15 +74,10 @@ module riscv #(
   logic          csr_implemented;
   logic          csr_read_only;
   logic          csr_privilege_ok;
-  logic [AW-1:0] csr_mtvec;
   logic [AW-1:0] csr_mepc;
-  logic [DW-1:0] csr_mstatus;
-  logic [DW-1:0] csr_mie;
-  logic [DW-1:0] csr_mip;
 
   // Trap / mret controls
   logic          wb_trap_event;
-  logic          wb_mret_event;
   logic          trap_redirect_en;
   logic [AW-1:0] trap_redirect_pc;
   logic          pc_redirect_en;
@@ -105,17 +95,14 @@ module riscv #(
   logic           ex_kill;
   logic           ex_mem_transaction;
 
-  // Iterative divider <-> pipeline interface
-  logic           ex_div_instruction;
-  logic           div_start;
-  logic           div_signed;
-  logic           div_busy;
-  logic           div_complete;
-  logic           div_wait;
+  // Replaceable RV32M unit <-> pipeline interface
+  rv32m_req_t     rv32m_req;
+  rv32m_rsp_t     rv32m_rsp;
+  logic           rv32m_req_valid;
+  logic           rv32m_req_ready;
+  logic           rv32m_rsp_valid;
+  logic           rv32m_wait;
   logic           ex_wait;
-  logic [DW-1:0]  div_quotient;
-  logic [DW-1:0]  div_remainder;
-  logic [DW-1:0]  div_result;
 
   // ============================================================
   // 3. Control Unit Interface Signals
@@ -123,7 +110,6 @@ module riscv #(
   logic pc_stall, ifid_stall, idex_stall, exwb_stall;
   logic ifid_flush, idex_flush, pipe_kill;
 
-  assign wb_mret_event = csr_retire_cmd.mret;
   assign trap_redirect_en = retire_redirect.valid;
   assign trap_redirect_pc = retire_redirect.pc;
   assign pc_redirect_en   = ex_redirect_en || trap_redirect_en;
@@ -145,7 +131,6 @@ module riscv #(
     .trap_entry_o      (retire_trap_entry),
     .commit_o          (commit_o),
     .sync_trap_o       (wb_trap_event),
-    .irq_taken_o       (retire_irq_taken),
     .wfi_enter_o       (retire_wfi_enter),
     .wfi_wait_o        (retire_wfi_wait)
   );
@@ -189,13 +174,11 @@ module riscv #(
   // ============================================================
   logic wb_csr_we;
   logic [11:0] wb_csr_addr;
-  logic [DW-1:0] wb_csr_wdata;
   logic [DW-1:0] wb_csr_wdata_effective;
   logic [AW-1:0] csr_mepc_for_ex;
 
   assign wb_csr_we    = csr_preview_req.valid;
   assign wb_csr_addr  = csr_preview_req.addr;
-  assign wb_csr_wdata = csr_preview_req.wdata;
   // An adjacent CSR instruction in EX must observe the effective (WARL-filtered)
   // value written by the older CSR instruction in WB.
   assign csr_rdata_for_ex =
@@ -227,12 +210,7 @@ module riscv #(
     .irq_context_o             (csr_irq_context),
     .retire_cmd_i              (csr_retire_cmd),
     .irq_mti_i                 (irq_mti_i),
-    // Outputs
-    .mtvec_o      (csr_mtvec),
-    .mepc_o       (csr_mepc),
-    .mstatus_o    (csr_mstatus),
-    .mie_o        (csr_mie),
-    .mip_o        (csr_mip)
+    .mepc_o       (csr_mepc)
   );
 
 `ifndef SYNTHESIS
@@ -314,72 +292,35 @@ module riscv #(
     .pkt2ex_o (id2ex_pkt_out)
   );
 
-  // EX kill for outstanding LSU or divider work: pipe_kill or any EX exception.
+  // EX kill for outstanding LSU or RV32M work: pipe_kill or any EX exception.
   assign ex_kill = pipe_kill |
                    id2ex_pkt_out.exc.illegal_instr |
                    id2ex_pkt_out.exc.instr_access_fault |
                    id2ex_pkt_out.exc.ecall |
                    id2ex_pkt_out.exc.ebreak;
 
-  // DIV/DIVU/REM/REMU hold ID/EX until the one-cycle divider completion.
-  // `div_wait` includes the initial start cycle, avoiding an early advance
-  // before the divider's registered busy state becomes visible.
-  always_comb begin
-    ex_div_instruction = 1'b0;
-    div_signed         = 1'b0;
-    div_result         = div_quotient;
+  assign rv32m_req_valid = id2ex_pkt_out.valid &&
+                           id2ex_pkt_out.ex_ctrl.muldiv_valid;
+  assign rv32m_req.op    = id2ex_pkt_out.ex_ctrl.muldiv_op;
+  assign rv32m_req.lhs   = id2ex_pkt_out.ex_data.op1;
+  assign rv32m_req.rhs   = id2ex_pkt_out.ex_data.op2;
 
-    if (id2ex_pkt_out.valid && id2ex_pkt_out.ex_ctrl.muldiv_valid) begin
-      unique case (id2ex_pkt_out.ex_ctrl.muldiv_op)
-        MULDIV_DIV: begin
-          ex_div_instruction = 1'b1;
-          div_signed         = 1'b1;
-          div_result         = div_quotient;
-        end
-        MULDIV_DIVU: begin
-          ex_div_instruction = 1'b1;
-          div_result         = div_quotient;
-        end
-        MULDIV_REM: begin
-          ex_div_instruction = 1'b1;
-          div_signed         = 1'b1;
-          div_result         = div_remainder;
-        end
-        MULDIV_REMU: begin
-          ex_div_instruction = 1'b1;
-          div_result         = div_remainder;
-        end
-        default: begin
-          ex_div_instruction = 1'b0;
-        end
-      endcase
-    end
-  end
+  assign ex_wait    = lsu_busy || rv32m_wait;
 
-  assign div_start = ex_div_instruction &&
-                     !div_busy &&
-                     !div_complete &&
-                     !ex_kill;
-  // Keep interrupt deferral independent of a same-cycle retirement kill.
-  // div_start/kill_i still prevent or cancel work; including !ex_kill here
-  // creates redirect -> pipe_kill -> !div_wait -> redirect feedback.
-  assign div_wait  = ex_div_instruction && !div_complete;
-  assign ex_wait   = lsu_busy || div_wait;
-
-  radix2_divider #(
+  rv32m_unit #(
     .DW(DW)
-  ) u_radix2_divider (
+  ) u_rv32m_unit (
     .clk_i       (clk_i),
     .rst_ni      (rst_ni),
-    .start_i     (div_start),
+    .req_valid_i (rv32m_req_valid),
+    .req_ready_o (rv32m_req_ready),
+    .req_i       (rv32m_req),
+    .rsp_valid_o (rv32m_rsp_valid),
+    .rsp_ready_i (1'b1),
+    .rsp_o       (rv32m_rsp),
     .kill_i      (ex_kill),
-    .signed_i    (div_signed),
-    .dividend_i  (id2ex_pkt_out.ex_data.op1),
-    .divisor_i   (id2ex_pkt_out.ex_data.op2),
-    .busy_o      (div_busy),
-    .complete_o  (div_complete),
-    .quotient_o  (div_quotient),
-    .remainder_o (div_remainder)
+    .wait_o      (rv32m_wait),
+    .busy_o      ()
   );
 
   // ============================================================
@@ -393,7 +334,7 @@ module riscv #(
     .csr_read_only_i  (csr_read_only),
     .csr_privilege_ok_i(csr_privilege_ok),
     .mepc_i           (csr_mepc_for_ex),
-    .div_result_i     (div_result),
+    .rv32m_result_i   (rv32m_rsp.result),
     .redirect_en_o    (ex_redirect_en),
     .redirect_pc_o    (ex_redirect_pc),
     .flush_req_o      (ex_flush_req),
@@ -460,7 +401,7 @@ module riscv #(
       end
     end
 
-    if (ex_div_instruction && !div_complete)
+    if (rv32m_req_valid && !rv32m_rsp_valid)
       ex2wb_pkt_in_safe = EX_WB_PKT_BUBBLE;
 
     if (pipe_kill)
@@ -481,17 +422,15 @@ module riscv #(
           else $error("Pipeline kill did not clear EX/WB side effects");
         assert (!data_req_valid_o)
           else $error("Pipeline kill did not suppress the LSU request");
-        assert (!div_start)
-          else $error("Pipeline kill did not suppress divider start");
+        assert (!rv32m_req_ready)
+          else $error("Pipeline kill did not suppress RV32M request acceptance");
       end
 
-      if (ex_div_instruction && !div_complete) begin
+      if (rv32m_req_valid && !rv32m_rsp_valid) begin
         assert (!ex2wb_pkt_in_safe.valid)
-          else $error("Incomplete divide instruction entered EX/WB");
+          else $error("Incomplete RV32M instruction entered EX/WB");
       end
 
-      assert (!(div_start && div_busy))
-        else $error("Divider restarted while busy");
     end
   end
 `endif
@@ -513,7 +452,6 @@ module riscv #(
   assign wb_rf_wen      = retire_rf_write.valid;
   assign wb_rf_waddr    = retire_rf_write.addr;
   assign wb_rf_wdata    = retire_rf_write.data;
-  assign wb_rf_wen_safe = wb_rf_wen;
 
   regfile #(
     .DW(DW)
@@ -524,12 +462,9 @@ module riscv #(
     .rs1_rdata_o (id_rs1_rdata),
     .rs2_raddr_i (id_rs2_raddr),
     .rs2_rdata_o (id_rs2_rdata),
-    .rd_wen_i    (wb_rf_wen_safe),
+    .rd_wen_i    (wb_rf_wen),
     .rd_waddr_i  (wb_rf_waddr),
-    .rd_wdata_i  (wb_rf_wdata),
-    .dbg_x3_o    (dbg_x3_o),
-    .dbg_x10_o   (dbg_x10_o),
-    .dbg_x11_o   (dbg_x11_o)
+    .rd_wdata_i  (wb_rf_wdata)
   );
 
 `ifndef SYNTHESIS
@@ -552,12 +487,12 @@ module riscv #(
       end
 
       if (!ex2wb_pkt_out.valid) begin
-        assert (!(wb_rf_wen_safe ||
+        assert (!(wb_rf_wen ||
                   wb_csr_we ||
                   ex2wb_pkt_out.mem_valid ||
                   ex2wb_pkt_out.mem_we ||
                   wb_trap_event ||
-                  wb_mret_event))
+                  csr_retire_cmd.mret))
           else $error("Invalid EX/WB packet caused a retirement side effect");
       end
     end

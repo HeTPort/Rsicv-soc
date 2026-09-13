@@ -55,11 +55,8 @@ module tb_riscv_core #(
   core_bus_rsp_t data_rsp;
 
   // ------------------------------------------------------------
-  // Debug outputs
+  // Architectural observations
   // ------------------------------------------------------------
-  logic [DW-1:0] dbg_x3;
-  logic [DW-1:0] dbg_x10;
-  logic [DW-1:0] dbg_x11;
   logic illegal_instr;
   logic exception;
   commit_pkt_t commit;
@@ -85,9 +82,6 @@ module tb_riscv_core #(
     .irq_mti_i       (1'b0),
     .wfi_wait_o      (),
     .trap_entry_o    (),
-    .dbg_x3_o        (dbg_x3),
-    .dbg_x10_o       (dbg_x10),
-    .dbg_x11_o       (dbg_x11),
     .illegal_instr_o (illegal_instr),
     .exception_o     (exception),
     .commit_o        (commit)
@@ -295,9 +289,6 @@ module tb_riscv_core #(
         $display("[TB] TIMEOUT");
         $display("[TB] cycle     = %0d", cycle_count);
         $display("[TB] instr_addr= 0x%08h", instr_addr);
-        $display("[TB] dbg_x3    = 0x%08h", dbg_x3);
-        $display("[TB] dbg_x10   = 0x%08h", dbg_x10);
-        $display("[TB] dbg_x11   = 0x%08h", dbg_x11);
         $display("============================================================");
         $fatal(1, "[TB] Simulation timeout");
       end
@@ -344,9 +335,6 @@ module tb_riscv_core #(
     $display("[TB] tohost write detected");
     $display("[TB] cycle          = %0d", cycle_count);
     $display("[TB] instr_addr     = 0x%08h", instr_addr);
-    $display("[TB] dbg_x3         = 0x%08h", dbg_x3);
-    $display("[TB] dbg_x10        = 0x%08h", dbg_x10);
-    $display("[TB] dbg_x11        = 0x%08h", dbg_x11);
     $display("[TB] illegal_instr  = %0b", illegal_instr);
     $display("[TB] exception      = %0b", exception);
     $display("[TB] tohost         = 0x%08h", tohost_val);

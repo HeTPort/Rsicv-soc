@@ -14,7 +14,6 @@ module tb_retire_stage;
   trap_entry_t trap_entry;
   commit_pkt_t commit;
   logic sync_trap;
-  logic irq_taken;
   logic wfi_enter;
   logic wfi_wait;
   logic irq_defer;
@@ -32,7 +31,6 @@ module tb_retire_stage;
     .trap_entry_o      (trap_entry),
     .commit_o          (commit),
     .sync_trap_o       (sync_trap),
-    .irq_taken_o       (irq_taken),
     .wfi_enter_o       (wfi_enter),
     .wfi_wait_o        (wfi_wait)
   );
@@ -142,7 +140,7 @@ module tb_retire_stage;
     irq_context.mip     = 32'h0000_0080;
     irq_context.mtvec   = 32'h0000_0180;
     #1;
-    assert (irq_taken && csr_retire_cmd.csr_write.valid &&
+    assert (csr_retire_cmd.trap.interrupt && csr_retire_cmd.csr_write.valid &&
             csr_retire_cmd.instret && csr_retire_cmd.trap.valid &&
             csr_retire_cmd.trap.interrupt)
       else $fatal(1, "interrupt discarded the retiring CSR instruction");
@@ -162,7 +160,7 @@ module tb_retire_stage;
     pkt.next_pc = 32'h200;
     pkt.is_mret = 1'b1;
     #1;
-    assert (csr_retire_cmd.mret && !irq_taken &&
+    assert (csr_retire_cmd.mret && !csr_retire_cmd.trap.interrupt &&
             !csr_retire_cmd.trap.valid && !redirect.valid)
       else $fatal(1, "MRET boundary incorrectly selected an interrupt");
 
@@ -175,7 +173,8 @@ module tb_retire_stage;
     pkt.wb_sel  = WB_NONE;
     pkt.is_mret = 1'b0;
     #1;
-    assert (irq_taken && csr_retire_cmd.trap.pc == 32'h200)
+    assert (csr_retire_cmd.trap.interrupt &&
+            csr_retire_cmd.trap.pc == 32'h200)
       else $fatal(1, "interrupt after branch did not save resolved next_pc");
 
     // A completed load may retire normally and then take an interrupt. The
@@ -190,7 +189,7 @@ module tb_retire_stage;
     pkt.mem_rdata          = 32'ha5a5_5a5a;
     pkt.mem_info.mem_size  = MEM_SIZE_WORD;
     #1;
-    assert (irq_taken && commit.mem_valid && !commit.mem_we &&
+    assert (csr_retire_cmd.trap.interrupt && commit.mem_valid && !commit.mem_we &&
             commit.mem_rdata == 32'ha5a5_5a5a && csr_retire_cmd.instret)
       else $fatal(1, "interrupt after completed load lost retirement effects");
 
@@ -198,7 +197,8 @@ module tb_retire_stage;
     // current ordinary retirement.
     irq_defer = 1'b1;
     #1;
-    assert (!irq_taken && !csr_retire_cmd.trap.valid && commit.valid &&
+    assert (!csr_retire_cmd.trap.interrupt &&
+            !csr_retire_cmd.trap.valid && commit.valid &&
             csr_retire_cmd.instret)
       else $fatal(1, "multi-cycle ownership did not defer interrupt selection");
     irq_defer = 1'b0;
@@ -215,7 +215,7 @@ module tb_retire_stage;
     pkt.is_wfi  = 1'b1;
     #1;
     assert (wfi_enter && !wfi_wait && csr_retire_cmd.instret &&
-            commit.valid && !irq_taken)
+            commit.valid && !csr_retire_cmd.trap.interrupt)
       else $fatal(1, "WFI did not retire once before entering wait");
     @(posedge clk);
     #1;
@@ -231,7 +231,7 @@ module tb_retire_stage;
     irq_context.mie     = 32'h0000_0080;
     irq_context.mip     = 32'h0000_0080;
     #1;
-    assert (irq_taken && csr_retire_cmd.trap.valid &&
+    assert (csr_retire_cmd.trap.interrupt && csr_retire_cmd.trap.valid &&
             csr_retire_cmd.trap.interrupt &&
             csr_retire_cmd.trap.pc == 32'h94 &&
             !csr_retire_cmd.instret && !commit.valid)

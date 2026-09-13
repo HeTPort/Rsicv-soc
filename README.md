@@ -48,7 +48,7 @@ its 17.583 W estimate is rejected and is not a project power conclusion.
 
 | Area | Implemented now |
 |---|---|
-| ISA | RV32I plus RV32M; iterative 32-cycle DIV/DIVU/REM/REMU |
+| ISA | RV32I plus RV32M; shared-product combinational MUL variants and iterative 32-cycle DIV/DIVU/REM/REMU behind a replaceable arithmetic facade |
 | Pipeline | In-order packed packets, RAW stalls, redirects, delayed fetch kill, and canonical bubbles |
 | Retirement | Central architectural decision point for RF/CSR writes, traps, MRET, WFI, and `minstret` |
 | Privilege | Machine CSRs, legality/WARL behavior, precise synchronous exceptions and timer interrupts |

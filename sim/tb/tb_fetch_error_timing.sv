@@ -68,9 +68,6 @@ module tb_fetch_error_timing;
     .irq_mti_i           (1'b0),
     .wfi_wait_o          (),
     .trap_entry_o        (trap_entry),
-    .dbg_x3_o            (),
-    .dbg_x10_o           (),
-    .dbg_x11_o           (),
     .illegal_instr_o     (),
     .exception_o         (),
     .commit_o            (commit)

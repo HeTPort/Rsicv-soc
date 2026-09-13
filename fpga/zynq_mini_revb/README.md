@@ -6,6 +6,12 @@ marking does not show a readable speed grade, so the flow uses the conservative
 Vivado part `xc7z010clg400-1`. Set `ZYNQ_MINI_PART` only after positively
 identifying a different speed grade.
 
+The production profile remains 25 MHz. For a timing experiment, set
+`ZYNQ_MINI_CORE_CLOCK_HZ=100000000`; the build then configures the MMCM for a
+real 100 MHz output, scales timer/UART parameters, and writes reports under an
+application-specific `_100mhz` directory. The current combinational multiplier
+does **not** close at 100 MHz: the retained route reports WNS -0.387 ns.
+
 The top includes a retained but otherwise unused PS7 hard block because Vivado
 requires it for correct Zynq device configuration. It supplies no clock or
 application service: the custom RISC-V SoC remains entirely in PL.
@@ -67,6 +73,12 @@ $vivado = 'D:\vivado\Vivado\2019.2\bin\vivado.bat'
   -source .\fpga\zynq_mini_revb\build.tcl -tclargs timer_irq
 & $vivado -mode batch -notrace `
   -source .\fpga\zynq_mini_revb\build.tcl -tclargs freertos_demo
+
+# Optional timing experiment; currently expected to fail the WNS gate.
+$env:ZYNQ_MINI_CORE_CLOCK_HZ = '100000000'
+& $vivado -mode batch -notrace `
+  -source .\fpga\zynq_mini_revb\build.tcl -tclargs hello
+Remove-Item Env:\ZYNQ_MINI_CORE_CLOCK_HZ
 ```
 
 Each run reads RTL and XDC, synthesizes, checks that both firmware images

@@ -12,11 +12,7 @@ module tb_csr_retire_order;
   logic csr_read_only;
   logic csr_privilege_ok;
   logic [31:0] preview_effective;
-  logic [31:0] mtvec;
   logic [31:0] mepc;
-  logic [31:0] mstatus;
-  logic [31:0] mie;
-  logic [31:0] mip;
 
   ex_wb_pkt_t pkt;
   csr_write_req_t preview_req;
@@ -27,7 +23,6 @@ module tb_csr_retire_order;
   trap_entry_t trap_entry;
   commit_pkt_t commit;
   logic sync_trap;
-  logic irq_taken;
   logic wfi_enter;
   logic wfi_wait;
 
@@ -44,7 +39,6 @@ module tb_csr_retire_order;
     .trap_entry_o      (trap_entry),
     .commit_o          (commit),
     .sync_trap_o       (sync_trap),
-    .irq_taken_o       (irq_taken),
     .wfi_enter_o       (wfi_enter),
     .wfi_wait_o        (wfi_wait)
   );
@@ -63,11 +57,7 @@ module tb_csr_retire_order;
     .irq_context_o             (irq_context),
     .retire_cmd_i              (retire_cmd),
     .irq_mti_i                 (irq_mti),
-    .mtvec_o                    (mtvec),
-    .mepc_o                     (mepc),
-    .mstatus_o                  (mstatus),
-    .mie_o                      (mie),
-    .mip_o                      (mip)
+    .mepc_o                     (mepc)
   );
 
   always #5 clk = ~clk;
@@ -113,15 +103,16 @@ module tb_csr_retire_order;
     // MIE remains clear, so neither setup instruction can take the IRQ.
     set_csr_packet(32'h20, CSR_MTVEC, 32'h0000_0183);
     #1;
-    assert (!irq_taken && preview_effective == 32'h0000_0180)
+    assert (!retire_cmd.trap.interrupt && preview_effective == 32'h0000_0180)
       else $fatal(1, "mtvec WARL preview is wrong");
     clock_packet();
-    assert (mtvec == 32'h0000_0180)
+    assert (irq_context.mtvec == 32'h0000_0180)
       else $fatal(1, "mtvec write did not commit");
 
     set_csr_packet(32'h24, CSR_MIE, 32'hffff_ffff);
     #1;
-    assert (!irq_taken && irq_context.mie == 32'h0000_0080)
+    assert (!retire_cmd.trap.interrupt &&
+            irq_context.mie == 32'h0000_0080)
       else $fatal(1, "mie WARL preview is wrong");
     clock_packet();
 
@@ -130,7 +121,8 @@ module tb_csr_retire_order;
     irq_mti = 1'b1;
     set_csr_packet(32'h28, CSR_MSTATUS, 32'h0000_0008);
     #1;
-    assert (irq_context.mstatus[MSTATUS_MIE_BIT] && irq_taken)
+    assert (irq_context.mstatus[MSTATUS_MIE_BIT] &&
+            retire_cmd.trap.interrupt)
       else $fatal(1, "post-retirement mstatus did not enable the interrupt");
     assert (retire_cmd.csr_write.valid && retire_cmd.trap.valid &&
             retire_cmd.trap.interrupt && retire_cmd.trap.pc == 32'h2c)
@@ -139,7 +131,8 @@ module tb_csr_retire_order;
       else $fatal(1, "interrupt did not use effective mtvec");
     clock_packet();
 
-    assert (!mstatus[MSTATUS_MIE_BIT] && mstatus[MSTATUS_MPIE_BIT])
+    assert (!irq_context.mstatus[MSTATUS_MIE_BIT] &&
+            irq_context.mstatus[MSTATUS_MPIE_BIT])
       else $fatal(1, "trap entry did not save post-write MIE into MPIE");
     assert (mepc == 32'h2c)
       else $fatal(1, "interrupt mepc is not the retiring instruction next PC");
@@ -155,17 +148,17 @@ module tb_csr_retire_order;
     pkt.next_pc = mepc;
     pkt.is_mret = 1'b1;
     #1;
-    assert (retire_cmd.mret && !irq_taken)
+    assert (retire_cmd.mret && !retire_cmd.trap.interrupt)
       else $fatal(1, "MRET did not exclude same-boundary interrupt");
     clock_packet();
-    assert (mstatus[MSTATUS_MIE_BIT])
+    assert (irq_context.mstatus[MSTATUS_MIE_BIT])
       else $fatal(1, "MRET did not restore MIE");
 
     // A retiring mtvec write is visible to an interrupt selected at that same
     // boundary.
     set_csr_packet(32'h104, CSR_MTVEC, 32'h0000_0243);
     #1;
-    assert (irq_taken && redirect.pc == 32'h0000_0240)
+    assert (retire_cmd.trap.interrupt && redirect.pc == 32'h0000_0240)
       else $fatal(1, "same-boundary interrupt used stale mtvec");
     clock_packet();
 
@@ -177,12 +170,13 @@ module tb_csr_retire_order;
     clock_packet();
     set_csr_packet(32'h108, CSR_MIE, 32'h0000_0000);
     #1;
-    assert (!irq_context.mie[MIE_MTIE_BIT] && !irq_taken &&
+    assert (!irq_context.mie[MIE_MTIE_BIT] &&
+            !retire_cmd.trap.interrupt &&
             !retire_cmd.trap.valid)
       else $fatal(1, "post-retirement mie disable did not mask pending MTIP");
     clock_packet();
 
-    assert (mip[MIP_MTIP_BIT] && irq_mti)
+    assert (irq_context.mip[MIP_MTIP_BIT] && irq_mti)
       else $fatal(1, "hardware MTIP was not composed into mip");
 
     $display("[CSR-RETIRE-ORDER-TB] RESULT: PASS");

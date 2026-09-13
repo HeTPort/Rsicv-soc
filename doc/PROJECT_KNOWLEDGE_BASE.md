@@ -28,6 +28,9 @@ Post-FreeRTOS growth is now organized by an evidence-gated roadmap rather than
 one flat wish list. Each active substantial phase records requirements,
 architecture, registers when applicable, verification plan, and observed
 results using [`PHASE_EVIDENCE_TEMPLATE.md`](PHASE_EVIDENCE_TEMPLATE.md).
+The current synthesizable hierarchy, runtime paths, shared packages, and
+replaceable interfaces are summarized in
+[`MODULE_DEPENDENCY_VIEW.md`](MODULE_DEPENDENCY_VIEW.md).
 The detailed sequence and learning prerequisites are in
 [`ROADMAP_AND_LEARNING_PATH.md`](ROADMAP_AND_LEARNING_PATH.md). This planning
 change adds no RTL, UVM, low-power, accelerator, or propulsion capability.
@@ -37,9 +40,11 @@ commercial contact (`Hetport@outlook.com`); FreeRTOS remains under its upstream
 MIT terms. P0 is the active measurement-only phase. One passing RV32IM run
 produced VCD/backward-SAIF and Vivado parsed the format, but only 4% of the
 older OOC checkpoint's nets mapped and no clock was defined; that power number
-is rejected. AR-027 accepts a small contract-driven future `src/common/` policy
-and defers multiplier pipelining until exact routed timing or workload/energy
-evidence justifies its latency and control cost.
+is rejected. AR-027 now implements packed RV32M request/response contracts and
+a shared single-product combinational backend. OOC SoC synthesis reduced the
+multiplier mapping from the previously recorded 12 DSP48E1 cells to 4 while
+retaining zero added MUL latency. A registered multiplier and any future
+`src/common/` growth remain gated by routed timing and workload/energy evidence.
 
 > Update this document whenever a change alters a module boundary, pipeline
 > timing, packet field, architectural behavior, memory map, verification
@@ -178,8 +183,9 @@ the minimal architecture needed for the first working system.
 - An accepted P0 workload-derived Vivado power result; the current format spike
   has only 4% mapping, includes reset, lacks a clock, and is deliberately
   rejected.
-- A `src/common/` primitive library or registered multiplier; AR-027 defines
-  entry and verification gates but changes no RTL.
+- A `src/common/` primitive library or registered multiplier. AR-027's RV32M
+  facade and shared combinational backend are implemented; new common blocks
+  and latency-changing backends still require their entry gates.
 
 The implementation contract and ordered verification gates for the first item
 are defined in the
@@ -268,7 +274,7 @@ Read and experiment in this order:
 
 1. **Instruction flow:** `pc_counter` → `prog_ram` → `if2id`.
 2. **Decode and operands:** `decode`, `regfile`, `id2ex`.
-3. **Execution:** `execute`, ALU, branches, jumps, and RV32M.
+3. **Execution:** `execute`, ALU, branches, jumps, and the `rv32m_unit` facade.
 4. **Memory:** `lsu`, `data_ram`, and load/store alignment.
 5. **Retirement:** `ex2wb`, `retire_stage`, semantic commands, and observations.
 6. **Control:** `core_ctrl`, hazards, stalls, flushes, and kills.
@@ -294,12 +300,15 @@ flowchart LR
   subgraph CORE["riscv core"]
     IF["Fetch request and response tag"]
     ID["Decode and register read"]
-    EX["ALU, branch, RV32M, CSR result"]
+    EX["ALU, branch, CSR result"]
+    MDU["rv32m_unit: shared MUL + iterative DIV"]
     LSU["LSU transaction FSM"]
     WB["retire_stage: RF/CSR/trap/commit/WFI"]
     CTRL["Hazard, flush, and kill control"]
     CSR["M-mode CSR state"]
   end
+
+  EX <--> MDU
 
   FABRIC["Full-address data fabric"]
   TIMER["Registered mtime/mtimecmp target"]
@@ -351,7 +360,9 @@ registered default target. Polling UART TX/RX and output GPIO are implemented.
 | `src/core/riscv.sv` | CPU composition, execute/retirement redirect selection, and external data bus |
 | `src/core/riscv_pkg.sv` | ISA constants, enums, packet definitions, trap causes |
 | `src/core/decode.sv` | Instruction fields, immediates, operands, and control generation |
-| `src/core/execute.sv` | ALU, branches/jumps, multiply/completed-divide selection, CSR operations, trap metadata |
+| `src/core/execute.sv` | ALU, branches/jumps, completed RV32M result consumption, CSR operations, trap metadata |
+| `src/core/rv32m_unit.sv` | Single-outstanding valid/ready RV32M facade, kill/wait ownership, and result selection |
+| `src/core/rv32m_mul_comb.sv` | One shared signed 33-by-33 product for all four RV32M multiply variants |
 | `src/core/radix2_divider.sv` | Iterative DIV/DIVU/REM/REMU arithmetic, completion, and kill handling |
 | `src/core/core_ctrl.sv` | RAW hazards, LSU/divider EX wait, stalls, flushes, delayed fetch kill |
 | `src/core/retire_stage.sv` | Final RF/CSR commands, exception/IRQ choice, WFI state, redirect and commit observations |
@@ -362,8 +373,8 @@ registered default target. Polling UART TX/RX and output GPIO are implemented.
 | `src/core/id2ex.sv` | Decode-to-execute pipeline register |
 | `src/core/ex2wb.sv` | Execute-to-writeback pipeline register |
 | `src/mem/prog_ram.sv` | One-cycle synchronous instruction/program BRAM |
-| `src/mem/data_ram.sv` | Synchronous byte-writeable data RAM |
-| `src/bus/core_bus_data_ram.sv` | CPU-local bus to synchronous RAM adapter |
+| `src/mem/data_ram.sv` | Synchronous byte-writeable BRAM template with native hold-last read behavior |
+| `src/bus/core_bus_data_ram.sv` | CPU-local bus adapter; owns request timing and normalized read/write/error responses |
 | `src/bus/soc_data_fabric.sv` | Full-address timer/UART/GPIO/RAM/default decode, local translation, registered response owner |
 | `src/bus/core_bus_default_target.sv` | Registered zero-data error response with no write side effect |
 | `src/periph/mtime_timer.sv` | Registered RV32 `mtime`/`mtimecmp` bus target and level-sensitive MTIP |
@@ -1042,7 +1053,7 @@ The planned ownership tree and gates are documented in the
 | Unmapped access faults | Data load/store and out-of-range instruction fetches trap precisely; canonical fetch-fault packets plus consecutive-invalid, redirect/stale-response, and LSU-stall timing cases are directed and passing | Closed for current fixed-latency interface; revisit for instruction wait states/multiple targets / AR-018 |
 | Interrupt boundary | Implemented and verified; broader randomized boundary coverage remains useful | Continuous verification / AR-008/AR-010 |
 | Timer | Implemented word-access timer and polling/interrupt firmware APIs; both exact-board LED-visible timer profiles pass physically | Closed for bare-metal baseline / AR-024 |
-| RV32M timing | Exact-board 25 MHz routing passes; AR-017's 12.605 ns OOC multiply-high path explains a possible ~75–79 MHz ceiling but is not routed Fmax. Preserve the user's new exact report before changing latency | AR-017/AR-027; pipeline only after routed/workload gate |
+| RV32M timing | The AR-027 shared-product backend reduces OOC SoC DSP mapping from 12 to 4 with no added MUL cycle. It routes at 25 MHz with WNS +17.517 ns but fails the controlled 100 MHz route at WNS -0.387 ns; the 15-level worst path crosses 2 DSP48E1 and 11 CARRY4 cells from ID/EX operand to EX/WB result | AR-027; develop a registered backend behind the existing facade, then compare CPI, route, and energy before acceptance |
 | Retirement ownership | `retire_stage` is the owner; obsolete `halt_o` is removed and the public-interface cleanup is verified | Closed / AR-012 |
 | Peripherals | Timer, GPIO, and external polling-UART TX pass physically; UART RX remains pin-level simulated, while UART interrupts/PLIC are deferred | Closed for first polling baseline; future interrupt phase if justified |
 | UART RX capacity | The 16-byte default FIFO tolerates bounded polling latency but sustained traffic can still overrun | Firmware must monitor errors; revisit interrupts/DMA only after board baseline |

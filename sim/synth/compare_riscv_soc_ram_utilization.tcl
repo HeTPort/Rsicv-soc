@@ -51,6 +51,8 @@ set rtl_files [list \
   [file join $repo_root src core ex2wb.sv] \
   [file join $repo_root src core decode.sv] \
   [file join $repo_root src core radix2_divider.sv] \
+  [file join $repo_root src core rv32m_mul_comb.sv] \
+  [file join $repo_root src core rv32m_unit.sv] \
   [file join $repo_root src core execute.sv] \
   [file join $repo_root src core lsu.sv] \
   [file join $repo_root src core retire_stage.sv] \

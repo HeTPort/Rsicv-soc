@@ -1,20 +1,17 @@
 `timescale 1ns / 1ps
-`default_nettype wire
+`default_nettype none
 module regfile #(
   parameter int DW = 32
 )(
-  input  logic          clk_i,
-  input  logic          rst_ni,
-  input  logic [4:0]    rs1_raddr_i,
+  input  wire logic          clk_i,
+  input  wire logic          rst_ni,
+  input  wire logic [4:0]    rs1_raddr_i,
   output logic [DW-1:0] rs1_rdata_o,
-  input  logic [4:0]    rs2_raddr_i,
+  input  wire logic [4:0]    rs2_raddr_i,
   output logic [DW-1:0] rs2_rdata_o,
-  input  logic          rd_wen_i,
-  input  logic [4:0]    rd_waddr_i,
-  input  logic [DW-1:0] rd_wdata_i,
-  output logic [DW-1:0] dbg_x3_o,
-  output logic [DW-1:0] dbg_x10_o,
-  output logic [DW-1:0] dbg_x11_o
+  input  wire logic          rd_wen_i,
+  input  wire logic [4:0]    rd_waddr_i,
+  input  wire logic [DW-1:0] rd_wdata_i
 );
   logic [DW-1:0] regs [0:31];
   integer i;
@@ -47,8 +44,5 @@ module regfile #(
       regs[rd_waddr_i] <= rd_wdata_i;
     end
   end
-  assign dbg_x3_o  = regs[3];
-  assign dbg_x10_o = regs[10];
-  assign dbg_x11_o = regs[11];
 endmodule
 `default_nettype wire

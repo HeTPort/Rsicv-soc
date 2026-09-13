@@ -1,5 +1,5 @@
 `timescale 1ns/1ps
-`default_nettype wire
+`default_nettype none
 import riscv_pkg::*;
 
 // Sole owner of architectural retirement decisions. Combinational outputs
@@ -9,11 +9,11 @@ module retire_stage #(
   parameter int AW = riscv_pkg::AW,
   parameter int DW = riscv_pkg::DW
 )(
-  input  logic             clk_i,
-  input  logic             rst_ni,
-  input  ex_wb_pkt_t       pkt_i,
-  input  csr_irq_context_t csr_irq_context_i,
-  input  logic             irq_defer_i,
+  input  wire logic             clk_i,
+  input  wire logic             rst_ni,
+  input  wire ex_wb_pkt_t       pkt_i,
+  input  wire csr_irq_context_t csr_irq_context_i,
+  input  wire logic             irq_defer_i,
 
   output csr_write_req_t   csr_preview_req_o,
   output rf_write_cmd_t    rf_write_cmd_o,
@@ -22,7 +22,6 @@ module retire_stage #(
   output trap_entry_t      trap_entry_o,
   output commit_pkt_t      commit_o,
   output logic             sync_trap_o,
-  output logic             irq_taken_o,
   output logic             wfi_enter_o,
   output logic             wfi_wait_o
 );
@@ -60,7 +59,6 @@ module retire_stage #(
     redirect_o              = '0;
     trap_entry_o            = '0;
     commit_o                = '0;
-    irq_taken_o             = 1'b0;
     wfi_enter_o             = 1'b0;
 
     if (pkt_i.valid && !sync_trap_o) begin
@@ -96,7 +94,6 @@ module retire_stage #(
     // avoid two architectural redirects claiming one cycle.
     if (pkt_i.valid && !sync_trap_o && !pkt_i.is_mret &&
         irq_eligible && !irq_defer_i) begin
-      irq_taken_o                         = 1'b1;
       csr_retire_cmd_o.trap.valid         = 1'b1;
       csr_retire_cmd_o.trap.interrupt     = 1'b1;
       csr_retire_cmd_o.trap.pc            = pkt_i.next_pc;
@@ -117,7 +114,6 @@ module retire_stage #(
     // A later eligible interrupt wakes logical WFI without another instruction
     // retirement or minstret increment.
     if (wfi_wait_q && irq_eligible && !irq_defer_i) begin
-      irq_taken_o                         = 1'b1;
       csr_retire_cmd_o.trap.valid         = 1'b1;
       csr_retire_cmd_o.trap.interrupt     = 1'b1;
       csr_retire_cmd_o.trap.pc            = wfi_resume_pc_q;
@@ -193,7 +189,7 @@ module retire_stage #(
         else $error("Synchronous trap retained a normal retirement effect");
       assert (!(csr_retire_cmd_o.trap.valid && csr_retire_cmd_o.mret))
         else $error("Trap entry and MRET were selected together");
-      if (irq_taken_o) begin
+      if (csr_retire_cmd_o.trap.interrupt) begin
         assert (csr_retire_cmd_o.trap.interrupt)
           else $error("IRQ selection did not generate interrupt trap entry");
         if (!wfi_wait_q) begin
@@ -207,10 +203,10 @@ module retire_stage #(
             else $error("WFI wake retired twice or saved the wrong PC");
         end
       end
-      assert (!(wfi_enter_o && irq_taken_o))
+      assert (!(wfi_enter_o && csr_retire_cmd_o.trap.interrupt))
         else $error("WFI entered wait while taking an interrupt");
       if (irq_defer_i) begin
-        assert (!irq_taken_o)
+        assert (!csr_retire_cmd_o.trap.interrupt)
           else $error("Interrupt was taken while a multi-cycle owner required deferral");
       end
       if (!pkt_i.valid) begin

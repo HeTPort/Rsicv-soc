@@ -4,7 +4,7 @@
 
 **Audience:** Designers, reviewers, learners, and future maintainers
 
-**Last updated:** 2026-09-10
+**Last updated:** 2026-09-13
 
 **Current milestone:** The first custom-RV32IM FreeRTOS FPGA demonstration is
 complete. AR-024 implements the ZYNQ MINI REVB boundary; together with AR-025
@@ -19,10 +19,11 @@ growth. It is documentation-only: no UVM source or new verification claim is
 implemented yet. The first gated slice is a passive adapter from the existing
 `commit_pkt_t` to a stable retirement transaction and ordered scoreboard.
 
-AR-027 accepts a constrained `src/common/` admission policy and an
-evidence-gated multiplier-pipeline direction. No common RTL or multiplier
-register is added: P0 workload activity and an exact routed timing report must
-precede such a latency-changing decision. P0 is now active as a measurement-
+AR-027 now implements a replaceable RV32M request/response facade and a shared
+single-product combinational multiplier. Vivado OOC SoC synthesis reduces the
+mapping from the previously recorded 12 DSP48E1 cells to 4 without adding a
+MUL cycle. No common RTL or multiplier register is added: P0 workload activity
+and an exact routed timing report must precede a latency-changing backend. P0 is now active as a measurement-
 only phase. One RV32IM VCD/backward-SAIF format spike ran, but the clockless
 OOC import mapped only 4% of design nets and its power number is rejected. The
 repository licensing policy is also adopted as noncommercial source-available
@@ -43,7 +44,10 @@ Use this document to answer four questions:
 
 The companion
 [`PROJECT_KNOWLEDGE_BASE.md`](PROJECT_KNOWLEDGE_BASE.md) explains the design as
-a study guide. `TODO.md` owns detailed execution checklists. This document owns
+a study guide, and
+[`MODULE_DEPENDENCY_VIEW.md`](MODULE_DEPENDENCY_VIEW.md) is the maintained
+structural and runtime dependency map. `TODO.md` owns detailed execution
+checklists. This document owns
 architectural intent, decisions, consequences, and design history.
 
 ### Decision states
@@ -82,7 +86,8 @@ programmable logic of a Zynq XC7Z010:
 - Blocking, single-outstanding CPU data bus with target-controlled request and
   response latency.
 - No general forwarding network beyond register-file write-first bypass.
-- Combinational RV32M multiplication plus iterative multi-cycle division.
+- A single-outstanding `rv32m_unit` contract with combinational shared-product
+  multiplication plus iterative multi-cycle division.
 - Vivado 2019.2 and ModelSim 2019.2 compatibility matter.
 
 ### 2.3 Deliberate non-goals for the FreeRTOS milestone
@@ -1420,7 +1425,7 @@ changing ISA claims. The retained result is
 | Phase 8: release | Applicable ACT4 set plus fail-fast unified release command and physical demonstration implemented | Clean-worktree map/tool/fabric/smoke/Phases 3–6/ACT4 47/47 PASS plus retained 2026-08-23 board UART/FreeRTOS/reset evidence |
 | Continuous UVM expansion | Accepted AR-026 layers semantic domains above protocol VIP and preserves existing verification gates | First passive retirement slice passes its mismatch-negative test, focused retirement, smoke, and unchanged release flow before active agents/ISS |
 | P0 power baseline | Accepted measurement package reuses functional workloads, ModelSim VCD/backward-SAIF, and Vivado activity mapping without changing RTL | Two representative workloads pass, map with retained annotation summaries, and repeat within the stated bound |
-| Common RTL / multiplier | AR-027 accepts contract-driven common primitives and a future kill-safe blocking multiplier only after measured gates | No RTL yet; exact routed target failure or workload benefit, protocol tests, regression, timing/resource, and P0 energy comparison required |
+| Common RTL / multiplier | AR-027 implements the RV32M facade and shared-product combinational backend; the measured 100 MHz failure triggers registered-backend development | Facade tests and smoke pass; 4-DSP/32-BRAM mapping retained; 25 MHz WNS +17.517 ns PASS; 100 MHz WNS -0.387 ns/TNS -3.637 ns FAIL on a 2-DSP/11-CARRY4 multiplier path |
 
 ### Planning governance — evidence-gated program roadmap
 
@@ -1471,7 +1476,8 @@ no RTL, firmware, test outcome, FPGA result, or GitHub default-branch setting.
 
 **Date:** 2026-09-07
 
-**State:** Accepted direction; implementation deferred
+**State:** Facade/shared combinational backend implemented and verified;
+100 MHz gate failed, registered-backend candidate now justified
 
 **Problem/evidence:** CoralNPU demonstrates a broad reusable RTL library, while
 the local `execute.sv` multiply-high path is the documented 12.605 ns OOC
@@ -1485,13 +1491,20 @@ accepted interface, domain-independent semantics, explicit latency/reset/
 handshake behavior, synthesis support, and a focused test. Keep ISA-specific
 execution units in `src/core`. Do not copy CoralNPU source. Preserve the
 combinational multiplier for current goals until an exact routed target or a
-fixed workload demonstrates need. If triggered, use a core-owned
-`start/busy/complete/result/kill` contract compatible in semantics—not latency—
-with the divider, and prove exactly-once launch/completion and no post-kill
-effect.
+fixed workload demonstrates need. Implement packed `rv32m_req_t` and
+`rv32m_rsp_t` payloads with explicit valid/ready/kill/wait semantics, put the
+existing divider and a single-product multiplier behind `rv32m_unit`, and keep
+registered or iterative multiplier implementations as later backends.
 
-**Consequences/verification:** A future registered multiplier may improve Fmax
-but can increase CPI and clock power. Acceptance requires protocol/corner/kill
+**Consequences/verification:** `execute.sv` no longer owns arithmetic
+implementation, and all multiply variants share one inferred 33-by-33 product.
+The focused 172-case facade test, 42-case divider test, 23/23 smoke, ACT4 RV32M
+8/8, FreeRTOS demo, layered lint, and AR-003 synthesis pass. Vivado reports 4
+DSP48E1 and 32 RAMB36E1 cells. The same exact-board design fails 100 MHz with
+WNS -0.387 ns and TNS -3.637 ns; its 15-level worst path runs from an ID/EX
+operand through 2 DSP48E1 and 11 CARRY4 cells to EX/WB. A registered multiplier
+is therefore justified as a candidate but can increase CPI and clock power.
+Acceptance requires protocol/corner/kill
 tests, full RV32M/regression preservation, same-target routed timing/resources,
 and P0 energy per fixed workload. Full analysis is in
 [`AR027_RTL_COMMON_AND_MULTIPLIER_PIPELINE_REVIEW.md`](AR027_RTL_COMMON_AND_MULTIPLIER_PIPELINE_REVIEW.md).

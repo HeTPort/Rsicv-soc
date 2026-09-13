@@ -265,6 +265,19 @@ package riscv_pkg;
     MULDIV_REMU   = 4'd8
   } muldiv_op_e;
 
+  // Stable transaction payloads for replaceable RV32M implementations.
+  // The current core is RV32-only, but using DW here keeps the contract tied
+  // to the architectural data width rather than to one implementation.
+  typedef struct packed {
+    muldiv_op_e    op;
+    logic [DW-1:0] lhs;
+    logic [DW-1:0] rhs;
+  } rv32m_req_t;
+
+  typedef struct packed {
+    logic [DW-1:0] result;
+  } rv32m_rsp_t;
+
   // Privilege modes
   typedef enum logic [1:0] {
     PRIV_MODE_U = 2'd0,

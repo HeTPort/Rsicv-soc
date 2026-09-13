@@ -1,4 +1,5 @@
 `timescale 1ns / 1ps
+`default_nettype none
 import riscv_pkg::*;
 import soc_mem_map_pkg::*;
 module riscv_soc #(
@@ -21,17 +22,14 @@ module riscv_soc #(
   parameter PROGRAM_INIT_FILE = "",
   parameter DATA_INIT_FILE = ""
 )(
-  input  logic              clk,
-  input  logic              rst_n,
+  input  wire logic              clk,
+  input  wire logic              rst_n,
   // program ram write port
-  input  logic              prog_wr_en,
-  input  logic [AW-1:0]     prog_wr_addr,
-  input  logic [DW-1:0]     prog_wr_data,
-  input  logic              load_done,
-  input  logic              uart_rx_i,
-  output logic [DW-1:0]     test_case,
-  output logic [DW-1:0]     reg_s10,
-  output logic [DW-1:0]     reg_s11,
+  input  wire logic              prog_wr_en,
+  input  wire logic [AW-1:0]     prog_wr_addr,
+  input  wire logic [DW-1:0]     prog_wr_data,
+  input  wire logic              load_done,
+  input  wire logic              uart_rx_i,
   output commit_pkt_t       commit_o,
   output trap_entry_t       trap_entry_o,
   output logic              uart_tx_o,
@@ -120,9 +118,6 @@ module riscv_soc #(
     .irq_mti_i       (timer_irq_mti),
     .wfi_wait_o      (),
     .trap_entry_o    (trap_entry_o),
-    .dbg_x3_o        (test_case),
-    .dbg_x10_o       (reg_s10),
-    .dbg_x11_o       (reg_s11),
     .illegal_instr_o (),
     .exception_o     (),
     .commit_o        (commit_o)
@@ -246,3 +241,5 @@ module riscv_soc #(
     .rsp_o       (ram_data_rsp)
   );
 endmodule
+
+`default_nettype wire

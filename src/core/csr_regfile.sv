@@ -1,5 +1,5 @@
 `timescale 1ns / 1ps
-`default_nettype wire
+`default_nettype none
 import riscv_pkg::*;
 // ============================================================
 // Module: csr_regfile
@@ -12,32 +12,28 @@ module csr_regfile #(
   parameter int AW = riscv_pkg::AW,
   parameter int DW = riscv_pkg::DW
 )(
-  input  logic         clk_i,
-  input  logic         rst_ni,
-  input  priv_mode_e   current_priv_i,
+  input  wire logic         clk_i,
+  input  wire logic         rst_ni,
+  input  wire priv_mode_e   current_priv_i,
 
   // Combinational read port
-  input  logic [11:0]  csr_addr_i,
+  input  wire logic [11:0]  csr_addr_i,
   output logic [DW-1:0] csr_rdata_o,
   output logic          csr_implemented_o,
   output logic          csr_read_only_o,
   output logic          csr_privilege_ok_o,
 
   // Combinational preview and clocked architectural retirement command.
-  input  csr_write_req_t  preview_req_i,
+  input  wire csr_write_req_t  preview_req_i,
   output logic [DW-1:0]   preview_wdata_effective_o,
   output csr_irq_context_t irq_context_o,
-  input  csr_retire_cmd_t retire_cmd_i,
+  input  wire csr_retire_cmd_t retire_cmd_i,
 
   // Hardware-owned machine timer pending level.
-  input  logic            irq_mti_i,
+  input  wire logic            irq_mti_i,
 
-  // Outputs to the core
-  output logic [AW-1:0] mtvec_o,
-  output logic [AW-1:0] mepc_o,
-  output logic [DW-1:0] mstatus_o,
-  output logic [DW-1:0] mie_o,
-  output logic [DW-1:0] mip_o
+  // MRET needs committed mepc; interrupt state travels in irq_context_o.
+  output logic [AW-1:0] mepc_o
 );
 
   // mstatus bit fields
@@ -266,11 +262,7 @@ module csr_regfile #(
   // ------------------------------------------------------------
   // Outputs
   // ------------------------------------------------------------
-  assign mtvec_o   = mtvec_q;
-  assign mepc_o    = mepc_q;
-  assign mstatus_o = mstatus_q;
-  assign mie_o     = mie_q;
-  assign mip_o     = mip_composed;
+  assign mepc_o = mepc_q;
 
 `ifndef SYNTHESIS
   always @(negedge clk_i) begin
