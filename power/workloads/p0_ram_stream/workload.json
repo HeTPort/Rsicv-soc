@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "name": "p0_ram_stream",
+  "version": "1.0",
+  "state": "verified",
+  "purpose": "Measure fixed-work sequential LSU/fabric/data-BRAM transfer throughput and energy per KiB.",
+  "design_document": "design.md",
+  "source": {"kind": "original", "paths": ["sw/apps/p0_ram_stream"]},
+  "target": {
+    "part": "xc7z010clg400-1",
+    "clock_hz": 95000000,
+    "clock_status": "ROUTED PASS: WNS +0.003 ns, TNS 0.000 ns, TIMER_TICK_CYCLES=1",
+    "vivado_top": "top",
+    "simulation_top": "tb_power",
+    "dut_instance": "u_soc",
+    "saif_strip_path": "tb_power",
+    "memory_profile": "freertos_split_64k_v1"
+  },
+  "measurement": {
+    "window_kind": "fixed_work",
+    "warmup_end": "Source/destination arrays and canaries initialized; START immediately before stream kernel",
+    "marker_symbol": "p0_ram_stream_marker",
+    "marker_address_from_elf": "0x80000008",
+    "start_marker": "0x504F5752",
+    "end_marker": "0x454E4421",
+    "work_unit": "KiB of logical load-plus-store data transfer",
+    "work_units": 64,
+    "repeat_runs": 2,
+    "dynamic_power_repeatability_percent_max": 2.0
+  },
+  "expected_blocks": {
+    "active": ["cpu_pipeline", "lsu", "soc_data_fabric", "program_bram", "data_bram"],
+    "idle": ["no_architectural_mul_div", "mtime_interrupt", "uart", "gpio"],
+    "constraint_derived": ["board_clock_wrapper", "ps7"]
+  },
+  "oracle": {
+    "kind": "checksum_destination_canary_tohost",
+    "pass": "Checksum 0x58873A00, all final destination words and canaries, then committed tohost=1",
+    "failure": "Distinct error code, timeout, missing/duplicate marker, or unexpected trap/tohost",
+    "golden_checksum": "0x58873A00"
+  },
+  "kpis": [
+    {"id": "P0RAM-KPI-001", "metric": "functional_oracle", "unit": "pass_fail", "gate": "PASS", "evidence": "PASS: SoC and power-TB regressions; run1 SAIF capture"},
+    {"id": "P0RAM-KPI-002", "metric": "transferred_bytes", "unit": "bytes", "gate": "65536", "evidence": "PASS: 32x256 volatile lw/sw pairs in fixed kernel, 65536 logical bytes"},
+    {"id": "P0RAM-KPI-003", "metric": "throughput", "unit": "bytes_per_cycle", "gate": "report", "evidence": "65536/213145 = 0.30747144 bytes/cycle"},
+    {"id": "P0RAM-KPI-004", "metric": "dynamic_energy_per_kib", "unit": "joules_per_kib", "gate": "report", "evidence": "0.129 W * 213145 / 95e6 / 64 = 4.52232e-6 J/KiB"},
+    {"id": "P0RAM-KPI-005", "metric": "routed_timing_drc", "unit": "ns_count", "gate": "WNS >= 0, TNS = 0, blocking DRC = 0", "evidence": "PASS: WNS +0.003 ns, TNS 0, DRC 0 Error/Critical Warning"},
+    {"id": "P0RAM-KPI-006", "metric": "activity_coverage", "unit": "pass_fail", "gate": ">=80% or reviewed block alternative", "evidence": "PASS: direct 483/8762 (5.512%); reviewed 10/10 block alternative with DSP bridge"},
+    {"id": "P0RAM-KPI-007", "metric": "dynamic_power_repeatability", "unit": "percent_difference", "gate": "<=2", "evidence": "PASS: run1/run2 both 0.129 W dynamic, 0.0% difference"}
+  ]
+}

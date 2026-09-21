@@ -3,7 +3,7 @@
 **Phase:** P0 — Reproducible power baseline
 **Status:** Accepted
 **Owner:** HeTPort
-**Last updated:** 2026-09-07
+**Last updated:** 2026-09-20
 **Depends on:** [`requirements.md`](requirements.md), [`architecture.md`](architecture.md)
 **Related evidence:** [`results.md`](results.md)
 
@@ -18,15 +18,15 @@ design, and compared with its vectorless report. UVM is out of scope.
 
 | Requirement ID | Test/assertion/coverage | Level | Expected result | Status |
 | --- | --- | --- | --- | --- |
-| REQ-P0-001 | Workload-manifest audit and selected regression runs | RTL/firmware | Every selected workload has exact image and PASS oracle | NOT RUN |
-| REQ-P0-002 | Capture-window log review | Testbench | Reset excluded; start/stop/duration recorded | NOT RUN |
-| REQ-P0-003 | Single-test VCD smoke, then backward-SAIF capture | Simulator | Nonempty activity; functional PASS | PARTIAL: full-run VCD/SAIF generated; post-reset window open |
-| REQ-P0-004 | Vivado `read_saif` positive mapping | Implemented design | Parse succeeds and accepted mapping threshold/rationale is retained | PARTIAL/REJECTED: parsed, only 419/10,927 nets (4%) matched |
-| REQ-P0-005 | Same-checkpoint vectorless/activity comparison | Vivado | Both reports exist with category breakdown | NOT RUN |
-| REQ-P0-006 | Artifact/hash/command audit | Repository | Large activity ignored; compact evidence retained | NOT RUN |
-| PERF-P0-001 | Duplicate deterministic capture/import | End to end | Dynamic estimate differs by at most 2% | NOT RUN |
-| PERF-P0-002 | File size and hierarchy/window check | Infrastructure | Bounded artifact with recorded size | NOT RUN |
-| VER-P0-001 | Deliberate missing file or invalid strip path | Infrastructure | Native error or explicit FAIL; never PASS | NOT RUN |
+| REQ-P0-001 | Workload-manifest audit and selected regression runs | RTL/firmware | Every selected workload has exact image and PASS oracle | PASS: all six classes, including FreeRTOS, spin idle, and UART polling |
+| REQ-P0-002 | Capture-window log review | Testbench | Reset excluded; start/stop/duration recorded | PASS for six measured workloads |
+| REQ-P0-003 | Windowed VCD and backward-SAIF | Simulator | Nonempty activity; functional PASS | PASS: backward-SAIF all six; WFI optional debug VCD |
+| REQ-P0-004 | Same-DCP SAIF mapping and reviewed block policy | Implemented design | Parse succeeds and accepted coverage rationale retained | PASS via reviewed alternative; direct 5.5% is not a direct-mapping pass |
+| REQ-P0-005 | Same-checkpoint vectorless/activity comparison | Vivado | Both reports exist with category breakdown | PASS for six workloads |
+| REQ-P0-006 | Artifact/hash/command audit | Repository | Large activity ignored; compact evidence retained | PASS for six workloads |
+| PERF-P0-001 | Duplicate deterministic capture/import | End to end | Dynamic estimate differs by at most 2% | PASS: 0.0% for all six workloads at report resolution |
+| PERF-P0-002 | File size and hierarchy/window check | Infrastructure | Bounded artifact with recorded size | PASS for all six workloads |
+| VER-P0-001 | Deliberate missing file or invalid strip path | Infrastructure | Native error or explicit FAIL; never PASS | PASS: missing-file test rejects |
 
 ## Test categories
 
@@ -81,7 +81,8 @@ breakdown, activity duration, file size, and runtime.
 
 ## Coverage model
 
-Scenario coverage is the five workload classes. Infrastructure coverage is
+Scenario coverage is six workload classes: mixed compute, WFI/timer, RAM
+stream, FreeRTOS, clocked spin idle, and UART polling. Infrastructure coverage is
 VCD generation, backward-SAIF generation, positive mapping, negative mapping,
 vectorless baseline, activity report, and duplicate-run comparison. Code and
 UVM functional coverage are unchanged and not P0 exit criteria.
@@ -101,6 +102,7 @@ or silent vectorless fallback is FAIL/PARTIAL rather than PASS.
 
 ## Exit criteria and waivers
 
-P0 exits only when at least two representative workloads satisfy every Must
-requirement and the repeatability gate. RTL activity may be accepted with a
-documented glitch/mapping limitation; board/ASIC accuracy may not be claimed.
+The measurement-infrastructure two-workload gate and all six scenario-class
+gates pass. RTL activity is accepted only with the
+documented direct-mapping/glitch limitations; board/ASIC accuracy is not
+claimed. See [actual results](results.md) and the per-workload evidence.

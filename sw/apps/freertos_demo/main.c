@@ -32,6 +32,18 @@
 #define SOC_FREERTOS_MIN_TICK_HOOKS 0U
 #endif
 
+#ifndef SOC_FREERTOS_POWER_PROFILE
+#define SOC_FREERTOS_POWER_PROFILE 0U
+#endif
+
+#define P0_FREERTOS_WARMUP_RECEIVES 12U
+#define P0_FREERTOS_WINDOW_RECEIVES 16U
+#define P0_FREERTOS_END_RECEIVES \
+    (P0_FREERTOS_WARMUP_RECEIVES + P0_FREERTOS_WINDOW_RECEIVES)
+#define P0_FREERTOS_MARKER_START 0x504F5752u
+#define P0_FREERTOS_MARKER_END   0x454E4421u
+#define P0_FREERTOS_FAIL_COUNTS 0xBAD64001u
+
 #define DEMO_STACK_WORDS 192U
 #define DEMO_QUEUE_DEPTH 4U
 #define DEMO_FAIL_BASE   0xBAD60000u
@@ -41,6 +53,16 @@ static volatile uint32_t tick_hook_count;
 static volatile uint32_t led_update_count;
 static volatile uint32_t heartbeat_count;
 static volatile uint32_t queue_receive_count;
+
+#if SOC_FREERTOS_POWER_PROFILE
+volatile uint32_t p0_freertos_marker;
+volatile uint32_t p0_freertos_window_ticks;
+volatile uint32_t p0_freertos_window_led_updates;
+volatile uint32_t p0_freertos_window_heartbeats;
+static uint32_t p0_start_ticks;
+static uint32_t p0_start_led_updates;
+static uint32_t p0_start_heartbeats;
+#endif
 
 BaseType_t context_sentinel_queue_send(QueueHandle_t queue, const void *item);
 
@@ -114,6 +136,38 @@ static void queue_receiver_task(void *argument)
         }
         ++expected;
         ++queue_receive_count;
+
+#if SOC_FREERTOS_POWER_PROFILE
+        if (queue_receive_count == P0_FREERTOS_WARMUP_RECEIVES) {
+            p0_start_ticks = tick_hook_count;
+            p0_start_led_updates = led_update_count;
+            p0_start_heartbeats = heartbeat_count;
+            __asm__ volatile ("" ::: "memory");
+            p0_freertos_marker = P0_FREERTOS_MARKER_START;
+            __asm__ volatile ("" ::: "memory");
+        }
+        if (queue_receive_count == P0_FREERTOS_END_RECEIVES) {
+            __asm__ volatile ("" ::: "memory");
+            p0_freertos_marker = P0_FREERTOS_MARKER_END;
+            __asm__ volatile ("" ::: "memory");
+            taskDISABLE_INTERRUPTS();
+            p0_freertos_window_ticks = tick_hook_count - p0_start_ticks;
+            p0_freertos_window_led_updates =
+                led_update_count - p0_start_led_updates;
+            p0_freertos_window_heartbeats =
+                heartbeat_count - p0_start_heartbeats;
+            if (queue_receive_count != P0_FREERTOS_END_RECEIVES ||
+                p0_freertos_window_ticks < P0_FREERTOS_WINDOW_RECEIVES ||
+                p0_freertos_window_led_updates < 2u ||
+                p0_freertos_window_heartbeats < 1u) {
+                tohost_fail(P0_FREERTOS_FAIL_COUNTS);
+            }
+            tohost_write(1u);
+            for (;;) {
+                __asm__ volatile ("nop");
+            }
+        }
+#endif
 
         if (SOC_FREERTOS_SIM_COMPLETION != 0U &&
             queue_receive_count >= SOC_FREERTOS_MIN_QUEUE_RECEIVES &&

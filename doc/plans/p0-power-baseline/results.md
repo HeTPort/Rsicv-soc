@@ -1,112 +1,57 @@
 # P0 Reproducible Power Baseline — Results
 
 **Phase:** P0 — Reproducible power baseline
-**Status:** Active; simulator activity spike complete, Vivado mapping not run
+**Status:** Six-scenario technical portfolio VERIFIED; physical power sign-off not claimed
 **Owner:** HeTPort
-**Last updated:** 2026-09-07
-**Depends on:** [`verification_plan.md`](verification_plan.md)
-**Related evidence:** Existing Phase 7 routed reports; no accepted P0 activity evidence yet
+**Last updated:** 2026-09-20
 
-## Tested identity
+The initial September 7 capability spike produced VCD/backward-SAIF from a
+passing `rv32im` simulation, but captured reset/boot and mapped only 419 of
+10,927 nets (about 4%) to an older, clockless OOC checkpoint. Its 17.583 W,
+Low-confidence diagnostic report is **rejected**, not a baseline result.
 
-| Item | Observed value |
-| --- | --- |
-| Repository state | Working tree with P0 documentation; exact commit/tree not yet frozen |
-| Host/tool probe | Windows; ModelSim SE-64 2019.2 command line available |
-| Functional spike | `rv32im`, `testdata/prog.hex`, 20,000-cycle timeout; PASS at cycle 672, simulator exit 0 |
-| VCD evidence | `tb_riscv.vcd`, 6,093,088 bytes, SHA-256 `ED3559F2B5B9173F478885814BF710E9E57257D390CF74424DA03227F1637306` |
-| Backward-SAIF evidence | SAIF 2.0, duration 6,825,000 ps, 1,083,410 bytes, SHA-256 `2F0EE9EC35E70FFA875CC10B367F77A948DAB01887F3AD8F4EFDAD92B19D45F1` |
-| ASCII activity evidence | 1,543,897 bytes, SHA-256 `020CA0A0A97A534E934BFC62B0CD263462379F158C22A5D572B551B8CDFD354E` |
-| Vivado activity import | FORMAT PASS / QUALITY REJECTED: 419 of 10,927 design nets matched (4%) in OOC spike |
-| Target checkpoint/bitstream | NOT SELECTED |
+The implemented flow now captures committed START-to-END windows under
+`tb_power/u_soc`, imports backward-SAIF into each workload's exact 95 MHz
+timing-clean board checkpoint, compares vectorless and reviewed activity power,
+and repeats independently. Optional VCD was checked for `p0_wfi_timer`.
 
-## Regression summary
+| Workload | Window | 95 MHz route | Direct SAIF match | Reviewed block alternative | Vectorless dynamic | Activity dynamic | Two-run variance |
+|---|---:|---|---:|---|---:|---:|---:|
+| [`p0_mix`](../../../power/workloads/p0_mix/results.md) | 338,043 cycles / 2,048 iterations | WNS +0.006 ns, TNS 0 | 481/8,746 (5.5%) | 10/10 gates PASS, measured DSP bridge | 0.115 W | 0.127 W | 0.0% |
+| [`p0_wfi_timer`](../../../power/workloads/p0_wfi_timer/results.md) | 274,900 cycles / 64 wakes | WNS +0.003 ns, TNS 0 | 483/8,762 (5.5%) | 13/13 gates PASS, measured DSP/timer-Q bridges | 0.119 W | 0.117 W | 0.0% |
+| [`p0_ram_stream`](../../../power/workloads/p0_ram_stream/results.md) | 213,145 cycles / 64 KiB | WNS +0.003 ns, TNS 0 | 483/8,762 (5.5%) | 10/10 gates PASS, measured DSP bridge | 0.119 W | 0.129 W | 0.0% |
+| [`p0_freertos`](../../../power/workloads/p0_freertos/results.md) | 1,709,023 cycles / 16 queue receives | WNS +0.003 ns, TNS 0 | 483/8,762 (5.5%) | 13/13 gates PASS, measured DSP/timer-Q bridges | 0.119 W | 0.120 W | 0.0% |
+| [`p0_idle_spin`](../../../power/workloads/p0_idle_spin/results.md) | 458,759 cycles / 65,536 spin iterations | WNS +0.003 ns, TNS 0 | 483/8,762 (5.5%) | 10/10 gates PASS, measured DSP bridge | 0.119 W | 0.158 W | 0.0% |
+| [`p0_uart_poll`](../../../power/workloads/p0_uart_poll/results.md) | 115,574 cycles / 14 TX bytes | WNS +0.003 ns, TNS 0 | 483/8,762 (5.5%) | 12/12 gates PASS, measured DSP bridge | 0.119 W | 0.119 W | 0.0% |
 
-One full-run simulator activity spike has executed. It proves that the current
-RTL/testbench can pass while producing VCD and backward-SAIF. Because the
-window includes reset/boot and no Vivado mapping has run, it is capability
-evidence rather than an accepted workload power baseline.
+All six routes use provisional `xc7z010clg400-1`, Vivado 2019.2, exact 95 MHz,
+zero Error/Critical Warning DRC, and 16 program plus 16 data RAMB36 blocks.
+The WFI simulation and routed implementation both use
+`TIMER_TICK_CYCLES=1`; the first prescaler-3 route was rejected. Detailed
+commands, tool identity, hashes, matching checkpoints, window metrics,
+mapping rules, category reports, and limitations are retained in each linked
+workload result. Generated SAIF/VCD/DCP files remain under ignored `build/`.
 
-| Command/gate | Result |
-| --- | --- |
-| ModelSim VCD command capability probe | PASS |
-| ModelSim backward-SAIF command capability probe | PASS (command/documentation only) |
-| `rv32im -DumpWaves` functional workload | PASS; 672 cycles; VCD generated |
-| `rv32im` full-run backward-SAIF capture with `onfinish stop` | PASS; SAIF/activity report generated |
-| Vivado `read_saif` format/mapping spike | PARSE PASS; mapping FAIL at 419/10,927 nets (4%); no user clock |
-| Duplicate-run comparison | NOT RUN |
+## Requirement trace and verdict
 
-## Focused evidence
+| Requirement | Result |
+|---|---|
+| REQ-P0-001 scenario portfolio | **PASS:** mixed compute/memory, WFI/timer, dedicated RAM stream, FreeRTOS, clocked fixed spin idle, and UART polling have exact images and functional oracles. Spin idle is not deep sleep. |
+| REQ-P0-002 deterministic post-reset window | PASS for all six measured workloads; markers and cycle counts retained. |
+| REQ-P0-003 VCD/backward-SAIF | PASS: backward-SAIF for all six; marker-window debug VCD for WFI. |
+| REQ-P0-004 same-route import/mapping | PASS under the explicit reviewed block-level alternative; **80% direct mapping not achieved**. |
+| REQ-P0-005 vectorless/activity decomposition | PASS for all six on the identical checkpoint per workload. |
+| REQ-P0-006 evidence retention | PASS for all six; commands, hashes, reports, assumptions, and limits recorded. |
+| PERF-P0-001 repeatability | PASS: 0.0% dynamic-power variance in all six two-run pairs at report resolution, threshold 2%. |
+| PERF-P0-002 bounded scope/storage | PASS: `u_soc` START/END interval; WFI debug VCD 28,722,318 bytes. |
+| VER-P0-001 negative infrastructure case | PASS: deliberate missing-SAIF path rejected rather than silently falling back. |
 
-`REQ-P0-003` is partially demonstrated: nonempty VCD/backward-SAIF came from a
-functionally passing run. Its accepted post-reset/windowed form and every
-Vivado-facing requirement remain open. The first attempt omitted
-`onfinish stop`; testbench `$finish` ended the simulator before `power report`,
-producing no SAIF. The corrected command intentionally makes `$finish` return
-control to Tcl before reporting.
-
-`REQ-P0-004` is not met. Vivado 2019.2 successfully parsed the backward-SAIF,
-but the core-RTL hierarchy mapped only 419 of 10,927 design nets into the older
-OOC synthesized SoC checkpoint. The retained mapping report is 976,281 bytes,
-SHA-256 `A106C942346D32D5B23B6A1E8E4C41D962C4814270EEAF5A50F3F1BC09EF6B3C`.
-The diagnostic power report is 9,861 bytes, SHA-256
-`C10681BD5894C199AD2570A6CFA8F5E001CD278BA8EDA946E6E48B67AF4E0A46`.
-
-## Commands used for the capability spike
-
-```powershell
-Set-Location sim/regress
-.\run_regression.ps1 -Test rv32im -DumpWaves
-```
-
-The backward-SAIF retry used ModelSim `onfinish stop`, added
-`/tb_riscv_core/u_riscv/*` recursively, enabled activity, ran to the existing
-functional `$finish`, disabled activity, and called `power report -bsaif`.
-Vivado then opened `build/vivado_ar003/riscv_soc_synth.dcp` and used
-`read_saif -strip_path tb_riscv_core`. The exact generated Tcl and large
-activity outputs remain under ignored `sim/build/regression/`.
-
-## Synthesis/implementation
-
-Existing routed Phase 7 images report positive 25 MHz timing and zero DRC
-errors, but P0 has not selected/frozen one checkpoint. LUT/FF/BRAM/DSP and
-WNS/TNS must be copied from that exact implementation when the first activity
-run is accepted.
-
-## Power/performance
-
-| Workload | Window | Activity source | Mapping | Vectorless | Activity-based | Status |
-| --- | --- | --- | --- | --- | --- | --- |
-| Reset/idle | NOT SET | NOT RUN | NOT RUN | NOT RUN | NOT RUN | NOT RUN |
-| WFI+timer | NOT SET | NOT RUN | NOT RUN | NOT RUN | NOT RUN | NOT RUN |
-| UART polling | NOT SET | NOT RUN | NOT RUN | NOT RUN | NOT RUN | NOT RUN |
-| FreeRTOS | NOT SET | NOT RUN | NOT RUN | NOT RUN | NOT RUN | NOT RUN |
-| Compute/memory (`rv32im` spike) | Full 0–6,825 ns, includes reset/boot | VCD + backward-SAIF generated | 4%, rejected | OOC diagnostic only | 17.583 W, Low confidence, **REJECTED** | PARTIAL capability only |
-
-## Hardware/model evidence
-
-No board rail measurement, thermal model, ASIC library power analysis, motor,
-compressor, plasma, or flight evidence is part of P0.
-
-## Known limitations and confidence
-
-- ModelSim installation presence does not prove the user's license entitlement.
-- RTL functional activity omits routed glitch activity.
-- This first capture includes reset/boot and is not an accepted steady-state
-  measurement window.
-- Vivado 2019.2 format compatibility is proven, but mapping is only 4% against
-  the selected OOC checkpoint.
-- The OOC checkpoint has no user-defined clock; Vivado also warned that reset
-  was asserted excessively for the activity interval.
-- The user's recent 75 MHz result is not in this package and lacks retained
-  configuration/path evidence here.
-
-Confidence is currently **capability-only**, not measurement confidence.
-
-## Exit-gate verdict
-
-**PARTIAL.** The local simulator produced real VCD/backward-SAIF activity from
-a passing RV32IM workload and Vivado parsed it. The 4%-mapped, clockless,
-reset-inclusive 17.583 W report is explicitly rejected. No workload-derived
-power number is accepted until a post-reset scoped window, Vivado import/
-mapping/report path, repeat run, and negative infrastructure test pass.
+The two-workload measurement-infrastructure gate and the complete six-class
+technical portfolio both pass. In the idle-spin reference, a register-only
+loop still excites program BRAM and the un-gated multiplier; its 0.158 W
+dynamic estimate is not a WFI/deep-sleep number. None of the results is a
+board-rail, silicon, thermal, battery, or ASIC measurement. RTL functional
+SAIF omits routed glitches; unmatched optimized logic still receives Vivado's
+probabilistic propagation. The PS7 property warning and provisional speed
+grade are retained limitations. Do not average these different scenarios into
+one purported chip-wide power number.

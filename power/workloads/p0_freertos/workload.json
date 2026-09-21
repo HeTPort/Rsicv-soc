@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "name": "p0_freertos",
+  "version": "1.0",
+  "state": "verified",
+  "purpose": "Measure a fixed ordered-queue interval of preemptive FreeRTOS scheduling, timer ticks, UART heartbeat, GPIO, and memory traffic.",
+  "design_document": "design.md",
+  "source": {"kind": "mixed", "paths": ["sw/apps/freertos_demo", "third_party/FreeRTOS-Kernel"]},
+  "target": {
+    "part": "xc7z010clg400-1",
+    "clock_hz": 95000000,
+    "clock_status": "ROUTED PASS: WNS +0.003 ns, TNS 0.000 ns",
+    "vivado_top": "top",
+    "simulation_top": "tb_power",
+    "dut_instance": "u_soc",
+    "saif_strip_path": "tb_power",
+    "memory_profile": "freertos_split_64k_v1"
+  },
+  "measurement": {
+    "window_kind": "fixed_work",
+    "warmup_end": "12 ordered queue receives after scheduler startup",
+    "marker_symbol": "p0_freertos_marker",
+    "marker_address_from_elf": "0x800001F4",
+    "start_marker": "0x504F5752",
+    "end_marker": "0x454E4421",
+    "work_unit": "ordered queue receive with preserved context",
+    "work_units": 16,
+    "repeat_runs": 2,
+    "dynamic_power_repeatability_percent_max": 2.0
+  },
+  "expected_blocks": {
+    "active": ["cpu_pipeline", "timer_csr_trap", "lsu", "soc_data_fabric", "program_bram", "data_bram", "uart_tx", "gpio"],
+    "idle": ["no_architectural_div_rem"],
+    "constraint_derived": ["board_clock_wrapper", "ps7"]
+  },
+  "oracle": {
+    "kind": "ordered_queue_context_tick_io_tohost",
+    "pass": "16 additional ordered receives after warmup; >=16 ticks, >=2 LED updates, >=1 heartbeat in-window; committed tohost=1",
+    "failure": "Distinct firmware failure code, timeout, missing/duplicate marker, unexpected trap, or SoC UART/GPIO/timer scoreboard failure",
+    "golden_checksum": "N/A: exact ordered queue sequence and count"
+  },
+  "kpis": [
+    {"id": "P0RTOS-KPI-001", "metric": "functional_oracle", "unit": "pass_fail", "gate": "PASS", "evidence": "PASS: SoC and power-TB regressions; exact tohost=1"},
+    {"id": "P0RTOS-KPI-002", "metric": "ordered_queue_receives", "unit": "receives", "gate": "16", "evidence": "PASS: START after receive 12, END after receive 28; firmware validates order"},
+    {"id": "P0RTOS-KPI-003", "metric": "tick_hooks", "unit": "ticks", "gate": ">=16 and report exact", "evidence": "PASS: 18 committed post-window result from 95 MHz power TB"},
+    {"id": "P0RTOS-KPI-004", "metric": "led_heartbeat_events", "unit": "events", "gate": ">=2 LED and >=1 heartbeat", "evidence": "PASS: 4 LED updates and 2 heartbeats from committed post-window results"},
+    {"id": "P0RTOS-KPI-005", "metric": "cycles_per_receive", "unit": "cycles_per_receive", "gate": "report", "evidence": "1709023 / 16 = 106813.9375 cycles/receive in power-TB functional run"},
+    {"id": "P0RTOS-KPI-006", "metric": "dynamic_energy_per_receive", "unit": "joules_per_receive", "gate": "report", "evidence": "1.34923e-4 J/receive from reviewed activity dynamic 0.120 W"},
+    {"id": "P0RTOS-KPI-007", "metric": "routed_timing_drc", "unit": "ns_count", "gate": "WNS >= 0, TNS = 0, blocking DRC = 0", "evidence": "PASS: 95 MHz WNS +0.003 ns, TNS 0, 0 Error/Critical Warning DRC"},
+    {"id": "P0RTOS-KPI-008", "metric": "activity_mapping", "unit": "pass_fail", "gate": ">=80% or reviewed block alternative", "evidence": "PASS: 13/13 reviewed block gates; direct 483/8762 (5.5124%)"},
+    {"id": "P0RTOS-KPI-009", "metric": "dynamic_power_repeatability", "unit": "percent_difference", "gate": "<=2", "evidence": "PASS: run2/run3 both 0.120 W dynamic, 0.0% difference"}
+  ]
+}

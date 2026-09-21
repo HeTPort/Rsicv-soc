@@ -15,7 +15,7 @@ plant model, thrust-producing device, or flight system.
 | Program level | Exit evidence | Status |
 | --- | --- | --- |
 | Small control SoC | RV32IM + timer/UART/GPIO + firmware/FreeRTOS + FPGA execution | **Complete baseline** |
-| Reproducible power measurement | Representative activity maps to the matching routed checkpoint and repeats within the gate | **P0 active; current 4%/no-clock result rejected** |
+| Reproducible power measurement | Representative activity maps to matching 95 MHz routes and repeats within the gate | **P0 six-class technical portfolio verified; board-rail/ASIC power unmeasured** |
 | Power-aware SoC state | Hardware counters and a truthful, wake-safe low-power state | Planned P1 after P0 |
 | Safe control and low-order model | C0 PWM/capture/watchdog/fault kill plus M0 motor/inverter/compressor/flow MIL/SIL | Planned parallel C0/M0 wave |
 | Sampled data and bench correlation | C1 ADC/SPI/IRQ/DMA followed by M1 HIL and low-energy measurements | Planned C1/M1 |
@@ -35,10 +35,10 @@ That first hardware milestone is now complete. It remains below as historical
 and regression evidence; completing it did not complete the propulsion program.
 
 The immediate active target is **P0 — Reproducible workload power baseline**.
-Its current VCD/backward-SAIF spike mapped only 4% of an incompatible older OOC
-netlist and had no valid clock, so the 17.583 W estimate is rejected. The next
-accepted result must use a deterministic post-reset window, a matching routed
-checkpoint/XDC/25 MHz clock, reviewed activity coverage and repeatability.
+The old 4%/clockless OOC spike and 17.583 W estimate remain rejected. All six
+P0 workload classes now have deterministic marker windows, matching 95 MHz
+routed checkpoints, reviewed block activity coverage, and <=2% repeatability.
+The 25 MHz production profile remains a separate build and measurement context.
 
 For that completed milestone, FreeRTOS had to execute on the custom RISC-V core,
 not on the Zynq ARM processing system. The ARM processing system could be used
@@ -173,13 +173,13 @@ Completed after the original CPU-only baseline:
   `timer_irq` results.
 - [x] Physical-board external-UART `hello`, production FreeRTOS UART/GPIO, and
   repeated PL K2 reset result.
+- [x] Complete the six-class P0 95 MHz power-workload portfolio with reviewed
+  block mapping and repeatability; direct name mapping remains about 5.5%.
 
 Not implemented yet—the actual gap between this SoC and the long-term vision:
 
 - [ ] Positive XC7Z010 speed-grade identification; the conservative `-1`
   target remains in use.
-- [ ] Accepted representative workload power baseline; the 4% mapping/no-clock
-  spike and its 17.583 W estimate remain rejected.
 - [ ] Performance/activity counters and a verified safe low-power state.
 - [ ] PWM, capture, watchdog and CPU-independent external-fault shutdown.
 - [ ] ADC/SPI, interrupt controller and DMA sampled-data path.
@@ -836,9 +836,10 @@ change, and leaves every existing release gate available.
 
 ## Active Track P0 — Reproducible workload power baseline
 
-**Status:** requirements and measurement architecture accepted; one VCD/SAIF
-format spike ran, but its 4% Vivado mapping/no-clock result is rejected and no
-power baseline is accepted.
+**Status:** measurement infrastructure and all six REQ-P0-001 scenario classes
+VERIFIED on exact 95 MHz routes. The older 4%/no-clock spike remains rejected;
+direct SAIF mapping is still only about 5.5%, with a reviewed per-block
+alternative. No physical board-rail power claim is made.
 
 The authoritative package is
 [`doc/plans/p0-power-baseline/`](doc/plans/p0-power-baseline/). P0 changes
@@ -849,24 +850,30 @@ measurement only; it does not add clock gating, power domains, or MMIO.
       backward-SAIF output; this is capability evidence, not a power result.
 - [x] Define stable P0 requirements, workload classes, measurement identity,
       negative test, repeatability gate, and explicit limitations.
+- [x] Establish the source-controlled [`power/`](power/) workload hierarchy,
+      mandatory per-workload design/KPI contract, structured manifest gate, and
+      all six workload design, identity, mapping-policy, and measured-result
+      packages.
 - [x] Select one short compute/memory test and run its existing functional
       oracle with `-DumpWaves`; record image/configuration, cycles, file size,
       command, tool version, and hashes.
-- [ ] Add a narrow, deterministic capture window after reset/warmup and emit a
+- [x] Add a narrow, deterministic capture window after reset/warmup and emit a
       backward-SAIF for the SoC hierarchy; keep large activity under ignored
       build output.
-- [ ] Freeze one matching implemented Vivado checkpoint and record part/speed
+- [x] Freeze matching implemented 95 MHz checkpoints and record part/speed
       grade, XDC clock, WNS/TNS, DRC, LUT/FF/BRAM/DSP, and environmental
       assumptions.
-- [ ] Run `read_saif` with the explicit testbench strip path; retain parse,
+- [x] Run `read_saif` with the explicit testbench strip path; retain parse,
       matched/unmatched hierarchy, and fallback information.
-- [ ] Produce vectorless and activity-based reports from the same checkpoint
+- [x] Produce vectorless and activity-based reports from the same checkpoint
       and compare total/static/dynamic plus clock/logic/signal/BRAM/DSP/I/O.
-- [ ] Repeat an identical workload independently and meet the 2% dynamic-power
+- [x] Repeat an identical workload independently and meet the 2% dynamic-power
       repeatability gate or explain/mark the result PARTIAL.
-- [ ] Add WFI+timer, UART polling, and FreeRTOS steady-state windows only after
-      the first end-to-end path is valid.
-- [ ] Run one deliberate missing-file or bad-strip-path case and require a
+- [x] Add UART polling, FreeRTOS steady-state, and fixed clocked spin-idle
+      windows; keep WFI+timer as the separate sleep/wake scenario. All six
+      pass functional, route, reviewed block-coverage, and two-run <=2%
+      dynamic-power gates.
+- [x] Run one deliberate missing-file or bad-strip-path case and require a
       native error or explicit FAIL.
 
 **P0 exit gate:** at least two representative workloads pass functionally,
@@ -903,9 +910,8 @@ for the first FreeRTOS FPGA demonstration:
 
 ## Immediate next action — advance from the SoC foundation, not skip to hardware
 
-1. Execute the first P0 compute/memory workload from functional PASS through
-   VCD/backward-SAIF generation and Vivado `read_saif` mapping. Do not claim
-   low-power design from the current vectorless estimate.
+1. Use the verified six-workload P0 baseline for later architectural
+   comparisons; do not claim 80% direct SAIF mapping or physical board power.
 2. Implement a registered multiplier candidate behind AR-027's verified
    `rv32m_unit` contract. The retained 100 MHz route failed with WNS -0.387 ns
    on the multiplier path, so the timing gate has triggered.

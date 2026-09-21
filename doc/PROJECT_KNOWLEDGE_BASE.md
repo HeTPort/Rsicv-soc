@@ -4,7 +4,7 @@
 
 **Audience:** New contributors and learners
 
-**Last updated:** 2026-09-10
+**Last updated:** 2026-09-20
 
 **Current reference:** `codex/phase2-act4-cleanup`. Phases 1–4 are complete.
 Phase 5 is complete in ModelSim and Vivado OOC synthesis. AR-024 adds the Bo
@@ -37,10 +37,16 @@ change adds no RTL, UVM, low-power, accelerator, or propulsion capability.
 
 The repository now has an adopted noncommercial source-available license and
 commercial contact (`Hetport@outlook.com`); FreeRTOS remains under its upstream
-MIT terms. P0 is the active measurement-only phase. One passing RV32IM run
-produced VCD/backward-SAIF and Vivado parsed the format, but only 4% of the
-older OOC checkpoint's nets mapped and no clock was defined; that power number
-is rejected. AR-027 now implements packed RV32M request/response contracts and
+MIT terms. P0's six-scenario measurement-only portfolio is now technically
+verified: mixed compute, WFI/timer, RAM stream, FreeRTOS, clocked spin idle,
+and UART polling all pass deterministic marker-window backward-SAIF,
+matching timing-clean 95 MHz routed analysis, reviewed per-block mapping,
+and two-run <=2% dynamic-power repeatability. The old 4%/clockless OOC spike
+is rejected. Direct name mapping remains about 5.5%; these are comparative
+Vivado FPGA estimates, not board-rail or ASIC power. Spin idle is not deep
+sleep: changing operands and repeated fetches keep BRAM and incidental DSP
+logic active; WFI/timer is the separate sleep/wake reference.
+AR-027 now implements packed RV32M request/response contracts and
 a shared single-product combinational backend. OOC SoC synthesis reduced the
 multiplier mapping from the previously recorded 12 DSP48E1 cells to 4 while
 retaining zero added MUL latency. A registered multiplier and any future
@@ -180,9 +186,6 @@ the minimal architecture needed for the first working system.
 - The AR-026 UVM framework, ISS differential adapter, reactive memory agents,
   riscv-dv integration, generated RAL, and accelerator/cache/MMU domains are
   accepted future work, not implemented verification features.
-- An accepted P0 workload-derived Vivado power result; the current format spike
-  has only 4% mapping, includes reset, lacks a clock, and is deliberately
-  rejected.
 - A `src/common/` primitive library or registered multiplier. AR-027's RV32M
   facade and shared combinational backend are implemented; new common blocks
   and latency-changing backends still require their entry gates.
@@ -1057,7 +1060,7 @@ The planned ownership tree and gates are documented in the
 | Retirement ownership | `retire_stage` is the owner; obsolete `halt_o` is removed and the public-interface cleanup is verified | Closed / AR-012 |
 | Peripherals | Timer, GPIO, and external polling-UART TX pass physically; UART RX remains pin-level simulated, while UART interrupts/PLIC are deferred | Closed for first polling baseline; future interrupt phase if justified |
 | UART RX capacity | The 16-byte default FIFO tolerates bounded polling latency but sustained traffic can still overrun | Firmware must monitor errors; revisit interrupts/DMA only after board baseline |
-| Power and clock gating | Logical WFI is verified, but current reports are vectorless and no safe FPGA clock gating exists. P0 measures first; P1 later uses clock enables/vendor clock resources and keeps wake sources alive | P0 then P1 / AR-027 |
+| Power and clock gating | Logical WFI and six 95 MHz activity-derived P0 workload estimates are verified, but direct SAIF mapping is only about 5.5% and no safe FPGA clock gating exists. P1 later uses clock enables/vendor clock resources and keeps wake sources alive | P0 then P1 / AR-028 |
 | Reset-to-BRAM control | Deliberate K2 restart testing passes and reset deassertion is synchronized, but Vivado `REQP-1839` still warns that asynchronously reset control registers feed data-BRAM address/control logic | Keep warning visible; synchronous-reset cleanup if later behavior requires it / AR-024 |
 | FreeRTOS duration/hardware | Focused and extended preemption/queue/context checks pass in ModelSim; physical production output adds 537 retained heartbeats, D1 activity, and repeatable K2 restarts | Closed for first FPGA demonstration / AR-025 |
 | UVM scalability | AR-026 accepts the abstraction but no UVM component/coverage result exists. ModelSim's installed tree contains UVM 1.2, so no separate pirated package is technically needed; entitlement and a minimal smoke still must be proved | Optional parallel U0 / AR-026 |
@@ -1108,7 +1111,8 @@ compare RAM data, `load_offset`, extracted value, and committed result.
 - [Release readiness checklist](RELEASE_CHECKLIST.md)
 - [License and IP strategy](LICENSE_STRATEGY.md)
 - [P0 power-baseline requirements](plans/p0-power-baseline/requirements.md)
-- [P0 current results and NOT-RUN ledger](plans/p0-power-baseline/results.md)
+- [P0 six-scenario results and limitations](plans/p0-power-baseline/results.md)
+- [AR-028 P0 95 MHz mapping decision and measured workloads](AR028_P0_95MHZ_ACTIVITY_MAPPING_AND_WORKLOAD_BASELINE.md)
 - [Architecture design and decisions](ARCHITECTURE_DESIGN_AND_DECISIONS.md)
 - [Architecture review and action plan](ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md)
 - [Verification framework](../docs/verification_framework.md)

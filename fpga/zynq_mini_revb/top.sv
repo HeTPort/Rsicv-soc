@@ -4,8 +4,8 @@
 // Bo Chen Jing Xin ZYNQ MINI 20240221/REVB programmable-logic wrapper.
 //
 // The board supplies a 50 MHz clock directly to the PL on K17.  The MMCM
-// produces either the conservative 25 MHz board clock or the 100 MHz timing
-// evaluation clock selected by CORE_CLOCK_HZ.
+// produces the conservative 25 MHz board clock, the exact 95 MHz P0 power
+// profile, or the 100 MHz timing evaluation clock selected by CORE_CLOCK_HZ.
 // PL K2 is active low.  Reset asserts asynchronously and is released only
 // after the MMCM is locked and four core-clock edges have passed.
 module top #(
@@ -37,14 +37,14 @@ module top #(
   // application execution remains in u_soc in programmable logic.
   (* DONT_TOUCH = "TRUE" *) PS7 u_ps7 ();
 
-  // 50 MHz input and 1000 MHz VCO. Supported output dividers are 40 for
-  // 25 MHz and 10 for the 100 MHz timing profile.
+  // The 50 MHz input drives a 1000 MHz VCO for 25/100 MHz, or a 950 MHz VCO
+  // for exact 95 MHz. Both VCO choices are within the 7-series MMCM range.
   MMCME2_BASE #(
     .BANDWIDTH          ("OPTIMIZED"),
-    .CLKFBOUT_MULT_F    (20.0),
+    .CLKFBOUT_MULT_F    (CORE_CLOCK_HZ == 95_000_000 ? 19.0 : 20.0),
     .CLKFBOUT_PHASE     (0.0),
     .CLKIN1_PERIOD      (20.0),
-    .CLKOUT0_DIVIDE_F   (CORE_CLOCK_HZ == 100_000_000 ? 10.0 : 40.0),
+    .CLKOUT0_DIVIDE_F   (CORE_CLOCK_HZ == 25_000_000 ? 40.0 : 10.0),
     .CLKOUT0_DUTY_CYCLE (0.5),
     .CLKOUT0_PHASE      (0.0),
     .DIVCLK_DIVIDE      (1),

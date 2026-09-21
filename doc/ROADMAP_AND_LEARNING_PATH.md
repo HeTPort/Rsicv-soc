@@ -68,8 +68,8 @@ Already demonstrated in this repository:
 Not yet demonstrated:
 
 - implemented UVM framework or ISS differential checking;
-- completed representative workload power baseline or physical low-power state
-  (P0 is active; a format spike ran but its 4% mapping was rejected);
+- physical low-power state or board-rail power measurement (the six-class P0
+  comparative Vivado baseline is verified, but direct SAIF names map ~5.5%);
 - performance-monitor counters beyond the existing architectural baseline;
 - safe PWM/capture/watchdog/fault-shutdown control slice;
 - ADC/SPI/interrupt/DMA sampled-data path;
@@ -81,8 +81,8 @@ Not yet demonstrated:
 | Wave | Active focus | May proceed in parallel | Must remain gated |
 | --- | --- | --- | --- |
 | 0 | Documentation/release readiness | Adopted license, reference indexing | Default-branch integration/push requires explicit later approval |
-| 1 | P0 measurement-only power baseline | U0 passive UVM when a legally entitled tool path is chosen | No active agents, ISS, or RTL power change |
-| 2 | P1 counters/safe sleep after P0 | U1 ISS then U2 generated ISA after U0 | No NPU/GPU; no unmeasured clock gating |
+| 1 | P0 measurement-only power baseline: six-class technical gate verified | U0 passive UVM when a legally entitled tool path is chosen | No active agents, ISS, or RTL power change |
+| 2 | P1 counters/safe sleep now eligible but not implemented | U1 ISS then U2 generated ISA after U0 | No NPU/GPU; no unmeasured clock gating |
 | 3 | C0 safe control vertical slice | M0 low-order MIL/SIL model | No high-energy bench actuation |
 | 4 | C1 ADC/SPI/IRQ/DMA | M0 RTL/software-in-loop coupling | DMA only after interrupt/MMIO contracts |
 | 5 | A0 small MMIO accelerator | Refine HIL/bench model correlation | Accelerator only after profiling |
@@ -201,11 +201,13 @@ correctness.
 
 ### P0 — Reproducible power baseline
 
-**Current status:** Active. The accepted package is
-[`plans/p0-power-baseline/`](plans/p0-power-baseline/). One RV32IM run produced
-VCD/backward-SAIF and Vivado parsed it, but only 4% of the older OOC design nets
-mapped and no clock was present; the resulting number is rejected, so no
-accepted baseline exists yet.
+**Current status:** Six-class technical portfolio verified. The evidence is in
+[`plans/p0-power-baseline/`](plans/p0-power-baseline/). The original
+reset-inclusive, clockless OOC spike mapped only 4% and remains rejected.
+Six workload-matched, timing-clean 95 MHz routes now pass marker-window SAIF,
+reviewed per-block activity coverage, and two-run <=2% repeatability. Direct
+names still map only about 5.5%; these are comparative Vivado estimates, not
+physical board-rail power or an implemented safe low-power state.
 
 **Outcome:** power changes can be compared under fixed workloads rather than
 estimated from intuition.
@@ -415,8 +417,8 @@ The next implementation sequence is:
 
 1. finish the remaining R0 provenance/release review without changing the
    default branch; the repository license decision is adopted;
-2. execute P0 from one short workload through ModelSim activity capture and
-   Vivado `read_saif`/mapping before changing power RTL;
+2. use the verified six-class P0 baseline before changing power RTL; retain
+   the 5.5% direct-name mapping and board-rail limitations explicitly;
 3. implement U0 when desired using the bundled/legally entitled UVM path, or
    evaluate current Verilator/cocotb separately; U0 does not block P0;
 4. implement P1 only after P0 and implement U1 only after U0;

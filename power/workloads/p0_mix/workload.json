@@ -1,0 +1,118 @@
+{
+  "schema_version": 1,
+  "name": "p0_mix",
+  "version": "1.0",
+  "state": "verified",
+  "purpose": "Establish the first deterministic active CPU/RAM baseline and prove the functional-to-SAIF-to-routed-power pipeline.",
+  "design_document": "design.md",
+  "source": {
+    "kind": "original",
+    "paths": ["sw/apps/p0_mix"]
+  },
+  "target": {
+    "part": "xc7z010clg400-1",
+    "clock_hz": 95000000,
+    "clock_status": "ROUTED PASS: WNS +0.006 ns, TNS 0.000 ns",
+    "vivado_top": "top",
+    "simulation_top": "tb_power",
+    "dut_instance": "u_soc",
+    "saif_strip_path": "tb_power",
+    "memory_profile": "freertos_split_64k_v1"
+  },
+  "measurement": {
+    "window_kind": "fixed_work",
+    "warmup_end": "START marker after runtime and buffer initialization",
+    "marker_symbol": "p0_mix_marker",
+    "marker_address_from_elf": "0x80000410",
+    "start_marker": "0x504F5752",
+    "end_marker": "0x454E4421",
+    "work_unit": "mixed iteration",
+    "work_units": 2048,
+    "repeat_runs": 2,
+    "dynamic_power_repeatability_percent_max": 2.0
+  },
+  "expected_blocks": {
+    "active": [
+      "cpu_pipeline",
+      "program_bram",
+      "data_bram",
+      "lsu",
+      "soc_data_fabric",
+      "rv32m_multiplier",
+      "radix2_divider"
+    ],
+    "idle": ["mtime_interrupt", "uart", "gpio"],
+    "constraint_derived": ["board_clock_wrapper", "ps7"]
+  },
+  "oracle": {
+    "kind": "checksum_canary_tohost",
+    "pass": "Exact checksum and canaries followed by committed tohost value 1",
+    "failure": "Unique failure code, timeout, missing or duplicate marker, or unexpected trap",
+    "golden_checksum": "0x46FC5BC9"
+  },
+  "kpis": [
+    {
+      "id": "P0MIX-KPI-001",
+      "metric": "functional_oracle",
+      "unit": "pass_fail",
+      "gate": "PASS",
+      "evidence": "PASS: sim/regress/power_tests.json p0_mix reached tohost=1 at cycle 345948 on 2026-09-16"
+    },
+    {
+      "id": "P0MIX-KPI-002",
+      "metric": "completed_iterations",
+      "unit": "iterations",
+      "gate": "exact declared count",
+      "evidence": "PASS: 2048 fixed iterations precede checksum/canary validation and tohost=1"
+    },
+    {
+      "id": "P0MIX-KPI-003",
+      "metric": "cycles_per_iteration",
+      "unit": "cycles_per_iteration",
+      "gate": "report",
+      "evidence": "PASS: 338043 / 2048 = 165.0601 cycles/iteration"
+    },
+    {
+      "id": "P0MIX-KPI-004",
+      "metric": "instructions_per_iteration",
+      "unit": "instructions_per_iteration",
+      "gate": "report",
+      "evidence": "PASS: 117768 / 2048 = 57.5039 instructions/iteration"
+    },
+    {
+      "id": "P0MIX-KPI-005",
+      "metric": "routed_timing",
+      "unit": "ns",
+      "gate": "WNS >= 0 and TNS = 0 at 95 MHz",
+      "evidence": "PASS: WNS +0.006 ns, TNS 0.000 ns at exact 95 MHz"
+    },
+    {
+      "id": "P0MIX-KPI-006",
+      "metric": "blocking_drc",
+      "unit": "count",
+      "gate": "0",
+      "evidence": "PASS: 0 Error/Critical Warning; 38 advisory warnings retained"
+    },
+    {
+      "id": "P0MIX-KPI-007",
+      "metric": "saif_design_net_mapping",
+      "unit": "percent",
+      "gate": ">= 80 or reviewed dominant-block alternative",
+      "evidence": "PASS via reviewed block alternative: automatic 481/8746 (5.500%); all 10 required blocks pass; 540 multiplier nets explicitly bridged"
+    },
+    {
+      "id": "P0MIX-KPI-008",
+      "metric": "dynamic_power_repeatability",
+      "unit": "percent_difference",
+      "gate": "<= 2",
+      "evidence": "PASS: run5/run6 both 0.127 W dynamic; 0.0% difference"
+    },
+    {
+      "id": "P0MIX-KPI-009",
+      "metric": "dynamic_energy_per_iteration",
+      "unit": "joules_per_iteration",
+      "gate": "report for identical measurement identity",
+      "evidence": "2.2066e-7 J/iteration from 0.127 W, 338043 cycles, 95 MHz, 2048 iterations"
+    }
+  ]
+}

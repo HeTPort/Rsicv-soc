@@ -3,9 +3,10 @@
 **Phase:** P0 — Reproducible power baseline
 **Status:** Accepted
 **Owner:** HeTPort
-**Last updated:** 2026-09-07
+**Last updated:** 2026-09-20
 **Depends on:** Phase 7 routed FPGA flow; stable directed/firmware workloads
 **Related evidence:** [`results.md`](results.md),
+[`../../AR028_P0_95MHZ_ACTIVITY_MAPPING_AND_WORKLOAD_BASELINE.md`](../../AR028_P0_95MHZ_ACTIVITY_MAPPING_AND_WORKLOAD_BASELINE.md),
 [`../../AR027_RTL_COMMON_AND_MULTIPLIER_PIPELINE_REVIEW.md`](../../AR027_RTL_COMMON_AND_MULTIPLIER_PIPELINE_REVIEW.md)
 
 ## Scope and user/system outcome
@@ -63,6 +64,14 @@ for later sleep, clock-enable, and multiplier architecture changes.
 - No conclusion that the multiplier must be pipelined until timing and workload
   evidence are compared.
 
+The six-scenario portfolio now has complete workload-level evidence:
+`p0_mix`, `p0_wfi_timer`, `p0_ram_stream`, `p0_freertos`,
+`p0_idle_spin`, and `p0_uart_poll`. The fixed idle reference is explicitly a
+clocked register-only spin loop, not WFI/deep sleep; the WFI/timer workload is
+its separate sleep/wake counterpart. See the
+[workload hierarchy and lifecycle](../../../power/README.md) and the
+[measured results](results.md).
+
 `registers.rdl` and `registers.md` are intentionally omitted because P0 adds no
 software-visible register.
 
@@ -77,6 +86,6 @@ estimate, RTL-activity estimate, and unmeasured real hardware.
 
 | Question | Owner | Decision point |
 | --- | --- | --- |
-| Which exact firmware interval represents steady-state FreeRTOS? | HeTPort | Before first accepted FreeRTOS SAIF |
-| Does Vivado 2019.2 accept this ModelSim backward-SAIF directly with adequate mapping? | P0 implementer | First capture spike |
+| Which exact firmware interval represents steady-state FreeRTOS? | Resolved: 12 ordered receives warmup, then 16 fixed ordered receives with 18 measured ticks, four LED updates, and two heartbeats | 2026-09-20 |
+| Does Vivado 2019.2 accept this ModelSim backward-SAIF directly with adequate mapping? | Resolved: format yes, direct mapping about 5.5%; reviewed block alternative required | 2026-09-19 |
 | Should later activity use post-synthesis timing simulation for glitch realism? | Architecture review | After RTL-SAIF mapping/results are known |

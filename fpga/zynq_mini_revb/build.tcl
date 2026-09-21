@@ -6,12 +6,13 @@
 #   vivado -mode batch -source fpga/zynq_mini_revb/build.tcl -tclargs timer_gpio
 #   vivado -mode batch -source fpga/zynq_mini_revb/build.tcl -tclargs timer_irq
 #   vivado -mode batch -source fpga/zynq_mini_revb/build.tcl -tclargs freertos_demo
+#   ZYNQ_MINI_CORE_CLOCK_HZ=95000000 ... -tclargs p0_mix
 
 set script_dir [file dirname [file normalize [info script]]]
 set repo_root  [file normalize [file join $script_dir ../..]]
 
 if {$argc > 1} {
-  error "Expected zero or one application name: hello, timer_gpio, timer_irq, or freertos_demo"
+  error "Expected zero or one application name: hello, timer_gpio, timer_irq, freertos_demo, freertos_demo_p0, p0_mix, p0_wfi_timer, p0_ram_stream, p0_idle_spin, or p0_uart_poll"
 }
 set app_name [expr {$argc == 1 ? [lindex $argv 0] : "hello"}]
 
@@ -21,8 +22,8 @@ if {[info exists ::env(ZYNQ_MINI_CORE_CLOCK_HZ)] &&
 } else {
   set core_clock_hz 25000000
 }
-if {$core_clock_hz ni {25000000 100000000}} {
-  error "Unsupported ZYNQ_MINI_CORE_CLOCK_HZ '$core_clock_hz'; expected 25000000 or 100000000"
+if {$core_clock_hz ni {25000000 95000000 100000000}} {
+  error "Unsupported ZYNQ_MINI_CORE_CLOCK_HZ '$core_clock_hz'; expected 25000000, 95000000, or 100000000"
 }
 set core_clock_mhz [expr {$core_clock_hz / 1000000}]
 
@@ -33,13 +34,26 @@ array set timer_ticks {
   timer_gpio  1250000
   timer_irq   25000
   freertos_demo 1
+  freertos_demo_p0 1
+  p0_mix      1
+  p0_wfi_timer 1
+  p0_ram_stream 1
+  p0_idle_spin 1
+  p0_uart_poll 1
 }
 if {![info exists timer_ticks($app_name)]} {
-  error "Unknown application '$app_name'; expected hello, timer_gpio, timer_irq, or freertos_demo"
+  error "Unknown application '$app_name'; expected hello, timer_gpio, timer_irq, freertos_demo, freertos_demo_p0, p0_mix, p0_wfi_timer, p0_ram_stream, p0_idle_spin, or p0_uart_poll"
 }
-set timer_tick_cycles [expr {
-  $timer_ticks($app_name) * $core_clock_hz / 25000000
-}]
+# Measurement workloads must use the same cycle-level timer configuration as
+# `tb_power`; otherwise the SAIF window and implemented design are different
+# experiments. Human-visible board profiles retain wall-time scaling.
+if {$app_name in {p0_mix p0_wfi_timer p0_ram_stream p0_idle_spin p0_uart_poll freertos_demo_p0}} {
+  set timer_tick_cycles $timer_ticks($app_name)
+} else {
+  set timer_tick_cycles [expr {
+    $timer_ticks($app_name) * $core_clock_hz / 25000000
+  }]
+}
 
 if {[info exists ::env(ZYNQ_MINI_PART)] && $::env(ZYNQ_MINI_PART) ne ""} {
   set part_name $::env(ZYNQ_MINI_PART)
@@ -154,6 +168,20 @@ if {[llength $timing_path] != 1} {
   error "Expected one routed setup timing path"
 }
 set routed_wns [get_property SLACK $timing_path]
+
+# The exact 95 MHz P0 profile is intentionally close to the device's current
+# limit. Give a slightly negative initial route one deterministic post-route
+# physical-optimization pass before applying the timing gate.
+if {$core_clock_hz == 95000000 && $routed_wns < 0.0} {
+  puts "ZYNQ_MINI_95MHZ_INITIAL_WNS_NS=$routed_wns"
+  phys_opt_design -directive AggressiveExplore
+  set timing_path [get_timing_paths -delay_type max -max_paths 1 -nworst 1]
+  if {[llength $timing_path] != 1} {
+    error "Expected one setup timing path after 95 MHz post-route phys_opt"
+  }
+  set routed_wns [get_property SLACK $timing_path]
+  puts "ZYNQ_MINI_95MHZ_POST_ROUTE_PHYSOPT_WNS_NS=$routed_wns"
+}
 
 report_timing_summary -delay_type max -max_paths 20 -file [file join $output_dir timing_summary_routed.rpt]
 report_timing -delay_type max -max_paths 20 -sort_by group -file [file join $output_dir timing_paths_routed.rpt]

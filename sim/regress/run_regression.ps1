@@ -281,6 +281,20 @@ try {
         if ($null -ne $testCase.PSObject.Properties["freertos_min_gpio_transitions"]) {
             $vsimArgs += "-gFREERTOS_MIN_GPIO_TRANSITIONS=$([int]$testCase.freertos_min_gpio_transitions)"
         }
+        if ($null -ne $testCase.PSObject.Properties["marker_addr"]) {
+            $markerAddrGeneric = "32'h{0:X8}" -f [uint32]$testCase.marker_addr
+            $vsimArgs += "-gMARKER_ADDR=$markerAddrGeneric"
+        }
+        if ($null -ne $testCase.PSObject.Properties["allow_ecall_traps"]) {
+            $vsimArgs += "-gALLOW_ECALL_TRAPS=$([int][bool]$testCase.allow_ecall_traps)"
+        }
+        foreach ($resultIndex in 0..2) {
+            $resultField = "result${resultIndex}_addr"
+            if ($null -ne $testCase.PSObject.Properties[$resultField]) {
+                $resultGeneric = "32'h{0:X8}" -f [uint32]$testCase.$resultField
+                $vsimArgs += "-gRESULT${resultIndex}_ADDR=$resultGeneric"
+            }
+        }
         if (-not [string]::IsNullOrWhiteSpace($dataImagePath)) {
             $modelSimDataImagePath = $dataImagePath.Replace("\", "/")
             $vsimArgs += "-gDATA_FILE=$modelSimDataImagePath"

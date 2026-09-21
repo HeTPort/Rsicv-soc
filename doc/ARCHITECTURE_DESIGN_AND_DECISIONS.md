@@ -4,7 +4,7 @@
 
 **Audience:** Designers, reviewers, learners, and future maintainers
 
-**Last updated:** 2026-09-13
+**Last updated:** 2026-09-20
 
 **Current milestone:** The first custom-RV32IM FreeRTOS FPGA demonstration is
 complete. AR-024 implements the ZYNQ MINI REVB boundary; together with AR-025
@@ -23,9 +23,11 @@ AR-027 now implements a replaceable RV32M request/response facade and a shared
 single-product combinational multiplier. Vivado OOC SoC synthesis reduces the
 mapping from the previously recorded 12 DSP48E1 cells to 4 without adding a
 MUL cycle. No common RTL or multiplier register is added: P0 workload activity
-and an exact routed timing report must precede a latency-changing backend. P0 is now active as a measurement-
-only phase. One RV32IM VCD/backward-SAIF format spike ran, but the clockless
-OOC import mapped only 4% of design nets and its power number is rejected. The
+and an exact routed timing report must precede a latency-changing backend. P0
+is a measurement-only phase with six technically verified workload classes.
+The clockless OOC spike mapped only 4% and is rejected; all six exact 95 MHz
+routed workload estimates pass reviewed block-level activity and repeatability,
+while direct-name mapping remains about 5.5%. The
 repository licensing policy is also adopted as noncommercial source-available
 with commercial use handled through a separate written agreement.
 
@@ -1424,7 +1426,32 @@ changing ISA claims. The retained result is
 | Phase 7: FPGA | Board top/XDC, 25 MHz MMCM/reset, BRAM init, route, timing, and bitstreams complete | 0-error DRC, TNS 0, four bitstreams; JTAG, LED/timer, external UART TX, production FreeRTOS heartbeat/D1, and K2 restart hardware PASS; speed grade still unidentified |
 | Phase 8: release | Applicable ACT4 set plus fail-fast unified release command and physical demonstration implemented | Clean-worktree map/tool/fabric/smoke/Phases 3–6/ACT4 47/47 PASS plus retained 2026-08-23 board UART/FreeRTOS/reset evidence |
 | Continuous UVM expansion | Accepted AR-026 layers semantic domains above protocol VIP and preserves existing verification gates | First passive retirement slice passes its mismatch-negative test, focused retirement, smoke, and unchanged release flow before active agents/ISS |
-| P0 power baseline | Accepted measurement package reuses functional workloads, ModelSim VCD/backward-SAIF, and Vivado activity mapping without changing RTL | Two representative workloads pass, map with retained annotation summaries, and repeat within the stated bound |
+| P0 power baseline | All six classes—mixed compute, WFI/timer, RAM stream, FreeRTOS, clocked spin idle, and UART polling—pass functional oracle, marker-window SAIF, exact 95 MHz route, reviewed block mapping, and 0.0% two-run dynamic variance; no RTL/MMIO change | Full six-class technical portfolio verified; direct mapping ~5.5%, no board-rail/ASIC claim; see AR-028 and [results](plans/p0-power-baseline/results.md) |
+
+### P0 mapping and workload decision (AR-028)
+
+**Problem/root cause:** The original reset-inclusive SAIF against a clockless
+OOC checkpoint mapped 419/10,927 nets and gave an invalid power number. Even
+with deterministic windows and matched 95 MHz routes, synthesis renames or
+absorbs RTL packet/combinational nets, leaving about 5.5% direct-name mapping.
+
+**Options:** Reuse the invalid OOC report, claim 5.5% direct mapping as enough,
+rename RTL for power, or run a full routed gate simulation were rejected.
+The accepted REQ-P0-004 alternative combines direct state/boundary evidence,
+explicit measured DSP/timer bridges, per-workload active/idle rules, and a
+mandatory fail gate. The spin-idle DSP bridge additionally bounds and records
+a tiny ModelSim clock-window quantization adjustment rather than silently
+changing activity.
+
+**Consequences and verification:** All six workloads pass function, 95 MHz
+timing/DRC, reviewed block rules, same-route vectorless/activity reports, and
+independent <=2% dynamic-power repeatability (0.0% at report resolution).
+The spin loop is not a low-power sleep state: 0.158 W dynamic includes repeated
+fetch/BRAM and incidental un-gated multiplier switching, compared with
+0.117 W for the distinct WFI/timer scenario. No RTL/MMIO, safe clock gating,
+board-rail measurement, or ASIC claim is added. Detailed RED/GREEN evidence,
+hashes, alternatives, and limitations are in [AR-028](AR028_P0_95MHZ_ACTIVITY_MAPPING_AND_WORKLOAD_BASELINE.md)
+and the [P0 results](plans/p0-power-baseline/results.md).
 | Common RTL / multiplier | AR-027 implements the RV32M facade and shared-product combinational backend; the measured 100 MHz failure triggers registered-backend development | Facade tests and smoke pass; 4-DSP/32-BRAM mapping retained; 25 MHz WNS +17.517 ns PASS; 100 MHz WNS -0.387 ns/TNS -3.637 ns FAIL on a 2-DSP/11-CARRY4 multiplier path |
 
 ### Planning governance — evidence-gated program roadmap
@@ -1596,6 +1623,7 @@ An architecture-changing task is incomplete until this document is updated.
 - [Release readiness checklist](RELEASE_CHECKLIST.md)
 - [License and IP strategy](LICENSE_STRATEGY.md)
 - [P0 power-baseline evidence package](plans/p0-power-baseline/requirements.md)
+- [AR-028 P0 95 MHz activity mapping and workload baseline](AR028_P0_95MHZ_ACTIVITY_MAPPING_AND_WORKLOAD_BASELINE.md)
 - [Project roadmap](../TODO.md)
 - [Phase 0 baseline](PHASE0_BASELINE_2026-07-24.md)
 - [Architecture review](ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md)

@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "reviewed": true,
+  "policy": "REQ-P0-004 block-level alternative for p0_uart_poll",
+  "rationale": "Direct RTL-SAIF names map about 5.5% of routed nets. Require measured clock, CPU, LSU/fabric, BRAM, UART response and serializer activity; assert timer bus, UART RX, GPIO and divider are architecturally idle. The combinational DSP bridge uses measured incidental switching, not a gated-MUL assumption.",
+  "functional_log_required": [
+    "[POWER-TB] CAPTURE: PASS",
+    "[TB] RESULT: PASS",
+    "[POWER-TB] Window cycles = 115574",
+    "[POWER-TB] Retired instructions = 31540",
+    "[POWER-TB] RESULT0 = 14"
+  ],
+  "required_blocks": [
+    {"name": "core_clock", "pattern": "^u_soc/clk_core$", "sources": ["C"], "minimum_matches": 1, "minimum_active": 1},
+    {"name": "cpu_pipeline_and_regfile", "pattern": "^u_soc/u_riscv/(u_id2ex|u_ex2wb|u_regfile|u_pc_counter)/", "sources": ["S"], "minimum_matches": 128, "minimum_active": 64},
+    {"name": "lsu_and_data_fabric", "pattern": "^u_soc/(u_riscv/u_lsu|u_data_fabric)/", "sources": ["S"], "minimum_matches": 16, "minimum_active": 8},
+    {"name": "program_bram_boundary", "pattern": "^u_soc/u_prog_ram/", "sources": ["S"], "minimum_matches": 12, "minimum_active": 8},
+    {"name": "data_bram_boundary", "pattern": "^u_soc/u_data_target/", "sources": ["S"], "minimum_matches": 4, "minimum_active": 4},
+    {"name": "uart_bus_and_holding_stage", "pattern": "^u_soc/u_uart_target/", "sources": ["S"], "minimum_matches": 32, "minimum_active": 20},
+    {"name": "uart_tx_serializer", "pattern": "^u_soc/u_uart_target/u_uart_tx/", "sources": ["S"], "minimum_matches": 16, "minimum_active": 16},
+    {"name": "uart_rx_not_exercised", "pattern": "^u_soc/u_uart_target/u_uart_rx/", "sources": ["S"], "minimum_matches": 16, "maximum_active": 0},
+    {"name": "divider_not_exercised", "pattern": "^u_soc/u_riscv/u_rv32m_unit/u_radix2_divider/", "sources": ["S"], "minimum_matches": 64, "maximum_active": 2},
+    {"name": "routed_dsp_incidental_activity_bridge", "pattern": "^u_soc/u_riscv/.*/u_rv32m_mul_comb/", "sources": ["A"], "minimum_matches": 200, "minimum_active": 200, "bridge_group": "product_ext"},
+    {"name": "idle_timer_bus_boundary", "pattern": "^u_soc/u_timer_target/", "sources": ["S"], "minimum_matches": 2, "maximum_active": 0},
+    {"name": "idle_gpio_boundary", "pattern": "^u_soc/u_gpio_target/", "sources": ["S"], "minimum_matches": 2, "maximum_active": 0}
+  ]
+}

@@ -28,6 +28,7 @@
 ./../src/riscv_soc.sv
 ./tb/tb_riscv_core.sv
 ./tb/tb_riscv_soc.sv
+./tb/tb_power.sv
 ./tb/tb_lsu_protocol.sv
 ./tb/tb_radix2_divider.sv
 ./tb/tb_soc_data_fabric.sv

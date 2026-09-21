@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "reviewed": true,
+  "policy": "REQ-P0-004 block-level alternative for p0_freertos",
+  "rationale": "RTL-SAIF directly maps only about 5.5% of this exact 95 MHz route. Require directly observed CPU, memory, bus, timer, UART TX, and GPIO activity; measured timer-Q and incidental DSP switching are bridged explicitly to the routed implementation. UART RX and architectural DIV remain unused.",
+  "functional_log_required": [
+    "[POWER-TB] CAPTURE: PASS",
+    "[TB] RESULT: PASS",
+    "[POWER-TB] Window cycles = 1709023",
+    "[POWER-TB] Retired instructions = 433663",
+    "[POWER-TB] RESULT0 = 18",
+    "[POWER-TB] RESULT1 = 4",
+    "[POWER-TB] RESULT2 = 2"
+  ],
+  "required_blocks": [
+    {"name": "core_clock", "pattern": "^u_soc/clk_core$", "sources": ["C"], "minimum_matches": 1, "minimum_active": 1},
+    {"name": "cpu_pipeline_and_regfile", "pattern": "^u_soc/u_riscv/(u_id2ex|u_ex2wb|u_regfile|u_pc_counter)/", "sources": ["S"], "minimum_matches": 128, "minimum_active": 64},
+    {"name": "lsu_and_data_fabric", "pattern": "^u_soc/(u_riscv/u_lsu|u_data_fabric)/", "sources": ["S"], "minimum_matches": 16, "minimum_active": 8},
+    {"name": "program_bram_boundary", "pattern": "^u_soc/u_prog_ram/", "sources": ["S"], "minimum_matches": 12, "minimum_active": 8},
+    {"name": "data_bram_boundary", "pattern": "^u_soc/u_data_target/", "sources": ["S"], "minimum_matches": 4, "minimum_active": 4},
+    {"name": "timer_bus_interface", "pattern": "^u_soc/u_timer_target/", "sources": ["S"], "minimum_matches": 2, "minimum_active": 2},
+    {"name": "timer_mtime_state_bridge", "pattern": "^u_soc/u_timer_target/mtime_q_reg_n_0_\\[", "sources": ["A"], "minimum_matches": 31, "minimum_active": 16, "timer_bridge_group": "mtime_q"},
+    {"name": "timer_mtimecmp_state_bridge", "pattern": "^u_soc/u_timer_target/mtimecmp_q_reg_n_0_\\[", "sources": ["A"], "minimum_matches": 32, "minimum_active": 16, "timer_bridge_group": "mtimecmp_q"},
+    {"name": "timer_all_routed_state_q_nets", "pattern": "^u_soc/u_timer_target/", "sources": ["A"], "minimum_matches": 128, "minimum_active": 52},
+    {"name": "divider_not_exercised", "pattern": "^u_soc/u_riscv/u_rv32m_unit/u_radix2_divider/", "sources": ["S"], "minimum_matches": 64, "maximum_active": 2},
+    {"name": "routed_dsp_incidental_activity_bridge", "pattern": "^u_soc/u_riscv/.*/u_rv32m_mul_comb/", "sources": ["A"], "minimum_matches": 200, "minimum_active": 200, "bridge_group": "product_ext"},
+    {"name": "active_uart_tx_boundary", "pattern": "^u_soc/u_uart_target/", "sources": ["S"], "minimum_matches": 32, "minimum_active": 20},
+    {"name": "active_gpio_boundary", "pattern": "^u_soc/u_gpio_target/", "sources": ["S"], "minimum_matches": 2, "minimum_active": 2}
+  ]
+}

@@ -6,11 +6,11 @@ marking does not show a readable speed grade, so the flow uses the conservative
 Vivado part `xc7z010clg400-1`. Set `ZYNQ_MINI_PART` only after positively
 identifying a different speed grade.
 
-The production profile remains 25 MHz. For a timing experiment, set
-`ZYNQ_MINI_CORE_CLOCK_HZ=100000000`; the build then configures the MMCM for a
-real 100 MHz output, scales timer/UART parameters, and writes reports under an
-application-specific `_100mhz` directory. The current combinational multiplier
-does **not** close at 100 MHz: the retained route reports WNS -0.387 ns.
+The production profile remains 25 MHz. The P0 power baseline uses
+`ZYNQ_MINI_CORE_CLOCK_HZ=95000000`, which configures the MMCM for an exact
+95 MHz output and writes reports under an application-specific `_95mhz`
+directory. For a timing experiment, `100000000` remains supported. The retained
+100 MHz route does **not** close: WNS is -0.387 ns.
 
 The top includes a retained but otherwise unused PS7 hard block because Vivado
 requires it for correct Zynq device configuration. It supplies no clock or
@@ -57,6 +57,11 @@ separate `_sim` profile terminates through `tohost`:
 cd /mnt/d/Rsicv-soc-worktrees/phase2-act4-cleanup
 bash sw/build_firmware_wsl.sh --install hello timer_gpio timer_irq
 bash sw/build_firmware_wsl.sh --install freertos_demo
+bash sw/build_firmware_wsl.sh --install p0_mix
+bash sw/build_firmware_wsl.sh --install p0_wfi_timer
+bash sw/build_firmware_wsl.sh --install p0_ram_stream
+bash sw/build_firmware_wsl.sh --install p0_idle_spin p0_uart_poll
+SOC_FREERTOS_MTIME_HZ=95000000 SOC_FREERTOS_DEMO_TIME_SCALE=100 SOC_FREERTOS_SIM_COMPLETION=0 SOC_FREERTOS_POWER_PROFILE=1 SOC_FREERTOS_IMAGE_SUFFIX=_p0 bash sw/build_firmware_wsl.sh --install freertos_demo
 ```
 
 ## Build bitstreams with Vivado 2019.2
@@ -79,6 +84,22 @@ $env:ZYNQ_MINI_CORE_CLOCK_HZ = '100000000'
 & $vivado -mode batch -notrace `
   -source .\fpga\zynq_mini_revb\build.tcl -tclargs hello
 Remove-Item Env:\ZYNQ_MINI_CORE_CLOCK_HZ
+
+# Exact P0 routed profile.
+$env:ZYNQ_MINI_CORE_CLOCK_HZ = '95000000'
+& $vivado -mode batch -notrace `
+  -source .\fpga\zynq_mini_revb\build.tcl -tclargs p0_mix
+& $vivado -mode batch -notrace `
+  -source .\fpga\zynq_mini_revb\build.tcl -tclargs p0_wfi_timer
+& $vivado -mode batch -notrace `
+  -source .\fpga\zynq_mini_revb\build.tcl -tclargs p0_ram_stream
+& $vivado -mode batch -notrace `
+  -source .\fpga\zynq_mini_revb\build.tcl -tclargs freertos_demo_p0
+& $vivado -mode batch -notrace `
+  -source .\fpga\zynq_mini_revb\build.tcl -tclargs p0_idle_spin
+& $vivado -mode batch -notrace `
+  -source .\fpga\zynq_mini_revb\build.tcl -tclargs p0_uart_poll
+Remove-Item Env:\ZYNQ_MINI_CORE_CLOCK_HZ
 ```
 
 Each run reads RTL and XDC, synthesizes, checks that both firmware images
@@ -95,6 +116,15 @@ so the results are visible: `timer_gpio` changes LEDs about once per second,
 while `timer_irq` generates one interrupt about once per second for ten
 interrupts. `freertos_demo` uses the real 25 MHz MTIME rate configured in its
 production image, giving a 1 kHz RTOS tick.
+
+The P0 measurement profiles keep `TIMER_TICK_CYCLES=1` to match ModelSim.
+The routed `p0_mix` checkpoint closes setup at WNS +0.006 ns; the other five
+P0 checkpoints each close at +0.003 ns. All six have TNS 0 and zero blocking
+DRC findings. They are distinct workload/checkpoint identities; none can be
+substituted for the other or for a 25 MHz production build. The
+[power framework](../../power/README.md) and
+[P0 results](../../doc/plans/p0-power-baseline/results.md) explain activity
+mapping, estimates, and limits.
 
 ## Program and observe the board
 

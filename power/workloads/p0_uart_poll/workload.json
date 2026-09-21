@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "name": "p0_uart_poll",
+  "version": "1.0",
+  "state": "verified",
+  "purpose": "Measure a fixed 14-byte CPU-polled UART transmit interval, separately from FreeRTOS system traffic.",
+  "design_document": "design.md",
+  "source": {"kind": "original", "paths": ["sw/apps/p0_uart_poll"]},
+  "target": {
+    "part": "xc7z010clg400-1",
+    "clock_hz": 95000000,
+    "clock_status": "ROUTED PASS: WNS +0.003 ns, TNS 0.000 ns",
+    "vivado_top": "top",
+    "simulation_top": "tb_power",
+    "dut_instance": "u_soc",
+    "saif_strip_path": "tb_power",
+    "memory_profile": "freertos_split_64k_v1"
+  },
+  "measurement": {
+    "window_kind": "fixed_work",
+    "warmup_end": "message boundary checked before first UART access",
+    "marker_symbol": "p0_uart_poll_marker",
+    "marker_address_from_elf": "0x80000014",
+    "start_marker": "0x504F5752",
+    "end_marker": "0x454E4421",
+    "work_unit": "fully transmitted UART byte",
+    "work_units": 14,
+    "repeat_runs": 2,
+    "dynamic_power_repeatability_percent_max": 2.0
+  },
+  "expected_blocks": {
+    "active": ["cpu_pipeline", "program_bram", "data_bram", "lsu", "soc_data_fabric", "uart_tx"],
+    "idle": ["timer_interrupt", "gpio", "architectural_div_rem"],
+    "constraint_derived": ["board_clock_wrapper", "ps7"]
+  },
+  "oracle": {
+    "kind": "decoded_uart_bytes_tohost",
+    "pass": "Exact 14-byte Hello UART serial output, committed result count 14, committed tohost=1",
+    "failure": "0xBAD75001, serial mismatch, unexpected trap, timeout, missing/duplicate marker, or non-PASS tohost",
+    "golden_checksum": "N/A: exact decoded byte sequence is the oracle"
+  },
+  "kpis": [
+    {"id": "P0UART-KPI-001", "metric": "functional_oracle", "unit": "pass_fail", "gate": "PASS", "evidence": "PASS: SoC decoded exact 14 bytes, power TB tohost=1"},
+    {"id": "P0UART-KPI-002", "metric": "transmitted_bytes", "unit": "bytes", "gate": "14", "evidence": "PASS: decoded 14 serial bytes and committed result 14"},
+    {"id": "P0UART-KPI-003", "metric": "window_cycles_per_byte", "unit": "cycles_per_byte", "gate": "report", "evidence": "115574 / 14 = 8255.2857 cycles/byte"},
+    {"id": "P0UART-KPI-004", "metric": "dynamic_energy_per_byte", "unit": "joules_per_byte", "gate": "report", "evidence": "1.03408e-5 J/byte from reviewed activity dynamic 0.119 W"},
+    {"id": "P0UART-KPI-005", "metric": "routed_timing_drc", "unit": "ns_count", "gate": "WNS >= 0, TNS = 0, blocking DRC = 0", "evidence": "PASS: WNS +0.003 ns, TNS 0, 0 blocking DRC"},
+    {"id": "P0UART-KPI-006", "metric": "activity_mapping", "unit": "pass_fail", "gate": ">=80% or reviewed block alternative", "evidence": "PASS: 12/12 reviewed block gates; direct 483/8762 (5.5124%)"},
+    {"id": "P0UART-KPI-007", "metric": "dynamic_repeatability", "unit": "percent_difference", "gate": "<=2", "evidence": "PASS: run1/run2 both 0.119 W dynamic, 0.0% difference"}
+  ]
+}

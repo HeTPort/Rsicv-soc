@@ -24,6 +24,7 @@ __pycache__/
 /findings.md
 /progress.md
 /.planning/
+/power/planning/
 
 # Local research/download scratch space (never commit)
 /tmp/

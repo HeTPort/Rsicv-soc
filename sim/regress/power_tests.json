@@ -1,0 +1,117 @@
+{
+  "schema_version": 1,
+  "defaults": {
+    "top": "work.tb_riscv_soc",
+    "tohost_addr": 2147549180,
+    "prog_ram_depth": 16384,
+    "data_ram_depth": 16384
+  },
+  "tests": [
+    {
+      "name": "p0_mix",
+      "image": "testdata/firmware_p0_mix.imem.hex",
+      "data_image": "testdata/firmware_p0_mix.dmem.hex",
+      "timeout_cycles": 1000000,
+      "tags": ["power", "p0", "soc", "rv32im", "mixed", "baseline"]
+    },
+    {
+      "name": "p0_mix_power_tb",
+      "top": "work.tb_power",
+      "image": "testdata/firmware_p0_mix.imem.hex",
+      "data_image": "testdata/firmware_p0_mix.dmem.hex",
+      "timeout_cycles": 1000000,
+      "tags": ["power", "p0", "capture-boundary", "marker", "mixed"]
+    },
+    {
+      "name": "p0_wfi_timer",
+      "image": "testdata/firmware_p0_wfi_timer.imem.hex",
+      "data_image": "testdata/firmware_p0_wfi_timer.dmem.hex",
+      "timeout_cycles": 500000,
+      "tags": ["power", "p0", "soc", "wfi", "timer", "interrupt"]
+    },
+    {
+      "name": "p0_wfi_timer_power_tb",
+      "top": "work.tb_power",
+      "image": "testdata/firmware_p0_wfi_timer.imem.hex",
+      "data_image": "testdata/firmware_p0_wfi_timer.dmem.hex",
+      "marker_addr": 2147483652,
+      "timeout_cycles": 500000,
+      "tags": ["power", "p0", "capture-boundary", "marker", "wfi", "timer"]
+    },
+    {
+      "name": "p0_ram_stream",
+      "image": "testdata/firmware_p0_ram_stream.imem.hex",
+      "data_image": "testdata/firmware_p0_ram_stream.dmem.hex",
+      "timeout_cycles": 1000000,
+      "tags": ["power", "p0", "soc", "ram", "stream"]
+    },
+    {
+      "name": "p0_ram_stream_power_tb",
+      "top": "work.tb_power",
+      "image": "testdata/firmware_p0_ram_stream.imem.hex",
+      "data_image": "testdata/firmware_p0_ram_stream.dmem.hex",
+      "marker_addr": 2147483656,
+      "timeout_cycles": 1000000,
+      "tags": ["power", "p0", "capture-boundary", "marker", "ram", "stream"]
+    },
+    {
+      "name": "p0_freertos",
+      "image": "testdata/firmware_freertos_demo_p0.imem.hex",
+      "data_image": "testdata/firmware_freertos_demo_p0.dmem.hex",
+      "timeout_cycles": 5000000,
+      "freertos_check_enable": true,
+      "freertos_min_timer_irqs": 24,
+      "freertos_min_uart_bytes": 28,
+      "freertos_min_gpio_transitions": 2,
+      "tags": ["power", "p0", "soc", "freertos", "tick", "queue", "uart", "gpio"]
+    },
+    {
+      "name": "p0_freertos_power_tb",
+      "top": "work.tb_power",
+      "image": "testdata/firmware_freertos_demo_p0.imem.hex",
+      "data_image": "testdata/firmware_freertos_demo_p0.dmem.hex",
+      "marker_addr": 2147484148,
+      "allow_ecall_traps": true,
+      "result0_addr": 2147484144,
+      "result1_addr": 2147484140,
+      "result2_addr": 2147484136,
+      "timeout_cycles": 5000000,
+      "tags": ["power", "p0", "capture-boundary", "marker", "freertos"]
+    },
+    {
+      "name": "p0_idle_spin",
+      "image": "testdata/firmware_p0_idle_spin.imem.hex",
+      "data_image": "testdata/firmware_p0_idle_spin.dmem.hex",
+      "timeout_cycles": 1000000,
+      "tags": ["power", "p0", "soc", "idle", "spin"]
+    },
+    {
+      "name": "p0_idle_spin_power_tb",
+      "top": "work.tb_power",
+      "image": "testdata/firmware_p0_idle_spin.imem.hex",
+      "data_image": "testdata/firmware_p0_idle_spin.dmem.hex",
+      "marker_addr": 2147483652,
+      "result0_addr": 2147483648,
+      "timeout_cycles": 1000000,
+      "tags": ["power", "p0", "capture-boundary", "marker", "idle", "spin"]
+    },
+    {
+      "name": "p0_uart_poll",
+      "image": "testdata/firmware_p0_uart_poll.imem.hex",
+      "data_image": "testdata/firmware_p0_uart_poll.dmem.hex",
+      "uart_check_enable": true,
+      "timeout_cycles": 1000000,
+      "tags": ["power", "p0", "soc", "uart", "polling"]
+    },
+    {
+      "name": "p0_uart_poll_power_tb",
+      "top": "work.tb_power",
+      "image": "testdata/firmware_p0_uart_poll.imem.hex",
+      "data_image": "testdata/firmware_p0_uart_poll.dmem.hex",
+      "marker_addr": 2147483668,
+      "result0_addr": 2147483664,
+      "timeout_cycles": 1000000,
+      "tags": ["power", "p0", "capture-boundary", "marker", "uart", "polling"]
+    }
+  ]
+}

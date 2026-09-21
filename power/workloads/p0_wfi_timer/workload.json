@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "name": "p0_wfi_timer",
+  "version": "1.0",
+  "state": "verified",
+  "purpose": "Measure WFI active-idle power and fixed-cadence machine-timer wake/return energy.",
+  "design_document": "design.md",
+  "source": {"kind": "original", "paths": ["sw/apps/p0_wfi_timer"]},
+  "target": {
+    "part": "xc7z010clg400-1",
+    "clock_hz": 95000000,
+    "clock_status": "ROUTED PASS: WNS +0.003 ns, TNS 0.000 ns, TIMER_TICK_CYCLES=1",
+    "vivado_top": "top",
+    "simulation_top": "tb_power",
+    "dut_instance": "u_soc",
+    "saif_strip_path": "tb_power",
+    "memory_profile": "freertos_split_64k_v1"
+  },
+  "measurement": {
+    "window_kind": "fixed_work",
+    "warmup_end": "Timer and interrupt CSRs initialized; START immediately before first WFI",
+    "marker_symbol": "p0_wfi_timer_marker",
+    "marker_address_from_elf": "0x80000004",
+    "start_marker": "0x504F5752",
+    "end_marker": "0x454E4421",
+    "work_unit": "validated timer wake and MRET return",
+    "work_units": 64,
+    "repeat_runs": 2,
+    "dynamic_power_repeatability_percent_max": 2.0
+  },
+  "expected_blocks": {
+    "active": ["core_clock_control", "mtime_timer", "soc_data_fabric", "lsu", "trap_entry_return", "program_bram", "data_bram"],
+    "idle": ["no_architectural_mul_div", "uart", "gpio"],
+    "constraint_derived": ["board_clock_wrapper", "ps7"]
+  },
+  "oracle": {
+    "kind": "exact_wake_count_tohost",
+    "pass": "Exactly 64 validated timer wakes followed by committed tohost value 1",
+    "failure": "Unique trap/count code, timeout, missing/duplicate marker, or unexpected tohost",
+    "golden_checksum": "N/A: exact wake count 64"
+  },
+  "kpis": [
+    {"id": "P0WFI-KPI-001", "metric": "functional_oracle", "unit": "pass_fail", "gate": "PASS", "evidence": "PASS: SoC regression, power-TB regression, and both marker-window captures reached tohost=1"},
+    {"id": "P0WFI-KPI-002", "metric": "completed_wakes", "unit": "wakes", "gate": "64", "evidence": "PASS: firmware validates each timer trap and exact final count of 64"},
+    {"id": "P0WFI-KPI-003", "metric": "cycles_per_wake", "unit": "cycles_per_wake", "gate": "report", "evidence": "274900 / 64 = 4295.3125 cycles/wake"},
+    {"id": "P0WFI-KPI-004", "metric": "instructions_per_wake", "unit": "instructions_per_wake", "gate": "report", "evidence": "6867 / 64 = 107.296875 instructions/wake"},
+    {"id": "P0WFI-KPI-005", "metric": "routed_timing_drc", "unit": "ns_count", "gate": "WNS >= 0, TNS = 0, blocking DRC = 0", "evidence": "PASS: 95 MHz WNS +0.003 ns, TNS 0.000 ns, 0 Error/Critical Warning DRC"},
+    {"id": "P0WFI-KPI-006", "metric": "activity_coverage", "unit": "pass_fail", "gate": ">=80% or reviewed block alternative", "evidence": "PASS via reviewed 13-block alternative: direct 483/8762 (5.512%); 128 timer Q nets and routed DSP cone explicitly bridged"},
+    {"id": "P0WFI-KPI-007", "metric": "dynamic_power_repeatability", "unit": "percent_difference", "gate": "<= 2", "evidence": "PASS: run1/run2 both 0.117 W dynamic, 0.0% difference"},
+    {"id": "P0WFI-KPI-008", "metric": "dynamic_energy_per_wake", "unit": "joules_per_wake", "gate": "report", "evidence": "5.2900e-6 J/wake including fixed 4096-tick WFI interval"}
+  ]
+}

@@ -3,9 +3,10 @@
 **Phase:** P0 — Reproducible power baseline
 **Status:** Accepted
 **Owner:** HeTPort
-**Last updated:** 2026-09-07
+**Last updated:** 2026-09-20
 **Depends on:** `REQ-P0-*`; existing ModelSim regression and Vivado routed flow
-**Related evidence:** [`requirements.md`](requirements.md), [`verification_plan.md`](verification_plan.md)
+**Related evidence:** [`requirements.md`](requirements.md), [`verification_plan.md`](verification_plan.md),
+[`../../../power/README.md`](../../../power/README.md)
 
 ## Context and boundary
 
@@ -20,17 +21,19 @@ hierarchy and measurement window.
 fixed workload + manifest + RTL
               |
               v
-   ModelSim functional PASS  -----> VCD (debug, potentially large)
+   ModelSim marker/result/tohost PASS -> marker-bounded VCD (optional debug)
               |
-              +-------------------> backward SAIF (aggregate activity)
+              +-------------------> marker-bounded backward SAIF
                                          |
-implemented Vivado checkpoint + XDC -----+
+matching 95 MHz routed DCP + XDC ---------+
                                          v
-                              read_saif + match report
+                         read_saif + match report
+                         + reviewed DSP/timer Q bridges
+                         + per-block coverage policy
                                          |
                                          v
-                         report_power + compact comparison
-                         vectorless vs activity-based
+                         vectorless/activity report_power
+                         + two-run comparison and KPI verdict
 ```
 
 ## Interfaces and protocols
@@ -45,11 +48,20 @@ implemented Vivado checkpoint + XDC -----+
 - **Result identity:** vectorless and activity-based reports from the same
   implementation plus a compact scenario comparison.
 
-The first spike reuses `sim/regress/run_regression.ps1 -Test <one-test>
--DumpWaves`. A follow-on Tcl capture uses ModelSim `power add`, `power on/off`,
-and `power report -bsaif` only after the exact DUT hierarchy and window are
-fixed. Generated activity belongs under `build/` or another ignored output
-directory, not `doc/`.
+The implemented flow uses `tb_power/u_soc` and observes committed START/END
+stores to a workload-specific, ELF-resolved RAM marker. `capture_window.do`
+records only that interval with ModelSim `power add`, `power on/off`, and
+`power report -bsaif`; optional VCD shares the interval. `tohost` is a separate
+terminal oracle. `read_saif -strip_path tb_power` targets `top/u_soc` in the
+same routed DCP used for vectorless power. The WFI checkpoint pins
+`TIMER_TICK_CYCLES=1` to match simulation. Generated files live under ignored
+`build/power/`, with compact evidence in workload `results.md` files.
+Each run compiles into an isolated ignored ModelSim work library, so parallel
+captures cannot overwrite each other's elaboration state. The FreeRTOS `_p0`
+image uses a fixed 16-queue-receive window after 12 warmup receives, with
+committed post-window tick/LED/heartbeat counters. The UART scenario brackets
+14 fully transmitted polling bytes. The spin-idle scenario brackets 65,536
+register-only loop iterations; it remains clocked, unlike WFI.
 
 ## Clock, reset, CDC/RDC, and safe-state strategy
 
@@ -82,10 +94,15 @@ timeout or missing terminal oracle is failure even if an activity file exists.
 
 ## Error and fault containment
 
-- Missing/empty activity, SAIF parse failure, zero/poor mapping, negative timing,
-  or functional FAIL prevents an accepted power result.
+- Missing/empty activity, SAIF parse failure, inadequate direct mapping without
+  a passing reviewed per-block alternative, negative timing, or functional
+  FAIL prevents an accepted power result.
 - Vectorless fallback is reported separately, never silently called activity-
   based evidence.
+- A DSP bridge rejects probability/toggle inconsistencies greater than
+  0.0001 absolute. The smaller ModelSim clock-window quantization in the
+  spin-idle run is explicitly bounded, adjusted, and recorded; its original
+  Vivado rejection remains retained.
 - Filesystem-size limits are enforced by narrow hierarchy/window selection,
   not by truncating a file and treating it as valid.
 
@@ -109,8 +126,9 @@ for why P0 precedes multiplier and low-power RTL changes.
 | Layer | Ownership |
 | --- | --- |
 | Existing manifests/testbenches | Functional workload and PASS/FAIL |
-| New small ModelSim capture Tcl/wrapper | Window, hierarchy, VCD/backward-SAIF, hashes |
-| Vivado power Tcl | Open implemented checkpoint, `read_saif`, retain match report, `report_power` |
+| `power/` workload packages | Per-workload intent, fixed-work/window contract, expected activity, KPIs, and structured identity |
+| ModelSim capture Tcl/wrapper | Window, hierarchy, VCD/backward-SAIF, hashes |
+| Vivado power Tcl and bridge scripts | Open exact routed checkpoint, `read_saif`, measured optimized-net bridges, match/switching/power reports |
 | `doc/plans/p0-power-baseline/results.md` | Compact evidence and limitations |
 
 No source/common RTL or MMIO register is part of P0.

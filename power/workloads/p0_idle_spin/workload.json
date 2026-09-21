@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "name": "p0_idle_spin",
+  "version": "1.0",
+  "state": "verified",
+  "purpose": "Measure a fixed, clocked CPU spin-idle reference without intended in-window data or peripheral work.",
+  "design_document": "design.md",
+  "source": {"kind": "original", "paths": ["sw/apps/p0_idle_spin"]},
+  "target": {
+    "part": "xc7z010clg400-1",
+    "clock_hz": 95000000,
+    "clock_status": "ROUTED PASS: WNS +0.003 ns, TNS 0.000 ns",
+    "vivado_top": "top",
+    "simulation_top": "tb_power",
+    "dut_instance": "u_soc",
+    "saif_strip_path": "tb_power",
+    "memory_profile": "freertos_split_64k_v1"
+  },
+  "measurement": {
+    "window_kind": "fixed_work",
+    "warmup_end": "runtime startup complete, before register-only spin loop",
+    "marker_symbol": "p0_idle_spin_marker",
+    "marker_address_from_elf": "0x80000004",
+    "start_marker": "0x504F5752",
+    "end_marker": "0x454E4421",
+    "work_unit": "spin iteration (not useful application work)",
+    "work_units": 65536,
+    "repeat_runs": 2,
+    "dynamic_power_repeatability_percent_max": 2.0
+  },
+  "expected_blocks": {
+    "active": ["cpu_pipeline", "program_bram"],
+    "idle": ["data_bus_architectural_work", "timer_interrupt", "uart", "gpio", "architectural_div_rem"],
+    "constraint_derived": ["board_clock_wrapper", "ps7"]
+  },
+  "oracle": {
+    "kind": "fixed_spin_count_tohost",
+    "pass": "65536 assembly spin iterations, zero final count, committed tohost=1",
+    "failure": "0xBAD74001, unexpected trap, timeout, missing/duplicate marker, or non-PASS tohost",
+    "golden_checksum": "N/A: fixed register-only loop"
+  },
+  "kpis": [
+    {"id": "P0IDLE-KPI-001", "metric": "functional_oracle", "unit": "pass_fail", "gate": "PASS", "evidence": "PASS: SoC and power TB, committed tohost=1"},
+    {"id": "P0IDLE-KPI-002", "metric": "spin_iterations", "unit": "iterations", "gate": "65536", "evidence": "PASS: fixed assembly loop and zero committed final count"},
+    {"id": "P0IDLE-KPI-003", "metric": "window_cycles", "unit": "cycles", "gate": "report", "evidence": "PASS: 458759 cycles, 196611 retired instructions"},
+    {"id": "P0IDLE-KPI-004", "metric": "dynamic_energy_per_cycle", "unit": "joules_per_cycle", "gate": "report", "evidence": "1.66316e-9 J/cycle from 0.158 W at 95 MHz"},
+    {"id": "P0IDLE-KPI-005", "metric": "routed_timing_drc", "unit": "ns_count", "gate": "WNS >= 0, TNS = 0, blocking DRC = 0", "evidence": "PASS: WNS +0.003 ns, TNS 0, 0 blocking DRC"},
+    {"id": "P0IDLE-KPI-006", "metric": "activity_mapping", "unit": "pass_fail", "gate": ">=80% or reviewed block alternative", "evidence": "PASS: 10/10 reviewed block gates; direct 483/8762 (5.5124%)"},
+    {"id": "P0IDLE-KPI-007", "metric": "dynamic_repeatability", "unit": "percent_difference", "gate": "<=2", "evidence": "PASS: run1/run2 both 0.158 W dynamic, 0.0% difference"}
+  ]
+}
