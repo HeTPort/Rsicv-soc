@@ -1,6 +1,6 @@
 # RISC-V Core Refactoring Specification
 
-**Status:** revised and decision-backed
+**Status:** P0-P2 verified; P3 partially complete
 **Target:** RV32IM power-management/control SoC on XC7Z010-class FPGA
 **Date:** 2026-09-25
 **Supersedes:** the original 63-item undifferentiated refactoring checklist
@@ -290,40 +290,29 @@ directed smoke, applicable 47/47 ACT, and strict lint. Timing-sensitive changes
 also run identical-part/constraint synthesis and route comparisons. Power claims
 use identical fixed workloads and report energy, not frequency alone.
 
-## 9. Remaining work, in priority order
+## 9. Remaining work in this refactoring specification
 
-### Do next
+This section tracks only unfinished items from the P3 refactoring proposal. It
+does not duplicate the product roadmap or `TODO.md`. P0, P1, P2, and the first
+P3 naming/packet-construction slice are complete and verified.
 
-1. **Protect the verified baseline.** Keep smoke 23/23, ACT4 47/47, focused
-   control/LSU/RV32M tests, and layered lint as mandatory gates for every core
-   change.
-2. **Close the product clock claim.** The current exact build passes 100 MHz by
-   only +0.098 ns. Before advertising 100 MHz as guaranteed, repeat route seeds
-   and relevant temperature/voltage corners, confirm the actual board speed
-   grade, and perform physical-board validation. Until then, 95 MHz is the
-   evidence-backed production target.
-3. **Advance the power-management roadmap.** Use the existing P0 measurements
-   as baseline, then specify P1 safe clock-enable/sleep counters, C0 low-energy
-   fault/watchdog/control behavior, M0 versioned plant modelling, and C1 sampled
-   data/ADC/DMA timing. Each becomes active only with measurable safety, latency,
-   wake, and energy requirements.
-4. **Strengthen verification reuse.** Complete the U0 passive retirement/trap
-   monitor and ordered scoreboard, then add ISS differential testing in U1/U2.
+The remaining P3 candidates are independent slices, not one mandatory batch:
 
-### Do only when a focused need appears
+1. **Pure ALU boundary:** extract the arithmetic/logic selector only together
+   with a focused arithmetic testbench covering every operation and edge case.
+2. **Immediate generation:** extract it only if the new boundary materially
+   improves direct verification of I/S/B/U/J encodings and illegal cases.
+3. **LSU alignment helpers:** first write the exact RV32 byte/halfword/word lane,
+   sign-extension, strobe, offset, and misalignment contract; then decide
+   between local pure functions and a module, with focused tests.
+4. **CSR effective-read ownership:** move CSR effective-read and MEPC forwarding
+   behind a CSR-owned interface without changing back-to-back dependency, MRET,
+   trap, or retirement ordering.
+5. **Commit/SVA isolation:** separate observational/assertion code only if a
+   synthesis configuration or verification-reuse case demonstrates a concrete
+   benefit.
 
-- Extract ALU, immediate generation, LSU alignment, or CSR effective-read logic
-  only after adding a dedicated contract and focused test for that boundary.
-- Add forwarding, caches, DMA, custom instructions, or an accelerator only
-  after workload profiling identifies the bottleneck and defines ordering,
-  memory ownership, fault, interrupt, and kill behavior.
-- Consider manual floorplanning only after the architecture stabilizes and a
-  reproducible routed path fails its declared clock target.
-
-### Explicitly not required now
-
-- RV64 support or scalar-width parameterization.
-- Parameterized multiplier pipeline depth or arbitrary divider cycle count.
-- Pre-wired NPU/MAC ports, copied CoralNPU library structure, or speculative
-  vector state.
-- Code extraction whose only evidence is fewer lines or a tidier schematic.
+For every slice, preserve ports and cycle semantics unless a new decision
+explicitly changes them, and rerun its focused tests, smoke 23/23, ACT4 47/47,
+and layered lint. A candidate may remain deferred when its required contract,
+test, or measurable benefit does not yet exist.
