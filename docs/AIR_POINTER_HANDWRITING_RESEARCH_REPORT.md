@@ -319,7 +319,7 @@ application protocol, not HID or automatic clipboard access.
 
 The local platform is documented in the repository [README](../README.md),
 [project knowledge base](../doc/PROJECT_KNOWLEDGE_BASE.md),
-[FreeRTOS architecture record](../doc/AR025_OFFICIAL_FREERTOS_RISCV_PORT.md), and
+[FreeRTOS architecture record](../doc/ar/AR025_OFFICIAL_FREERTOS_RISCV_PORT.md), and
 [FPGA board guide](../fpga/zynq_mini_revb/README.md).
 
 ### 6.1 Capabilities available now
@@ -617,7 +617,7 @@ annotation application without forcing the original product thesis.
 - [Project README](../README.md)
 - [FreeRTOS and SoC roadmap](../TODO.md)
 - [Project knowledge base](../doc/PROJECT_KNOWLEDGE_BASE.md)
-- [Official FreeRTOS RISC-V port architecture record](../doc/AR025_OFFICIAL_FREERTOS_RISCV_PORT.md)
+- [Official FreeRTOS RISC-V port architecture record](../doc/ar/AR025_OFFICIAL_FREERTOS_RISCV_PORT.md)
 - [FreeRTOS demo application](../sw/apps/freertos_demo/main.c)
 - [FreeRTOS configuration](../sw/apps/freertos_demo/FreeRTOSConfig.h)
 - [ZYNQ MINI REVB FPGA guide](../fpga/zynq_mini_revb/README.md)

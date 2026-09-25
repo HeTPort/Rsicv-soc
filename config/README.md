@@ -69,7 +69,7 @@ $env:SOC_MAP_PART = "xc7z010clg400-1" # replace with the exact board part
 Each invocation writes independent metadata, flat/hierarchical utilization
 reports, and a checkpoint under `build/vivado_ram_16k` or
 `build/vivado_ram_64k`. The preserved comparison and reports are in
-[`doc/AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md`](../doc/AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md).
+[`doc/ar/AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md`](../doc/ar/AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md).
 This out-of-context synthesis measures inferred resources only; it does not
 prove address-map correctness, timing closure, or board integration.
 

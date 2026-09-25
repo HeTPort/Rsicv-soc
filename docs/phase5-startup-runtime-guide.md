@@ -22,7 +22,7 @@ the 4/4 Phase 5 ModelSim manifest and an exact-image Vivado OOC initialization
 check. The physical-board run remains open because the final part, clock/reset,
 XDC, and pin assignments have not been supplied. Detailed implementation and
 evidence are recorded in
-[`AR023_PHASE5_BARE_METAL_RUNTIME.md`](../doc/AR023_PHASE5_BARE_METAL_RUNTIME.md).
+[`AR023_PHASE5_BARE_METAL_RUNTIME.md`](../doc/ar/AR023_PHASE5_BARE_METAL_RUNTIME.md).
 
 The immediate goal is a small freestanding C program that:
 
@@ -783,10 +783,10 @@ Keep each step independently reviewable:
 Repository contracts:
 
 - [Project roadmap](../TODO.md)
-- [Architectural memory-map decision](../doc/AR009_ARCHITECTURAL_MEMORY_MAP.md)
-- [Machine-readable map decision](../doc/AR014_MACHINE_READABLE_SOC_MAP.md)
-- [Core-to-SoC environment contract](../doc/AR016_CORE_TO_SOC_ENVIRONMENT_CONTRACT.md)
-- [Precise timer-interrupt implementation](../doc/AR008_PRECISE_MACHINE_TIMER_INTERRUPTS.md)
+- [Architectural memory-map decision](../doc/ar/AR009_ARCHITECTURAL_MEMORY_MAP.md)
+- [Machine-readable map decision](../doc/ar/AR014_MACHINE_READABLE_SOC_MAP.md)
+- [Core-to-SoC environment contract](../doc/ar/AR016_CORE_TO_SOC_ENVIRONMENT_CONTRACT.md)
+- [Precise timer-interrupt implementation](../doc/ar/AR008_PRECISE_MACHINE_TIMER_INTERRUPTS.md)
 - [Generated linker memory fragment](../firmware/linker/soc_memory.ldh)
 - [Generated C memory-map header](../firmware/include/soc_memory_map.h)
 - [Current ELF converter](../sim/regress/elf_to_mem.py)

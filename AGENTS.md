@@ -1,399 +1,178 @@
 # AGENTS.md
 
-This file provides guidance to Codex (Codex.ai/code) when working with code in this repository.
+Stable working rules for human and AI contributors. Detailed architecture,
+status, commands, research, and evidence are loaded just in time through
+[`doc/CONTEXT_ROUTER.md`](doc/CONTEXT_ROUTER.md), not duplicated here.
 
-## Living documentation requirement
+## 1. Start with scoped context
 
-Architecture-changing work is incomplete until the living documents are
-updated in the same change:
+Before non-trivial work:
 
-- Update `doc/PROJECT_KNOWLEDGE_BASE.md` when behavior, timing, module
-  boundaries, packets, build steps, or current status change.
-- Update `doc/ARCHITECTURE_DESIGN_AND_DECISIONS.md` when a design decision is
-  proposed, accepted, implemented, verified, deferred, or superseded.
-- Record the problem, root cause, options considered, decision, consequences,
-  and verification evidence for problem-resolution work.
-- Update diagrams and open-risk tables when the data/control path changes.
-- Keep detailed focused evidence in a dedicated `doc/AR*.md` file and link it
-  from the consolidated documents.
-- Update `TODO.md` when phase ordering, exit gates, or milestone scope changes.
+1. Read the user's exact request and inspect `git status`.
+2. Use [`doc/CONTEXT_ROUTER.md`](doc/CONTEXT_ROUTER.md) to select one primary
+   phase and at most one supporting track.
+3. Search with `rg` before opening large documents. Start with no more than five
+   focused files; expand only for a concrete dependency.
+4. For files longer than 400 lines, prefer headings and line ranges instead of
+   reading the entire file without a stated reason.
+5. Never recursively ingest `doc/`, `docs/`, logs, generated output, or
+   `notes/inbox/` by default.
 
-## Phase evidence packages for long-running work
+Authority is divided deliberately:
 
-Cross-conversation development must not rely on chat history as the source of
-requirements, decisions, or proof. For every new substantial feature, IP block,
-architecture change, verification expansion, or system experiment:
+- `TODO.md` — implementation checkbox/status ledger;
+- `doc/ROADMAP_AND_LEARNING_PATH.md` — dependency order and gates;
+- `doc/plans/<phase-id>/requirements.md` and `results.md` — phase scope and
+  actual evidence;
+- `doc/ARCHITECTURE_DESIGN_AND_DECISIONS.md` plus `doc/ar/AR*.md` — accepted
+  design decisions and focused evidence;
+- `doc/PROJECT_KNOWLEDGE_BASE.md` — beginner-oriented current explanation;
+- `doc/RESEARCH_PROGRAM_PLAN.md` plus paper audits — research decisions;
+- `notes/inbox/` — unreviewed ideas, never requirements or proof.
 
-1. Create `doc/plans/<phase-id>/` when the phase becomes active; do not create
-   empty directories for distant ideas.
-2. Use [`doc/PHASE_EVIDENCE_TEMPLATE.md`](doc/PHASE_EVIDENCE_TEMPLATE.md) and
-   maintain, as applicable:
-   - `requirements.md` — scope, non-goals, assumptions, failure consequences,
-     and measurable performance/power/safety targets;
-   - `architecture.md` — boundary, block/data flow, interfaces, clocks/resets,
-     CDC/RDC, state/timing, units/numeric formats, faults, and alternatives;
-   - `registers.rdl` plus generated `registers.md` — addresses, fields, access
-     attributes, reset values, side effects, and software sequences;
-   - `verification_plan.md` — positive, boundary, negative, fault, reset/race,
-     coverage, assertions, reproducibility, and pass/fail oracle;
-   - `results.md` — actual regression, waveform, synthesis, timing, area,
-     power, hardware/model evidence, limitations, and exit verdict.
-3. Tailor rather than fabricate: omit `registers.*` when there is no MMIO,
-   mark unexecuted results `NOT RUN`, and never write expected results as proof.
-4. Give requirements stable IDs and trace them into tests/assertions/results.
-5. Keep large generated outputs out of Git where practical; retain compact
-   reports, hashes, failing seeds, commands, tool versions, and assumptions.
-6. Link focused problem/root-cause and RED/GREEN evidence in `doc/AR*.md`; do
-   not duplicate or silently supersede existing AR and phase-guide records.
+When two documents disagree, correct the owning artifact first and update
+public summaries in the same change.
 
-The staged dependency/learning order is in
-[`doc/ROADMAP_AND_LEARNING_PATH.md`](doc/ROADMAP_AND_LEARNING_PATH.md), and
-reference implementations/standards are indexed in
-[`doc/REFERENCE_INDEX.md`](doc/REFERENCE_INDEX.md). `TODO.md` remains the
-authoritative checkbox ledger.
+## 2. Preserve user work and evidence integrity
 
-## License and provenance boundary
+- The worktree may contain unrelated edits. Do not overwrite, revert, move, or
+  reformat them.
+- Use `apply_patch` for hand edits. Use formatting/generation tools only for
+  mechanical output they own.
+- Do not use destructive Git or filesystem commands unless explicitly asked.
+- Expected results are not evidence. Mark unexecuted results `NOT RUN`.
+- Preserve exact commands, tool versions, input/hash/seed identity, native exit
+  status, and limitations for reported runs.
+- Keep large generated artifacts out of Git where practical; retain compact
+  reports, hashes, failing seeds, and reproduction instructions.
+- Do not create empty future module or phase directories.
 
-- Original repository material is governed by the root noncommercial
-  source-available `LICENSE`; commercial-use requests go to
-  `Hetport@outlook.com`.
-- Never describe this repository as OSI open source while the commercial-use
-  restriction remains in force.
+## 3. Living documentation requirement
+
+Architecture-changing work is incomplete until the relevant living documents
+are updated in the same change:
+
+- update `doc/PROJECT_KNOWLEDGE_BASE.md` for behavior, timing, module boundary,
+  packet, build, or current-status changes;
+- update `doc/ARCHITECTURE_DESIGN_AND_DECISIONS.md` for a proposed, accepted,
+  implemented, verified, deferred, or superseded decision;
+- record problem, root cause, options, decision, consequences, and actual
+  verification in a focused `doc/ar/AR*.md` when resolving a material problem;
+- update diagrams and open risks when the data/control path changes;
+- update `TODO.md` when scope, phase order, exit gates, or implementation status
+  changes.
+
+Avoid copying mutable status into many documents. Link to the owning result or
+ledger instead.
+
+## 4. Phase evidence packages
+
+For every active substantial feature, IP block, architecture change,
+verification expansion, or system experiment, create
+`doc/plans/<phase-id>/` using
+[`doc/PHASE_EVIDENCE_TEMPLATE.md`](doc/PHASE_EVIDENCE_TEMPLATE.md).
+
+Maintain as applicable:
+
+- `requirements.md` — scope, non-goals, assumptions, failure consequences, and
+  measurable performance/power/safety targets;
+- `architecture.md` — boundaries, interfaces, clocks/resets, CDC/RDC,
+  state/timing, units/numeric formats, faults, and alternatives;
+- `registers.rdl` plus generated `registers.md` — only when MMIO exists;
+- `verification_plan.md` — positive, boundary, negative, fault, reset/race,
+  coverage, assertion, reproducibility, and pass/fail oracles;
+- `results.md` — actual regression, waveform, synthesis, timing, area, power,
+  hardware/model evidence, limitations, and exit verdict.
+
+Give requirements stable IDs and trace them into tests/assertions/results. Link
+existing AR and guide evidence; do not silently duplicate or supersede it.
+
+## 5. License and provenance boundary
+
+- Original material is governed by the root noncommercial source-available
+  `LICENSE`; do not call the repository OSI open source.
+- Commercial-use requests go to `Hetport@outlook.com`.
 - Never relicense `third_party/FreeRTOS-Kernel/`; retain its MIT license and
-  `UPSTREAM.md` provenance unchanged.
-- Record every new third-party source, model, generated artifact, or copied
-  implementation in `THIRD_PARTY_NOTICES.md` with upstream revision and
-  license before committing it.
-- Do not copy CoralNPU or another reference implementation merely to match its
-  directory structure. Reuse ideas only through an independently specified
-  local contract unless compatible source reuse and notices are deliberately
-  reviewed.
+  `UPSTREAM.md` provenance.
+- Before committing third-party source, models, datasets, papers, or generated
+  artifacts, record upstream revision and license in
+  `THIRD_PARTY_NOTICES.md` and confirm redistribution rights.
+- Do not copy CoralNPU or another implementation merely to reproduce its tree.
+  Reuse ideas through independently specified local contracts unless source
+  reuse and notices are deliberately reviewed.
 - Do not accept substantial external code/RTL contributions until written
   contribution terms preserve the project's licensing options.
 
-## Project overview
-
-This is a small RV32IM RISC-V CPU + SoC written in SystemVerilog.
-
-The active core also includes `src/core/radix2_divider.sv`, a kill-safe
-32-iteration restoring divider for DIV/DIVU/REM/REMU.
-
-- `src/core/riscv.sv` — top of the pipelined CPU.
-- `src/core/core_ctrl.sv` — centralized pipeline control: hazard detection, stall/flush generation, delayed fetch kill, and `pipe_kill`.
-- `src/core/retire_stage.sv` — sole retirement owner for final RF/CSR effects,
-  synchronous/interrupt trap selection, MRET, WFI, redirects, and commit.
-- `src/core/lsu.sv` — Load/Store Unit: address/alignment, store lanes, load extension, and the single-outstanding data-bus transaction FSM.
-- `src/bus/core_bus_data_ram.sv` — adapter from the CPU-local request/response bus to synchronous data RAM, with verification wait-state parameters.
-- `src/bus/soc_data_fabric.sv` — centralized full-address data decoder, local-address translator, and registered response-owner mux.
-- `src/bus/core_bus_default_target.sv` — one-cycle registered, side-effect-free error target for every non-RAM data address.
-- `src/periph/mtime_timer.sv` — registered RV32 machine-timer target for
-  `mtime`/`mtimecmp` and the level-sensitive MTIP signal.
-- `src/periph/core_bus_uart.sv` — registered polling-UART MMIO target with a
-  one-byte TX holding stage, parameterized default 16-byte RX FIFO, and sticky
-  RX errors.
-- `src/periph/uart_tx.sv` — parameterized valid/ready 8N1 TX shifter.
-- `src/periph/uart_rx.sv` — synchronized midpoint-sampling 8N1 RX engine.
-- `src/periph/core_bus_gpio.sv` — registered output-only GPIO MMIO target with
-  parameterized pin width, partial-write merge, readback, and invalid-access
-  errors.
-- `src/riscv_soc.sv` — SoC wrapper that connects the CPU to program RAM and routes its data bus through the fabric to timer/UART/GPIO/RAM/default targets.
-- `src/mem/prog_ram.sv` — synchronous instruction/program RAM.
-- `src/mem/data_ram.sv` — synchronous data RAM, now written as a pure BRAM template.
-- `sim/tb/tb_riscv_core.sv` — main testbench that loads `testdata/prog.hex` and checks the CPU.
-- `testdata/*.S` and `testdata/*.hex` — hand-written assembly tests.
-- `doc/PROJECT_KNOWLEDGE_BASE.md` — living beginner-oriented study guide.
-- `doc/ARCHITECTURE_DESIGN_AND_DECISIONS.md` — living architecture and decision record.
-- `doc/AR*.md` — focused problem reports with RED/GREEN evidence.
-
-The project is meant to be simulated with ModelSim/QuestaSim and synthesized with Vivado.
-
-### Recent refactor
-
-The pipeline data flow was refactored from flat signals into packed SystemVerilog structs (`fetch_pkt_t`, `id_ex_pkt_t`, `ex_wb_pkt_t` defined in `src/core/riscv_pkg.sv`). Most pipeline modules now accept/return a single struct instead of dozens of individual signals. Empty future-module placeholders and unrelated tool settings were removed; planned peripherals should be added only when their phase defines a real interface.
-
-`decode.sv` and `execute.sv` construct outgoing packets from the corresponding
-typed canonical bubble, then assign only boundary-owned meaningful fields.
-Internal combinational names describe semantics; `_i/_o` is reserved for real
-module ports.
-
-### LSU / control split
-
-A later refactor extracted the load/store logic out of `execute.sv` into `src/core/lsu.sv` and the hazard/flush control out of `riscv.sv` into `src/core/core_ctrl.sv`:
-
-- `execute.sv` does ALU, branch/jump, and completed RV32M result selection; it
-  receives `mem_misaligned_i` from the
-  LSU for exception reporting.
-- `lsu.sv` owns request payload registers, the
-  `IDLE -> REQUEST -> RESPONSE -> COMPLETE` state machine, byte/halfword store
-  alignment, and load alignment/sign/zero-extension.
-- `riscv.sv` exposes the single-outstanding data bus; RAM and future
-  peripherals are targets outside the CPU.
-- `retire_stage.sv` receives pre-aligned `load_data_i` from the LSU and owns
-  final writeback selection; the superseded `wb_stage.sv` was removed.
-- `core_ctrl.sv` selects typed retirement-over-EX redirects and centralizes
-  fetch/PC movement, RAW/wait holds, IF/ID and ID/EX flushes, delayed fetch
-  invalidation, `pipe_kill`, and `ex_kill` in one `pipe_ctrl_t`.
-- `radix2_divider.sv` produces one quotient bit per run cycle. `riscv.sv` holds
-  ID/EX and bubbles EX/WB until `div_complete`, combines `div_wait` with
-  `lsu_busy` at `ex_wait_i`, and cancels the unit through `ex_kill`.
-
-## Build / simulation commands
-
-All source files are listed in `sim/filelist.f` and compiled with the main testbench.
-
-### Run the main CPU testbench
-
-```bash
-cd sim
-vsim -do run.do
-```
-
-### Run the focused divider protocol test
-
-```bash
-cd sim
-vsim -c -do run_divider_protocol.do
-```
-
-### Run the focused SoC data-fabric test
-
-```bash
-cd sim
-vsim -c -do run_soc_data_fabric.do
-```
-
-### Run the focused fetch-error tests
-
-```bash
-cd sim
-vsim -c -do run_decode_fetch_error.do
-vsim -c -do run_fetch_error_timing.do
-```
-
-### Run the focused UART tests
-
-```bash
-cd sim
-vsim -c -do run_uart_tx.do
-vsim -c -do run_uart_rx.do
-vsim -c -do run_core_bus_uart.do
-vsim -c -do run_core_bus_uart_rx.do
-```
-
-### Run the focused GPIO test
-
-```bash
-cd sim
-vsim -c -do run_core_bus_gpio.do
-```
-
-### Run the focused Phase 3 tests
-
-```bash
-cd sim
-vsim -c -do run_retire_stage.do
-vsim -c -do run_csr_retire_order.do
-vsim -c -do run_mtime_timer.do
-```
-
-The two end-to-end timer tests are selected from
-`sim/regress/phase3_tests.json`; one checks precise WFI/interrupt behavior and
-the other checks 10,000 repeated timer interrupts.
-
-The Phase 4 peripheral vertical slices are selected from
-`sim/regress/phase4_tests.json`. One runs TX polling firmware and decodes
-`Hello, UART!\r\n`; the other drives 16 serial bytes into `uart_rx_i`, has
-firmware poll/echo them, and decodes `RX FIFO 16 OK!\r\n` from `uart_tx_o`.
-The GPIO run writes/reads five values and independently checks `gpio_out_o`.
-
-`run.do` does the following:
-
-1. Deletes/recreates the `work` library.
-2. Compiles all files from `filelist.f` with `vlog -sv -f filelist.f`.
-3. Runs `vsim -voptargs=+acc work.tb_riscv_core`.
-4. Adds all signals to the wave window and runs to completion.
-
-### What the simulation checks
-
-The testbench loads `testdata/prog.hex` into `prog_ram` and monitors the
-architectural commit interface. Completion is a committed store to the
-configured `tohost` address:
-
-- **PASS:** `tohost == 1`
-- **FAIL:** another nonzero `tohost` value contains a test-specific failure code
-
-The core has no architectural halt output; tests finish through committed
-`tohost` stores.
-
-### Current filelist notes
-
-- `sim/filelist.f` includes `regfile.sv`, `lsu.sv`, `core_ctrl.sv`,
-  `retire_stage.sv`, `mtime_timer.sv`, `core_bus_uart.sv`, `uart_tx.sv`,
-  `uart_rx.sv`, and `core_bus_gpio.sv`.
-- `tb_riscv_core.sv` uses parameterized relative test-image paths.
-- `tb_riscv_soc.sv` is the Phase 2 SoC integration environment. The
-  separate `sim/regress/soc_red_tests.json` manifest selects it for unmapped
-  load/store and invalid-fetch cases. The data cases now pass through the
-  centralized fabric; invalid fetch remains intentionally RED until explicit
-  instruction-error signaling is added.
-
-### Assembling tests
-
-No build script is provided for the assembly tests. To regenerate a `.hex` from one of the `.S` files, use a RISC-V toolchain:
-
-```bash
-riscv64-unknown-elf-as -march=rv32im -mabi=ilp32 -o test.o testdata/ebreak_test.S
-riscv64-unknown-elf-objcopy -O ihex test.o test.hex
-```
-
-Then convert the Intel HEX to the plain `$readmemh` format used by `prog_ram`.
-
-## High-level architecture
-
-### Pipeline
-
-The CPU is organized as a simple in-order pipeline:
-
-```text
-IF -> IF/ID -> ID -> ID/EX -> EX -> LSU -> SoC fabric -> RAM/timer/UART/default -> EX/WB -> retire
-```
-
-| Stage | Modules / logic |
-|-------|-----------------|
-| IF    | `pc_counter` outputs `instr_addr_o`; instruction RAM returns data one cycle later |
-| IF/ID | `if2id` receives `fetch_pkt_t` and registers the fetched instruction and its PC |
-| ID    | `decode` decodes the instruction into an `id_ex_pkt_t`; `regfile` reads operands |
-| ID/EX | `id2ex` registers the `id_ex_pkt_t` from decode |
-| EX    | `execute` runs ALU/branch/jump/multiply; `radix2_divider` runs multi-cycle DIV/REM; completed results form an `ex_wb_pkt_t` |
-| MEM   | `lsu.sv` captures one request, holds it until accepted, waits for one response, and emits one completion; `core_bus_data_ram.sv` translates it to synchronous RAM |
-| EX/WB | `ex2wb` registers the `ex_wb_pkt_t` writeback metadata from EX/LSU |
-| Retire | `retire_stage` selects final RF/CSR effects, exceptions/interrupts, MRET/WFI, redirect, and architectural observations |
-
-Important: there is **no explicit `ex2mem` or `mem2wb` register**. The LSU
-holds ID/EX during REQUEST/RESPONSE and allows the memory instruction into
-EX/WB only during COMPLETE. AR-004 is closed: raw/aligned response data and
-response-error status are copied into the registered `ex_wb_pkt_t` during that
-completion, so `retire_stage` and commit consume packet-owned memory results.
-
-### Pipeline packets (structs)
-
-`src/core/riscv_pkg.sv` defines the packed structs that flow through the pipeline:
-
-- `fetch_pkt_t` — `{ valid, pc, instr }` used by `if2id`.
-- `id_ex_pkt_t` — used by `id2ex`, containing:
-  - `valid`, `pc`, `instr`
-  - `rf_pkt_t rf` — `{ we, addr }`
-  - `ex_data_pkt_t ex_data` — `{ op1, op2, imm, store_data }`
-  - `ex_ctrl_pkt_t ex_ctrl` — `{ alu_op, branch_op, jump_op, mem_req, mem_we, mem_size, mem_unsigned, wb_sel, muldiv_valid, muldiv_op }`
-  - `exc_pkt_t exc` — `{ illegal_instr, ecall, ebreak }`
-  - `use_rs1`, `use_rs2`
-- `ex_wb_pkt_t` — used by `ex2wb`, containing:
-  - `valid`
-  - `pc`, `next_pc`, `instr`, and `is_wfi`
-  - `rf_pkt_t rf`
-  - `wb_sel`
-  - `alu_data`, `pc4_data`
-  - `mem_pkt_t mem_info` — `{ mem_size, mem_unsigned, load_offset }`
-  - `mem_misaligned`
-  - `exc_pkt_t exc`
-
-These structs reduce top-level wiring and make bubble injection safer because reset/flush can clear the whole packet at once.
-
-### Instruction fetch timing
-
-`prog_ram` is synchronous read with one-cycle latency. The top-level `riscv.sv` keeps a delayed PC/valid pair (`if_resp_pc_q` / `if_resp_valid_q`) so the instruction coming back from memory can be matched with the PC that requested it. `if2id` captures this delayed response in a `fetch_pkt_t`.
-
-### Branch / jump handling
-
-Branches and jumps are resolved in EX and emitted as typed candidates. When a
-candidate is selected:
-
-- `core_ctrl` gives an older retirement redirect priority over EX and drives
-  the selected target to `pc_counter`.
-- `pipe_ctrl_t` flushes `if2id` and `id2ex` and suppresses younger work.
-- Because instruction memory has one-cycle latency, `fetch_kill_q` registers
-  one delayed invalidation to discard the stale response.
-- MRET carries its effective `mepc` target through EX/WB; retirement emits the
-  redirect in the same cycle as the CSR MRET command.
-
-### Hazard handling
-
-The only hazard logic is a simple RAW stall in `core_ctrl.sv`:
-
-```systemverilog
-assign hazard_stall =
-    id_valid && ex_valid && ex_rf_we && (ex_rd_addr != 5'd0) &&
-    (
-      (id_use_rs1 && id_rs1_addr == ex_rd_addr) ||
-      (id_use_rs2 && id_rs2_addr == ex_rd_addr)
-    );
-```
-
-`core_ctrl.sv` also generates `pc_stall`, `instr_req`, `ifid_stall`,
-`idex_stall`, `ifid_flush`, `idex_flush`, delayed fetch kill, `pipe_kill`, and
-`ex_kill`. EX/WB advances every cycle because there is no downstream
-backpressure consumer; no artificial `exwb_stall` policy is exported.
-When a hazard is detected:
-
-- `pc_stall` and `ifid_stall` are asserted.
-- `idex_flush` is asserted to insert a bubble.
-
-There is **no forwarding network** beyond the write-first behavior in
-`regfile.sv` (a write in the same cycle as a read returns the new value for the
-same address). Hazards that span more than one stage may require extra stalls
-or forwarding. `ex_stall` follows the combined LSU/divider `ex_wait_i`; the
-owning ID/EX packet is held and EX/WB receives bubbles until completion.
-
-### Trap handling
-
-A valid EX/WB packet can cause a synchronous trap for illegal instruction,
-ECALL, EBREAK, instruction-address misalignment, or load/store misalignment.
-`retire_stage` also selects a machine-timer interrupt between instructions from
-the effective post-retirement CSR context.
-
-- The faulting instruction remains valid so it can provide `mepc`, `mcause`,
-  and `mtval`, but its normal register/CSR/memory/redirect effects are
-  suppressed.
-- Retirement emits one ordered CSR command; trap entry updates the machine
-  CSRs and redirects the PC to the effective `mtvec`.
-- WFI retires once, records `next_pc`, and enters a logical wait state. A later
-  eligible interrupt wakes directly into trap entry without retiring WFI twice.
-- `pipe_kill` converts the complete younger EX/WB input packet to the canonical
-  bubble and suppresses younger LSU activity.
-- Tests and software use committed `tohost` stores for completion.
-- `exception_o` and `illegal_instr_o` are WB-stage observations.
-
-### Control/data conventions
-
-- `riscv_pkg.sv` defines opcodes, funct3/funct7 constants, enum control types (`alu_op_e`, `branch_op_e`, `jump_op_e`, `mem_size_e`, `wb_sel_e`, `muldiv_op_e`), and the pipeline packet structs. It replaces the old `define.sv`.
-- `riscv_pkg.sv` deliberately fixes the production architecture to RV32. Wide
-  timers/counters and future accelerators keep their own explicit widths; RV64
-  would be a separately specified core variant rather than a compile-time macro.
-- RV32M multiplication uses the fixed registered blocking
-  `rv32m_mul_reg.sv` backend (PARTIAL/REDUCE/COMBINE/RESP). DIV/DIVU/REM/REMU
-  use `radix2_divider.sv`; `rv32m_unit.sv` arbitrates both backends, asserts the
-  generic EX wait path, and suppresses incomplete EX/WB packets.
-- Data memory is little-endian; `lsu.sv` handles store strobe alignment and load byte/halfword extraction and sign/zero extension before forwarding the data to `retire_stage.sv`.
-- `data_ram.sv` is a pure BRAM template (no reset branch, no range checks) and
-  is instantiated outside the CPU through `core_bus_data_ram.sv`. It accepts
-  an `INIT_FILE` parameter for loading firmware images in simulation.
-
-### Testbench note
-
-`tb_riscv_core.sv` validates ordered architectural commits, x0 protection,
-trap/write exclusion, memory masks, data-bus single-outstanding/exactly-once
-behavior, fetch request/response timing, and final IF/ID PC/instruction pairing.
-Test programs report PASS or a failure code through a committed store to
-`tohost`.
-
-### Check the AR-003 SoC synthesis boundary
+## 6. Stable project facts and invariants
+
+This repository is a small in-order RV32IM RISC-V control SoC in SystemVerilog,
+simulated with ModelSim/Questa and synthesized with Vivado. It is an
+experimental computing/control foundation, not a demonstrated propulsion
+system.
+
+Stable architectural boundaries:
+
+- `src/core/riscv.sv` integrates the CPU pipeline;
+- `core_ctrl.sv` owns pipeline movement, redirect priority, stall/flush/kill,
+  and delayed synchronous-fetch invalidation;
+- `retire_stage.sv` owns final RF/CSR effects, traps/interrupts, MRET, WFI,
+  redirects, and architectural commit;
+- `lsu.sv` owns the single-outstanding data transaction and load/store
+  alignment;
+- `rv32m_unit.sv` owns registered multiply and iterative divide arbitration;
+- `soc_data_fabric.sv` owns full-address decode and registered response-owner
+  selection;
+- timer/UART/GPIO/RAM/default targets live outside the CPU;
+- program/data memory is little-endian synchronous BRAM;
+- tests complete through a committed `tohost` store (`1` is PASS; another
+  nonzero value is a test-specific failure code);
+- production architecture is RV32; future RV64 is a separately specified core,
+  not a width macro.
+
+For details, load only the relevant section of the
+[`project knowledge base`](doc/PROJECT_KNOWLEDGE_BASE.md),
+[`architecture decision log`](doc/ARCHITECTURE_DESIGN_AND_DECISIONS.md), or
+focused AR named by the context router.
+
+## 7. Build and verification routing
+
+All production/testbench sources are listed explicitly; do not rely on wildcard
+compilation or unreviewed generated source discovery.
+
+Common entry points:
 
 ```powershell
-Set-Location D:\Rsicv-soc\sim\synth
-& 'D:\vivado\Vivado\2019.2\bin\vivado.bat' `
-  -mode batch -source .\check_riscv_soc_ar003.tcl
+Set-Location sim
+vsim -do run.do
+vsim -c -do run_divider_protocol.do
+vsim -c -do run_soc_data_fabric.do
+vsim -c -do run_retire_stage.do
 ```
 
-This out-of-context check proves that the external data-bus/adapter hierarchy
-synthesizes and retains both program/data Block RAM. It does not prove board
-timing closure because no board clock or XDC constraints are applied.
+Use the relevant focused runner first, then the required smoke/ACT4/firmware/
+synthesis/board gate for the changed contract. The complete command inventory
+and result semantics are in `sim/regress/README.md`, the applicable phase
+package, focused AR, or legacy guide routed by `doc/CONTEXT_ROUTER.md`.
+
+Documentation-only governance changes run:
+
+```powershell
+& .\tools\check_doc_governance.ps1
+git diff --check
+```
+
+Do not claim board timing closure from an unconstrained or OOC synthesis run.
+Keep board clock, routed clock, power-analysis identity, and physical
+measurement claims separate.
+
+## 8. Directory placement
+
+- New canonical engineering/research documents go under `doc/`.
+- `docs/` is a frozen legacy accepted-guide set; follow `docs/README.md`.
+- Cross-device raw ideas go under `notes/inbox/` and are excluded from default
+  reads.
+- Local agent plans go under ignored `.planning/<task-id>/`.
+- Generated/local outputs go under ignored build/output/tmp paths, not the
+  repository root.
+- New W0/M0 research code directories are created only when their first real
+  workload/model begins.

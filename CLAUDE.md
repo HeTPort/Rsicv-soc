@@ -175,7 +175,9 @@ After halt is asserted, `pipe_kill` is used to suppress further fetch, memory ac
 ### Control/data conventions
 
 - `riscv_pkg.sv` defines opcodes, funct3/funct7 constants, enum control types (`alu_op_e`, `branch_op_e`, `jump_op_e`, `mem_size_e`, `wb_sel_e`, `muldiv_op_e`), and the pipeline packet structs. It replaces the old `define.sv`.
-- `riscv_pkg.sv` also contains compile-time hooks for future RV64 support (`+define+RISCV_XLEN_64`) and additional ALU ops (`ALU_ADDW`, `ALU_SUBW`, etc.).
+- `riscv_pkg.sv` deliberately fixes the production architecture to RV32. Wide
+  timers/counters and future accelerators keep their own explicit widths; RV64
+  would be a separately specified core variant rather than a compile-time macro.
 - RV32M multiply/divide is implemented **combinationally** in `execute.sv`. `ex_stall` in `core_ctrl.sv` is reserved for a future multi-cycle implementation.
 - Data memory is little-endian; `lsu.sv` handles store strobe alignment and load byte/halfword extraction and sign/zero extension before forwarding the data to `wb_stage.sv`.
 - `data_ram.sv` is now a pure BRAM template (no reset branch, no range checks) so Vivado infers Block RAM. It accepts an `INIT_FILE` parameter for loading firmware images in simulation.

@@ -707,7 +707,7 @@ Invalid instruction
 UVM 作为增量验证层加入现有框架，不替代定向测试、ACT4、`tohost`、
 SVA/formal、固件测试、综合时序和板级验证。详细决策、来源项目、风险和
 阶段门槛见
-[`AR026_SCALABLE_UVM_VERIFICATION_ARCHITECTURE.md`](../doc/AR026_SCALABLE_UVM_VERIFICATION_ARCHITECTURE.md)。
+[`AR026_SCALABLE_UVM_VERIFICATION_ARCHITECTURE.md`](../doc/ar/AR026_SCALABLE_UVM_VERIFICATION_ARCHITECTURE.md)。
 
 ### 10.1 Stable abstraction boundary
 
@@ -787,6 +787,12 @@ verif/
 - RAL 和 address map 从已接受的 SoC map 生成，不手工复制常量。
 
 ### 10.4 First implementation slice
+
+Toolchain status on 2026-09-16: ModelSim SE-64 2019.2 explicitly compiled and
+ran its installed UVM 1.2 library with zero UVM errors/fatals. A deliberate
+false-marker mode returned nonzero, so the result gate is also proven. See the
+[`u0-passive-uvm` results](../doc/plans/u0-passive-uvm/results.md). This does
+not yet prove any DUT-facing UVM component.
 
 第一步只建立被动的 core-level retirement vertical slice：
 

@@ -5,7 +5,7 @@
 **Owner:** RTL architecture and verification
 **Last updated:** 2026-09-25
 **Depends on:** AR-003, AR-008, AR-018, AR-029, AR-030
-**Related evidence:** [AR-031](../../AR031_CORE_CONTROL_OWNERSHIP.md)
+**Related evidence:** [AR-031](../../ar/AR031_CORE_CONTROL_OWNERSHIP.md)
 
 ## Scope and outcome
 

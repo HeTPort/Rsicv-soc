@@ -4,9 +4,14 @@
 feature, IP block, architecture change, verification expansion, or system
 experiment.
 
-This template is prospective. Existing `doc/AR*.md` reports and
+This template is prospective. Existing `doc/ar/AR*.md` reports and
 `docs/phase*-guide.md` files remain valid historical evidence and do not need
 mechanical migration.
+
+Use [`CONTEXT_ROUTER.md`](CONTEXT_ROUTER.md) before loading project-wide
+documentation. A phase package is the durable handoff for its own scope, not a
+reason to copy the same mutable status into README, the knowledge base, and
+multiple planning files.
 
 ## 1. Where the files belong
 
@@ -28,7 +33,7 @@ Examples of useful phase IDs are `u0-passive-uvm`, `p0-power-baseline`,
 ideas. Create a package when a phase becomes the next accepted implementation
 slice.
 
-`doc/AR*.md` remains the home for focused problem/root-cause/decision and
+`doc/ar/AR*.md` remains the home for focused problem/root-cause/decision and
 RED/GREEN evidence. Link the relevant AR report from the phase package instead
 of duplicating it.
 

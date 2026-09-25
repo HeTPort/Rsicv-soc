@@ -5,7 +5,7 @@
 **Owner:** RTL architecture
 **Last updated:** 2026-09-25
 **Depends on:** `redirect_t`, canonical bubbles, precise retirement
-**Related evidence:** [AR-031](../../AR031_CORE_CONTROL_OWNERSHIP.md)
+**Related evidence:** [AR-031](../../ar/AR031_CORE_CONTROL_OWNERSHIP.md)
 
 ## Boundary and data flow
 

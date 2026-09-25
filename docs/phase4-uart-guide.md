@@ -139,8 +139,8 @@ the bytes through `uart_tx_o`, where an independent decoder compares
 
 Current evidence also includes 2/2 Phase 3, 22/22 smoke, and a Vivado 2019.2
 out-of-context synthesis pass with the RX/TX hierarchy retained. See
-[AR-020](../doc/AR020_MINIMAL_POLLING_UART_TX.md) for TX and
-[AR-021](../doc/AR021_POLLING_UART_RX_FIFO.md) for RX.
+[AR-020](../doc/ar/AR020_MINIMAL_POLLING_UART_TX.md) for TX and
+[AR-021](../doc/ar/AR021_POLLING_UART_RX_FIFO.md) for RX.
 
 ## FPGA-board gate
 

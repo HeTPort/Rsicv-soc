@@ -5,7 +5,7 @@
 **Owner:** RTL architecture and verification
 **Last updated:** 2026-09-25
 **Depends on:** AR-029, AR-030, AR-031
-**Related evidence:** [AR-032](../../AR032_P3_SEMANTIC_CODE_CLEANUP.md)
+**Related evidence:** [AR-032](../../ar/AR032_P3_SEMANTIC_CODE_CLEANUP.md)
 
 ## Requirements
 

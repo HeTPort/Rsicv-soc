@@ -5,7 +5,7 @@
 **Status:** Accepted planning baseline; implementation evidence remains in each
 phase package and existing AR reports
 
-**Last updated:** 2026-09-07
+**Last updated:** 2026-09-25
 
 ## 1. What this roadmap represents
 
@@ -52,6 +52,9 @@ requirement + failure consequence
 Use [`PHASE_EVIDENCE_TEMPLATE.md`](PHASE_EVIDENCE_TEMPLATE.md) when a phase
 becomes active. `TODO.md` remains the detailed checkbox ledger; this roadmap
 owns dependency order, learning goals, decision gates, and scope boundaries.
+The literature taxonomy, paper audits, reproducibility decisions, benchmark
+ladder, and W0 workload-discovery gate are owned by
+[`RESEARCH_PROGRAM_PLAN.md`](RESEARCH_PROGRAM_PLAN.md).
 
 Do not implement optional accelerators merely to make the block diagram look
 complete. A phase begins only when its prerequisite evidence exists.
@@ -82,8 +85,8 @@ Not yet demonstrated:
 | --- | --- | --- | --- |
 | 0 | Documentation/release readiness | Adopted license, reference indexing | Default-branch integration/push requires explicit later approval |
 | 1 | P0 measurement-only power baseline: six-class technical gate verified | U0 passive UVM when a legally entitled tool path is chosen | No active agents, ISS, or RTL power change |
-| 2 | P1 counters/safe sleep now eligible but not implemented | U1 ISS then U2 generated ISA after U0 | No NPU/GPU; no unmeasured clock gating |
-| 3 | C0 safe control vertical slice | M0 low-order MIL/SIL model | No high-energy bench actuation |
+| 2 | W0 workload/data-model discovery plus P1 counter design | U1 ISS then U2 generated ISA after U0 | No A0/NPU/GPU; no unmeasured clock gating |
+| 3 | C0 safe control vertical slice | M0 low-order MIL/SIL model and W0 domain profiling | No high-energy bench actuation; no accelerator before stable workload evidence |
 | 4 | C1 ADC/SPI/IRQ/DMA | M0 RTL/software-in-loop coupling | DMA only after interrupt/MMIO contracts |
 | 5 | A0 small MMIO accelerator | Refine HIL/bench model correlation | Accelerator only after profiling |
 | 6 | A1 RVV/NPU study or G0 GPU research | Product/propulsion feasibility work in separate repos | Entry only if decision gates pass |
@@ -225,6 +228,33 @@ clock/resource power, workload normalization, confidence/assumptions.
 
 **Exit gate:** two independent reruns of the same workload produce comparable
 results and explain dominant activity/resources. P0 changes measurement only.
+
+### W0 — Workload and data-model discovery
+
+**Outcome:** representative power-management/control tasks, shared domain data
+types, and measured CPU behavior identify what—if anything—should be
+accelerated.
+
+**Prerequisites:** verified P0 measurement identity and one bounded surrogate
+use case. W0 may start before the final propulsion concept is fixed, but unknown
+requirements must remain ranges or explicit unknowns.
+
+**Implementation:** audit algorithm families; build deterministic high-level
+and bounded-C reference workloads; align them with M0 scenarios; characterize
+L0 machine costs, optional CoreMark, domain kernels, and end-to-end tasks;
+measure cycles, instructions, memory/branch/wait behavior, footprint, observed
+execution high-water marks, deadlines, control quality, and activity/energy;
+extract common types/kernels only from implemented workloads.
+
+**Knowledge:** algorithm taxonomy, embedded data layout, compiler behavior,
+profiling, WCET versus observed maximum, scheduling, arithmetic intensity,
+locality, data movement, and benchmark validity.
+
+**Exit gate:** at least one stable C0/M0-relevant workload and comparable
+baselines identify a repeatable bounded hotspot, or produce a documented
+no-accelerator decision. Any A0 candidate includes transfer/software overhead,
+numeric/fault bounds, and estimated area/timing/power/verification cost. See
+[`RESEARCH_PROGRAM_PLAN.md`](RESEARCH_PROGRAM_PLAN.md) for the detailed gate.
 
 ### P1 — Counters and truthful low-power state
 
@@ -421,9 +451,12 @@ The next implementation sequence is:
    the 5.5% direct-name mapping and board-rail limitations explicitly;
 3. implement U0 when desired using the bundled/legally entitled UVM path, or
    evaluate current Verilator/cocotb separately; U0 does not block P0;
-4. implement P1 only after P0 and implement U1 only after U0;
-5. implement C0 and the M0 low-order model as the first propulsion-relevant
-   vertical slice;
-6. add C1 sampled-data infrastructure;
-7. profile the resulting workload before A0;
-8. keep A1/G0 deferred unless their entry gates are proved.
+4. P1 is now eligible because P0 is verified; implement U1 only after U0;
+5. start W0 workload/data-model discovery and M0 low-order modelling in
+   parallel; use their bounded scenarios to refine C0 requirements;
+6. implement C0 and M0 as the first propulsion-relevant vertical slice, while
+   P1 provides counters and truthful low-power behavior;
+7. add C1 sampled-data infrastructure after sample/interrupt requirements are
+   known;
+8. pass the W0/P1/C0/M0 workload and profiling gates before A0;
+9. keep A1/G0 deferred unless their entry gates are proved.

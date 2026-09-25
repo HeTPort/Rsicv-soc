@@ -1,0 +1,56 @@
+U0 UVM TOOLCHAIN CONFIRMATION
+Date: 2026-09-16 Asia/Shanghai
+Repository HEAD before experiment: 63b9cd3bc6e246056a50ff9eac2ddff832e88db5
+
+SIMULATOR
+vsim: D:\Modelsim2019\win64\vsim.exe
+vlog: D:\Modelsim2019\win64\vlog.exe
+version: Model Technology ModelSim SE-64 2019.2, build 2019.04, 2019-04-17
+
+UVM SELECTION
+explicit library: D:\Modelsim2019\uvm-1.2
+macro include: D:\Modelsim2019\verilog_src\uvm-1.2\src
+compile import: D:\Modelsim2019\uvm-1.2.uvm_pkg (uvm-1.2 Built-in)
+runtime banner: UVM-1.2
+vendor extension banner: QUESTA_UVM-1.2.3
+DPI loaded: D:\Modelsim2019\uvm-1.2\win64\uvm_dpi.dll
+global default not used by the smoke: mtiUvm maps to UVM 1.1d
+
+POSITIVE COMMAND
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\sim\run_uvm_toolchain_smoke.ps1
+
+POSITIVE RESULT
+compile errors: 0
+compile warnings: 0
+marker: U0_UVM_SMOKE_PASS
+reported revision: U0_UVM_VERSION=UVM-1.2
+UVM_WARNING: 0
+UVM_ERROR: 0
+UVM_FATAL: 0
+native runner exit: 0
+verdict: U0_UVM_TOOLCHAIN_RESULT: PASS
+
+NEGATIVE COMMAND
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\sim\run_uvm_toolchain_smoke.ps1 -NegativeGate
+
+NEGATIVE RESULT
+simulator exit: 0
+intentionally requested marker found: false
+UVM_ERROR zero: true
+UVM_FATAL zero: true
+native runner exit: 3
+verdict: U0_UVM_TOOLCHAIN_RESULT: FAIL
+outer audit observed: U0_NEGATIVE_GATE_INNER_EXIT=3
+
+SOURCE HASHES SHA-256
+verif/uvm/tests/u0_uvm_smoke.sv
+0A26543B6E2D5FEC560BC5D8979FF5EC1804E3B9ED86897DFDA66FC2F1CC03E8
+sim/run_uvm_toolchain_smoke.ps1
+B32FA62364FEF9D0311E670DB1F4B0E9836939925C68D7E43B5434C0D1DFF066
+
+ARTIFACT POLICY
+sim/build/uvm_toolchain is ignored by the repository build/ rule.
+No UVM source or simulator library was copied into the repository.
+Successful execution proves technical availability on this host. It does not
+independently audit the user's commercial-license entitlement or portability
+to another machine.

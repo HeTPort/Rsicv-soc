@@ -526,7 +526,7 @@ after the trap.
 - Precise trap behavior is expressed as an architectural invariant.
 
 **Evidence:** Focused RED/GREEN tests and full 12/12 regression in
-[`AR001_PRECISE_CSR_SQUASH_FIX.md`](AR001_PRECISE_CSR_SQUASH_FIX.md).
+[`AR001_PRECISE_CSR_SQUASH_FIX.md`](ar/AR001_PRECISE_CSR_SQUASH_FIX.md).
 
 ### AR-002 — Canonical pipeline bubbles
 
@@ -559,7 +559,7 @@ field list.
   current simulator.
 
 **Evidence:** 12/12 regression and packet/effect assertions in
-[`AR002_CANONICAL_PIPELINE_BUBBLES.md`](AR002_CANONICAL_PIPELINE_BUBBLES.md).
+[`AR002_CANONICAL_PIPELINE_BUBBLES.md`](ar/AR002_CANONICAL_PIPELINE_BUBBLES.md).
 
 ### AR-005 — Synchronous instruction BRAM
 
@@ -596,7 +596,7 @@ current request PC with previous-request instruction data.
 - Program memory maps to four `RAMB36E1` primitives at default depth.
 
 **Evidence:** 19/19 smoke, 4/4 utility tests, and Vivado BRAM report in
-[`AR005_SYNCHRONOUS_INSTRUCTION_BRAM.md`](AR005_SYNCHRONOUS_INSTRUCTION_BRAM.md).
+[`AR005_SYNCHRONOUS_INSTRUCTION_BRAM.md`](ar/AR005_SYNCHRONOUS_INSTRUCTION_BRAM.md).
 
 ### AR-006 — Precise control-flow misalignment
 
@@ -623,7 +623,7 @@ architectural IALIGN check.
 - `mtval` and redirect logic use the same resolved target.
 
 **Evidence:** Three focused cases and 15/15 full regression in
-[`AR006_CONTROL_FLOW_MISALIGNMENT.md`](AR006_CONTROL_FLOW_MISALIGNMENT.md).
+[`AR006_CONTROL_FLOW_MISALIGNMENT.md`](ar/AR006_CONTROL_FLOW_MISALIGNMENT.md).
 
 ### AR-007 — CSR legality, WARL, and dependencies
 
@@ -665,7 +665,7 @@ architectural IALIGN check.
 - Timer integration has a clear MTIP composition point.
 
 **Evidence:** 3/3 focused, 18/18 smoke, and 4/4 utility tests in
-[`AR007_CSR_LEGALITY_WARL_AND_HAZARDS.md`](AR007_CSR_LEGALITY_WARL_AND_HAZARDS.md).
+[`AR007_CSR_LEGALITY_WARL_AND_HAZARDS.md`](ar/AR007_CSR_LEGALITY_WARL_AND_HAZARDS.md).
 
 ### AR-003 — Wait-state-safe LSU transaction control
 
@@ -712,7 +712,7 @@ request had merely been presented, had been accepted, or had completed.
 **Evidence:** focused LSU protocol GREEN, zero-delay and inserted-wait-state
 full-core GREEN, 20/20 smoke, 4/4 utilities, and Vivado 2019.2 SoC
 out-of-context synthesis retaining eight `RAMB36E1` cells and LSU state in
-[`AR003_WAIT_STATE_SAFE_LSU.md`](AR003_WAIT_STATE_SAFE_LSU.md).
+[`AR003_WAIT_STATE_SAFE_LSU.md`](ar/AR003_WAIT_STATE_SAFE_LSU.md).
 
 ## 7. Verification decision lifecycle
 
@@ -769,7 +769,7 @@ Reason:
 **Evidence:** standalone packet ownership GREEN, precise load/store
 access-fault GREEN, unchanged AR-003 protocol GREEN, 22/22 smoke, 4/4 utilities,
 and Vivado 2019.2 synthesis in
-[`AR004_REGISTERED_MEMORY_RESULT.md`](AR004_REGISTERED_MEMORY_RESULT.md).
+[`AR004_REGISTERED_MEMORY_RESULT.md`](ar/AR004_REGISTERED_MEMORY_RESULT.md).
 
 ### AR-008 — Interrupt retirement boundary
 
@@ -805,7 +805,7 @@ precise timer/WFI firmware PASS; 10,000 repeated interrupts PASS; 22/22 smoke;
 4/4 Phase 2 SoC fault cases; 4/4 Python utilities; Vivado 2019.2 OOC synthesis
 PASS with 0 errors, 0 critical warnings, 32 `RAMB36E1`, and the timer and
 retirement hierarchy retained. Full rationale and commands are in
-[`AR008_PRECISE_MACHINE_TIMER_INTERRUPTS.md`](AR008_PRECISE_MACHINE_TIMER_INTERRUPTS.md).
+[`AR008_PRECISE_MACHINE_TIMER_INTERRUPTS.md`](ar/AR008_PRECISE_MACHINE_TIMER_INTERRUPTS.md).
 
 ### AR-009 — Architectural memory topology and map
 
@@ -854,7 +854,7 @@ behavior. Remaining consumers must still migrate together.
 
 The full context, problem, recommendation, consequences, review questions,
 verification plan, and reusable principles are in
-[`AR009_ARCHITECTURAL_MEMORY_MAP.md`](AR009_ARCHITECTURAL_MEMORY_MAP.md).
+[`AR009_ARCHITECTURAL_MEMORY_MAP.md`](ar/AR009_ARCHITECTURAL_MEMORY_MAP.md).
 
 No RTL behavior changed when this contract was accepted. AR-019 later adopted
 the data-fabric and default-depth portion. Phase 2 must still update linker
@@ -922,7 +922,7 @@ Commands and results are in
 [`plans/u0-passive-uvm/results.md`](plans/u0-passive-uvm/results.md). Full
 rationale, open-source influences, directory ownership, exit gates, and risks
 are in
-[`AR026_SCALABLE_UVM_VERIFICATION_ARCHITECTURE.md`](AR026_SCALABLE_UVM_VERIFICATION_ARCHITECTURE.md).
+[`AR026_SCALABLE_UVM_VERIFICATION_ARCHITECTURE.md`](ar/AR026_SCALABLE_UVM_VERIFICATION_ARCHITECTURE.md).
 
 ### AR-011 — Early FPGA feasibility
 
@@ -955,9 +955,9 @@ classes retain their existing latency.
 The measured 64 KiB pair uses 32/60 RAMB36 tiles (53.33%), compared with 8/60
 (13.33%) for the 16 KiB pair. Capacity does not change either the old divider
 path or the new multiply-high path. The baseline is in
-[`AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md`](AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md)
+[`AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md`](ar/AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md)
 and the implemented follow-up is in
-[`AR017_RADIX2_ITERATIVE_DIVIDER.md`](AR017_RADIX2_ITERATIVE_DIVIDER.md).
+[`AR017_RADIX2_ITERATIVE_DIVIDER.md`](ar/AR017_RADIX2_ITERATIVE_DIVIDER.md).
 
 The 2026-09-10 divider learning lab adds no architectural decision or RTL
 change. It reruns the current 42-case test, records post-NBA protocol/datapath
@@ -991,7 +991,7 @@ Implemented decisions:
 Fresh evidence: full SoC compilation, focused data-fabric PASS, 22/22 smoke,
 47/47 applicable ACT4, 12/12 converter/importer tests, 9/9 map tests, and the
 regression-classifier negative test. Detailed rationale is in
-[`AR012_RETIREMENT_INTERFACE_CLEANUP.md`](AR012_RETIREMENT_INTERFACE_CLEANUP.md).
+[`AR012_RETIREMENT_INTERFACE_CLEANUP.md`](ar/AR012_RETIREMENT_INTERFACE_CLEANUP.md).
 
 ### AR-013 — Regression simulator exit-status gate
 
@@ -1020,7 +1020,7 @@ dependency-free negative test exercises the production predicate.
 **Evidence:** focused RED rejected the old classifier; focused GREEN passed
 after the exit-status condition; Python utilities passed 4/4; directed
 ModelSim smoke passed 22/22 with every simulator exit zero. Full evidence is in
-[`AR013_REGRESSION_EXIT_STATUS_GATE.md`](AR013_REGRESSION_EXIT_STATUS_GATE.md).
+[`AR013_REGRESSION_EXIT_STATUS_GATE.md`](ar/AR013_REGRESSION_EXIT_STATUS_GATE.md).
 
 ### AR-014 — Machine-readable SoC map
 
@@ -1045,7 +1045,7 @@ consumers are tracked in their owning later phases.
 **Evidence:** generation and `--check` passed, nine generator tests passed,
 and Python syntax compilation passed. Full rationale, validation rules,
 ownership, and artifact relationships are in
-[`AR014_MACHINE_READABLE_SOC_MAP.md`](AR014_MACHINE_READABLE_SOC_MAP.md).
+[`AR014_MACHINE_READABLE_SOC_MAP.md`](ar/AR014_MACHINE_READABLE_SOC_MAP.md).
 
 ### AR-015 — RAM-capacity utilization and timing comparison
 
@@ -1079,7 +1079,7 @@ complete, and the project selected the measured 64 KiB-per-bank option.
 AR-009 is accepted. AR-017 has now supplied the multi-cycle divider and repeated
 the constrained OOC comparison successfully; final physical closure remains.
 The historical commands, limits, and raw RED reports are in
-[`AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md`](AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md).
+[`AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md`](ar/AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md).
 
 ### AR-016 — Core-to-SoC environment contract
 
@@ -1104,7 +1104,7 @@ and ACT4 migration now have one ordered implementation and verification plan.
 
 **Evidence:** the accepted addresses, ownership table, transaction lifecycles,
 fault mapping, reset/boot boundary, verification split, and Phase 2 order are in
-[`AR016_CORE_TO_SOC_ENVIRONMENT_CONTRACT.md`](AR016_CORE_TO_SOC_ENVIRONMENT_CONTRACT.md).
+[`AR016_CORE_TO_SOC_ENVIRONMENT_CONTRACT.md`](ar/AR016_CORE_TO_SOC_ENVIRONMENT_CONTRACT.md).
 
 ### AR-017 â€” Radix-2 iterative divider
 
@@ -1132,7 +1132,7 @@ to 3,504/3,542 for the two profiles. Both pass 50 MHz OOC STA with WNS +7.373
 ns; multiply-high is now the 12.605 ns critical path. AR-024 subsequently
 verified four routed 25 MHz board images with non-negative slack. Complete principle,
 signals, module relationships, commands, and limitations are in
-[`AR017_RADIX2_ITERATIVE_DIVIDER.md`](AR017_RADIX2_ITERATIVE_DIVIDER.md).
+[`AR017_RADIX2_ITERATIVE_DIVIDER.md`](ar/AR017_RADIX2_ITERATIVE_DIVIDER.md).
 
 ### AR-018 — SoC fabric contract tests
 
@@ -1162,7 +1162,7 @@ fetch error through `fetch_pkt_t` and give it priority over replacement data.
 All four current SoC runs pass: the data cases report precise causes 5/7 with
 no invalid-store RAM side effect, and the out-of-range fetch reports cause 1
 with `mepc=mtval=PC`. The current smoke suite remains 23/23. Detailed evidence is in
-[`AR018_SOC_FABRIC_RED_TESTS.md`](AR018_SOC_FABRIC_RED_TESTS.md).
+[`AR018_SOC_FABRIC_RED_TESTS.md`](ar/AR018_SOC_FABRIC_RED_TESTS.md).
 
 **Canonical decode follow-up:** The original error path cleared competing
 exceptions but still decoded normal controls from replacement data. Masking
@@ -1223,7 +1223,7 @@ classifier and generated-map checks pass. Vivado 2019.2 OOC synthesis reports
 0 errors and retains 32
 RAMB36E1 blocks, and retains the fabric/default hierarchy. Detailed invariants,
 timing, commands, and limitations are in
-[`AR019_CENTRALIZED_DATA_FABRIC.md`](AR019_CENTRALIZED_DATA_FABRIC.md).
+[`AR019_CENTRALIZED_DATA_FABRIC.md`](ar/AR019_CENTRALIZED_DATA_FABRIC.md).
 
 ### AR-020 — Minimal polling UART TX
 
@@ -1250,7 +1250,7 @@ scoreboarding confirms `Hello, UART!\r\n`; Phase 3 remains 2/2 and smoke 22/22.
 Vivado retains the UART hierarchy with 0 errors and 0 critical warnings. The
 2026-08-23 exact-board follow-up verifies 115200 8N1 output through W15 and an
 external 3.3 V USB-TTL adapter. Full details are in
-[`AR020_MINIMAL_POLLING_UART_TX.md`](AR020_MINIMAL_POLLING_UART_TX.md).
+[`AR020_MINIMAL_POLLING_UART_TX.md`](ar/AR020_MINIMAL_POLLING_UART_TX.md).
 
 ### AR-021 — Polling UART RX with parameterized FIFO
 
@@ -1277,7 +1277,7 @@ firmware echoes 16 pin-driven bytes as `RX FIFO 16 OK!\r\n`; at AR-021 closure
 Phase 4 was 2/2, Phase 3 was 2/2, smoke was 22/22, and OOC synthesis retained
 RX/TX hierarchy.
 UART IRQ/PLIC and exact-board evidence remain deferred. Full details are in
-[`AR021_POLLING_UART_RX_FIFO.md`](AR021_POLLING_UART_RX_FIFO.md).
+[`AR021_POLLING_UART_RX_FIFO.md`](ar/AR021_POLLING_UART_RX_FIFO.md).
 
 ### AR-022 — Memory-mapped GPIO output
 
@@ -1302,7 +1302,7 @@ pass; Phase 4 is 3/3, Phase 3 is 2/2, smoke is 22/22, and Vivado retains 20
 GPIO-hierarchy objects. The original fabric error was traced to a testbench
 payload change while valid remained asserted under back-pressure; correcting
 the stimulus preserved the assertion. Full details are in
-[`AR022_MEMORY_MAPPED_GPIO_OUTPUT.md`](AR022_MEMORY_MAPPED_GPIO_OUTPUT.md).
+[`AR022_MEMORY_MAPPED_GPIO_OUTPUT.md`](ar/AR022_MEMORY_MAPPED_GPIO_OUTPUT.md).
 
 ### AR-023 — Phase 5 split-image firmware runtime
 
@@ -1336,7 +1336,7 @@ the Vivado check retains 16 program plus 16 data BRAMs with nonzero
 initialization properties in both banks. AR-024 provides the board
 clock/reset/pins and routed constraints; all three bare-metal images now have
 programmed-hardware evidence. Full details are in
-[`AR023_PHASE5_BARE_METAL_RUNTIME.md`](AR023_PHASE5_BARE_METAL_RUNTIME.md).
+[`AR023_PHASE5_BARE_METAL_RUNTIME.md`](ar/AR023_PHASE5_BARE_METAL_RUNTIME.md).
 
 ### AR-024 — ZYNQ MINI REVB board boundary and routed feedback fix
 
@@ -1367,7 +1367,7 @@ the bundled Digilent Adept runtime, and `timer_gpio` plus ten-count `timer_irq`
 LED behavior passed. The 2026-08-23 follow-up adds external UART TX, production
 FreeRTOS heartbeat/D1, and deliberate K2 restart evidence. `REQP-1839` remains
 documented and speed-grade identification remains open. Full details are in
-[`AR024_ZYNQ_MINI_REVB_FPGA_INTEGRATION.md`](AR024_ZYNQ_MINI_REVB_FPGA_INTEGRATION.md).
+[`AR024_ZYNQ_MINI_REVB_FPGA_INTEGRATION.md`](ar/AR024_ZYNQ_MINI_REVB_FPGA_INTEGRATION.md).
 
 ### AR-025 — Official FreeRTOS V11.3.0 RISC-V port
 
@@ -1403,7 +1403,7 @@ that model artifact. The 2026-08-18 soak adds 1,000 ordered queue/context checks
 and passed at 7,262,975 cycles with 1,428 timer IRQs, 1,579 valid UART bytes,
 286 GPIO transitions, `tohost=1`, native exit zero, and no
 ModelSim errors. Full details are in
-[`AR025_OFFICIAL_FREERTOS_RISCV_PORT.md`](AR025_OFFICIAL_FREERTOS_RISCV_PORT.md).
+[`AR025_OFFICIAL_FREERTOS_RISCV_PORT.md`](ar/AR025_OFFICIAL_FREERTOS_RISCV_PORT.md).
 
 ### Phase 8 clean-regeneration follow-up
 
@@ -1463,7 +1463,7 @@ The spin loop is not a low-power sleep state: 0.158 W dynamic includes repeated
 fetch/BRAM and incidental un-gated multiplier switching, compared with
 0.117 W for the distinct WFI/timer scenario. No RTL/MMIO, safe clock gating,
 board-rail measurement, or ASIC claim is added. Detailed RED/GREEN evidence,
-hashes, alternatives, and limitations are in [AR-028](AR028_P0_95MHZ_ACTIVITY_MAPPING_AND_WORKLOAD_BASELINE.md)
+hashes, alternatives, and limitations are in [AR-028](ar/AR028_P0_95MHZ_ACTIVITY_MAPPING_AND_WORKLOAD_BASELINE.md)
 and the [P0 results](plans/p0-power-baseline/results.md).
 | Common RTL / multiplier | AR-030 supersedes the AR-027 combinational backend with a fixed registered blocking implementation behind the same facade | 4 DSP/32 BRAM retained; 95 MHz WNS +0.430 ns PASS; multiplier removed from the 100 MHz worst path; power/energy and regressions PASS |
 
@@ -1546,7 +1546,7 @@ is therefore justified as a candidate but can increase CPI and clock power.
 Acceptance requires protocol/corner/kill
 tests, full RV32M/regression preservation, same-target routed timing/resources,
 and P0 energy per fixed workload. Full analysis is in
-[`AR027_RTL_COMMON_AND_MULTIPLIER_PIPELINE_REVIEW.md`](AR027_RTL_COMMON_AND_MULTIPLIER_PIPELINE_REVIEW.md).
+[`AR027_RTL_COMMON_AND_MULTIPLIER_PIPELINE_REVIEW.md`](ar/AR027_RTL_COMMON_AND_MULTIPLIER_PIPELINE_REVIEW.md).
 
 ### D-029 — Freeze the production core at RV32 and remove false width parameters
 
@@ -1588,7 +1588,7 @@ still resets asynchronously.
 
 Firmware ABI, memory map, bus timing, and instruction latency do not change.
 Full problem/decision/evidence is in
-[`AR029_RV32_CONTRACT_AND_REFACTORING_SCOPE.md`](AR029_RV32_CONTRACT_AND_REFACTORING_SCOPE.md).
+[`AR029_RV32_CONTRACT_AND_REFACTORING_SCOPE.md`](ar/AR029_RV32_CONTRACT_AND_REFACTORING_SCOPE.md).
 
 #### Follow-up
 
@@ -1639,7 +1639,7 @@ single-outstanding core. The selected backend is fixed and blocking:
 Focused RV32M 175 cases, divider 42 cases, smoke 23/23, ACT4 47/47, Verilator
 leaf/core/SoC lint, OOC synthesis, exact-board routes, and two independent
 SAIF/power runs per comparison workload pass. Detailed evidence is in
-[`AR030_REGISTERED_BLOCKING_MULTIPLIER.md`](AR030_REGISTERED_BLOCKING_MULTIPLIER.md)
+[`AR030_REGISTERED_BLOCKING_MULTIPLIER.md`](ar/AR030_REGISTERED_BLOCKING_MULTIPLIER.md)
 and [`plans/p1-registered-multiplier/results.md`](plans/p1-registered-multiplier/results.md).
 
 ### D-031 — Centralized pipeline-control ownership
@@ -1680,7 +1680,7 @@ stall until a real downstream backpressure consumer exists.
 - Focused control, retirement, fetch, LSU, RV32M, divider, 23/23 smoke, 47/47
   ACT4, 10,000 interrupt/MRET, lint, and exact-route gates pass.
 
-Detailed evidence is in [`AR031_CORE_CONTROL_OWNERSHIP.md`](AR031_CORE_CONTROL_OWNERSHIP.md)
+Detailed evidence is in [`AR031_CORE_CONTROL_OWNERSHIP.md`](ar/AR031_CORE_CONTROL_OWNERSHIP.md)
 and [`plans/p2-core-control-ownership/results.md`](plans/p2-core-control-ownership/results.md).
 
 ### D-032 — Canonical packet construction and internal naming
@@ -1715,8 +1715,41 @@ Focused fetch/control/retirement/CSR/LSU/RV32M/divider tests pass, as do smoke
 23/23, ACT4 47/47, and Verilator 5.032 leaf/core/SoC lint. No Vivado reroute was
 run and no area/timing/power gain is claimed, because the accepted slice changes
 no physical constraint, state boundary, or critical Boolean equation. Detailed
-evidence is in [`AR032_P3_SEMANTIC_CODE_CLEANUP.md`](AR032_P3_SEMANTIC_CODE_CLEANUP.md)
+evidence is in [`AR032_P3_SEMANTIC_CODE_CLEANUP.md`](ar/AR032_P3_SEMANTIC_CODE_CLEANUP.md)
 and [`plans/p3-semantic-cleanup/results.md`](plans/p3-semantic-cleanup/results.md).
+
+### D-033 — Govern documentation through scoped routing and progressive migration
+
+**Date:** 2026-09-25
+
+**State:** Verified
+
+**Context:** The repository had accumulated overlapping entry points, volatile
+status duplicated in guidance files, legacy material under `docs/`, and large
+local planning scratchpads. Broad recursive reading increased AI context cost,
+while stale phase labels could misdirect both human and agent work.
+
+**Options considered:** Preserve the layout and rely on manual judgment;
+perform a disruptive bulk move and rename; or add an authoritative context
+router, freeze legacy locations, and migrate files only when substantially
+revised.
+
+**Decision:** Use the progressive option. `doc/CONTEXT_ROUTER.md` maps task
+types to a small initial reading set; `AGENTS.md` contains stable rules rather
+than a second architecture guide; `notes/inbox/` stores non-authoritative
+ideas; `docs/` is frozen behind an explicit inventory; and the phase index
+distinguishes historical evidence-package names from current roadmap IDs. The
+numbered AR family is kept together under indexed `doc/ar/`; this coupled set
+is migrated atomically rather than being split by gradual per-file moves.
+
+**Consequences:** New work has a bounded context-loading protocol and a clear
+authority chain. Old links remain valid, but legacy documents are migrated
+only during substantive revision. Inbox notes cannot silently become
+requirements, and status claims must still be backed by phase results. The
+`doc/` root is less crowded, at the cost of one controlled cross-link migration.
+
+**Verification:** See
+[`AR033_DOCUMENT_GOVERNANCE_AND_CONTEXT_ROUTING.md`](ar/AR033_DOCUMENT_GOVERNANCE_AND_CONTEXT_ROUTING.md).
 
 ## 10. Architecture decision template
 
@@ -1805,40 +1838,42 @@ An architecture-changing task is incomplete until this document is updated.
 - [Release readiness checklist](RELEASE_CHECKLIST.md)
 - [License and IP strategy](LICENSE_STRATEGY.md)
 - [P0 power-baseline evidence package](plans/p0-power-baseline/requirements.md)
-- [AR-028 P0 95 MHz activity mapping and workload baseline](AR028_P0_95MHZ_ACTIVITY_MAPPING_AND_WORKLOAD_BASELINE.md)
+- [AR-028 P0 95 MHz activity mapping and workload baseline](ar/AR028_P0_95MHZ_ACTIVITY_MAPPING_AND_WORKLOAD_BASELINE.md)
 - [Project roadmap](../TODO.md)
 - [Phase 0 baseline](PHASE0_BASELINE_2026-07-24.md)
 - [Architecture review](ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md)
 - [Verification framework](../docs/verification_framework.md)
 - [Memory-map and bus contract guide](MEMORY_MAP_CONTRACT_DESIGN_GUIDE.md)
-- [AR-001 precise CSR squash](AR001_PRECISE_CSR_SQUASH_FIX.md)
-- [AR-002 canonical bubbles](AR002_CANONICAL_PIPELINE_BUBBLES.md)
-- [AR-003 wait-state data bus](AR003_WAIT_STATE_SAFE_LSU.md)
-- [AR-004 registered memory result](AR004_REGISTERED_MEMORY_RESULT.md)
-- [AR-005 synchronous instruction BRAM](AR005_SYNCHRONOUS_INSTRUCTION_BRAM.md)
-- [AR-006 control-flow misalignment](AR006_CONTROL_FLOW_MISALIGNMENT.md)
-- [AR-007 CSR contract](AR007_CSR_LEGALITY_WARL_AND_HAZARDS.md)
-- [AR-009 architectural memory map](AR009_ARCHITECTURAL_MEMORY_MAP.md)
-- [AR-012 retirement and public-interface cleanup](AR012_RETIREMENT_INTERFACE_CLEANUP.md)
-- [AR-013 regression exit-status gate](AR013_REGRESSION_EXIT_STATUS_GATE.md)
-- [AR-014 machine-readable SoC map](AR014_MACHINE_READABLE_SOC_MAP.md)
-- [AR-015 RAM-capacity utilization and timing comparison](AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md)
-- [AR-016 core-to-SoC environment contract](AR016_CORE_TO_SOC_ENVIRONMENT_CONTRACT.md)
-- [AR-017 Radix-2 iterative divider](AR017_RADIX2_ITERATIVE_DIVIDER.md)
-- [AR-018 SoC fabric RED tests](AR018_SOC_FABRIC_RED_TESTS.md)
-- [AR-019 centralized data fabric](AR019_CENTRALIZED_DATA_FABRIC.md)
-- [AR-020 minimal polling UART TX](AR020_MINIMAL_POLLING_UART_TX.md)
-- [AR-021 polling UART RX and parameterized FIFO](AR021_POLLING_UART_RX_FIFO.md)
-- [AR-022 memory-mapped GPIO output](AR022_MEMORY_MAPPED_GPIO_OUTPUT.md)
-- [AR-023 Phase 5 bare-metal runtime](AR023_PHASE5_BARE_METAL_RUNTIME.md)
-- [AR-024 ZYNQ MINI REVB FPGA integration](AR024_ZYNQ_MINI_REVB_FPGA_INTEGRATION.md)
-- [AR-025 official FreeRTOS RISC-V port](AR025_OFFICIAL_FREERTOS_RISCV_PORT.md)
-- [AR-026 scalable UVM verification architecture](AR026_SCALABLE_UVM_VERIFICATION_ARCHITECTURE.md)
-- [AR-027 common-library and multiplier-pipeline review](AR027_RTL_COMMON_AND_MULTIPLIER_PIPELINE_REVIEW.md)
-- [AR-029 RV32 contract and refactoring scope](AR029_RV32_CONTRACT_AND_REFACTORING_SCOPE.md)
-- [AR-030 registered blocking multiplier](AR030_REGISTERED_BLOCKING_MULTIPLIER.md)
-- [AR-031 centralized core-control ownership](AR031_CORE_CONTROL_OWNERSHIP.md)
-- [AR-032 P3 semantic/code cleanup](AR032_P3_SEMANTIC_CODE_CLEANUP.md)
+- [AR-001 precise CSR squash](ar/AR001_PRECISE_CSR_SQUASH_FIX.md)
+- [AR-002 canonical bubbles](ar/AR002_CANONICAL_PIPELINE_BUBBLES.md)
+- [AR-003 wait-state data bus](ar/AR003_WAIT_STATE_SAFE_LSU.md)
+- [AR-004 registered memory result](ar/AR004_REGISTERED_MEMORY_RESULT.md)
+- [AR-005 synchronous instruction BRAM](ar/AR005_SYNCHRONOUS_INSTRUCTION_BRAM.md)
+- [AR-006 control-flow misalignment](ar/AR006_CONTROL_FLOW_MISALIGNMENT.md)
+- [AR-007 CSR contract](ar/AR007_CSR_LEGALITY_WARL_AND_HAZARDS.md)
+- [AR-009 architectural memory map](ar/AR009_ARCHITECTURAL_MEMORY_MAP.md)
+- [AR-012 retirement and public-interface cleanup](ar/AR012_RETIREMENT_INTERFACE_CLEANUP.md)
+- [AR-013 regression exit-status gate](ar/AR013_REGRESSION_EXIT_STATUS_GATE.md)
+- [AR-014 machine-readable SoC map](ar/AR014_MACHINE_READABLE_SOC_MAP.md)
+- [AR-015 RAM-capacity utilization and timing comparison](ar/AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md)
+- [AR-016 core-to-SoC environment contract](ar/AR016_CORE_TO_SOC_ENVIRONMENT_CONTRACT.md)
+- [AR-017 Radix-2 iterative divider](ar/AR017_RADIX2_ITERATIVE_DIVIDER.md)
+- [AR-018 SoC fabric RED tests](ar/AR018_SOC_FABRIC_RED_TESTS.md)
+- [AR-019 centralized data fabric](ar/AR019_CENTRALIZED_DATA_FABRIC.md)
+- [AR-020 minimal polling UART TX](ar/AR020_MINIMAL_POLLING_UART_TX.md)
+- [AR-021 polling UART RX and parameterized FIFO](ar/AR021_POLLING_UART_RX_FIFO.md)
+- [AR-022 memory-mapped GPIO output](ar/AR022_MEMORY_MAPPED_GPIO_OUTPUT.md)
+- [AR-023 Phase 5 bare-metal runtime](ar/AR023_PHASE5_BARE_METAL_RUNTIME.md)
+- [AR-024 ZYNQ MINI REVB FPGA integration](ar/AR024_ZYNQ_MINI_REVB_FPGA_INTEGRATION.md)
+- [AR-025 official FreeRTOS RISC-V port](ar/AR025_OFFICIAL_FREERTOS_RISCV_PORT.md)
+- [AR-026 scalable UVM verification architecture](ar/AR026_SCALABLE_UVM_VERIFICATION_ARCHITECTURE.md)
+- [AR-027 common-library and multiplier-pipeline review](ar/AR027_RTL_COMMON_AND_MULTIPLIER_PIPELINE_REVIEW.md)
+- [AR-029 RV32 contract and refactoring scope](ar/AR029_RV32_CONTRACT_AND_REFACTORING_SCOPE.md)
+- [AR-030 registered blocking multiplier](ar/AR030_REGISTERED_BLOCKING_MULTIPLIER.md)
+- [AR-031 centralized core-control ownership](ar/AR031_CORE_CONTROL_OWNERSHIP.md)
+- [AR-032 P3 semantic/code cleanup](ar/AR032_P3_SEMANTIC_CODE_CLEANUP.md)
+- [AR-033 documentation governance and context routing](ar/AR033_DOCUMENT_GOVERNANCE_AND_CONTEXT_ROUTING.md)
+- [Task-specific context router](CONTEXT_ROUTER.md)
 - [Phase 5 startup/runtime implementation guide](../docs/phase5-startup-runtime-guide.md)
 - [ACT4 integration handoff](ACT4_RV32I_INTEGRATION_HANDOFF_2026-07-27.md)
 - [ACT4 integration guide](../verif/act4/README.md)

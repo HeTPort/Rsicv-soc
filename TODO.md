@@ -16,6 +16,7 @@ plant model, thrust-producing device, or flight system.
 | --- | --- | --- |
 | Small control SoC | RV32IM + timer/UART/GPIO + firmware/FreeRTOS + FPGA execution | **Complete baseline** |
 | Reproducible power measurement | Representative activity maps to matching 95 MHz routes and repeats within the gate | **P0 six-class technical portfolio verified; board-rail/ASIC power unmeasured** |
+| Research workload basis | Audited algorithms, deterministic domain corpus, common data model, and CPU/WCET profiles | Planned W0; source registry and audit template created |
 | Power-aware SoC state | Hardware counters and a truthful, wake-safe low-power state | Planned P1 after P0 |
 | Safe control and low-order model | C0 PWM/capture/watchdog/fault kill plus M0 motor/inverter/compressor/flow MIL/SIL | Planned parallel C0/M0 wave |
 | Sampled data and bench correlation | C1 ADC/SPI/IRQ/DMA followed by M1 HIL and low-energy measurements | Planned C1/M1 |
@@ -34,7 +35,9 @@ RV32IM CPU** in the programmable logic (PL) of a Zynq XC7Z010 and demonstrate:
 That first hardware milestone is now complete. It remains below as historical
 and regression evidence; completing it did not complete the propulsion program.
 
-The immediate active target is **P0 — Reproducible workload power baseline**.
+The completed measurement baseline is **P0 — Reproducible workload power
+baseline**. The next research step is W0 workload/data-model discovery while
+M0 and C0 requirements are developed as the first propulsion-relevant wave.
 The old 4%/clockless OOC spike and 17.583 W estimate remain rejected. All six
 P0 workload classes now have deterministic marker windows, matching 95 MHz
 routed checkpoints, reviewed block activity coverage, and <=2% repeatability.
@@ -69,6 +72,9 @@ recommended Phase 0A gate are recorded in
 5. Prefer the smallest design that meets the active phase's measurable exit
    gate. Add AXI, PLIC, DDR, accelerators, NPU/GPU, or advanced debug only when a
    later requirement and workload justify them.
+6. Use [`doc/CONTEXT_ROUTER.md`](doc/CONTEXT_ROUTER.md) to start from one scoped
+   phase/context pack. Do not read every document or treat
+   [`notes/inbox/`](notes/inbox/) as requirements or evidence.
 
 New post-FreeRTOS work is coordinated by
 [`doc/ROADMAP_AND_LEARNING_PATH.md`](doc/ROADMAP_AND_LEARNING_PATH.md). When a
@@ -79,6 +85,12 @@ mature repositories, and reuse limits are indexed in
 [`doc/REFERENCE_INDEX.md`](doc/REFERENCE_INDEX.md); release and licensing gates
 are in [`doc/RELEASE_CHECKLIST.md`](doc/RELEASE_CHECKLIST.md) and
 [`doc/LICENSE_STRATEGY.md`](doc/LICENSE_STRATEGY.md).
+The research taxonomy, paper decision registry, workload-discovery gate, and
+CoreMark/domain-benchmark policy are in
+[`doc/RESEARCH_PROGRAM_PLAN.md`](doc/RESEARCH_PROGRAM_PLAN.md).
+AR-033 records the progressive document-governance decision: new canonical
+documents use `doc/`, `docs/` is a frozen legacy guide set, and ignored local
+plans/generated output are not authoritative project context.
 
 The repository license decision is now adopted: original material uses the
 root noncommercial source-available terms, commercial requests go to
@@ -252,7 +264,7 @@ Current planning position:
   reproducible scripts and manifests.
 - [x] Require a zero native simulator exit in addition to the PASS/fatal/error
   transcript gates, with RED/GREEN evidence in
-  [`doc/AR013_REGRESSION_EXIT_STATUS_GATE.md`](doc/AR013_REGRESSION_EXIT_STATUS_GATE.md).
+  [`doc/ar/AR013_REGRESSION_EXIT_STATUS_GATE.md`](doc/ar/AR013_REGRESSION_EXIT_STATUS_GATE.md).
 
 Baseline evidence is archived in
 [`doc/PHASE0_BASELINE_2026-07-24.md`](doc/PHASE0_BASELINE_2026-07-24.md).
@@ -285,25 +297,25 @@ difficult to isolate.
   EX/WB packet on `pipe_kill`.
 - [x] Promote the precise CSR squash regression into the smoke suite.
 - [x] Record the RED/GREEN evidence in
-  [`doc/AR001_PRECISE_CSR_SQUASH_FIX.md`](doc/AR001_PRECISE_CSR_SQUASH_FIX.md).
+  [`doc/ar/AR001_PRECISE_CSR_SQUASH_FIX.md`](doc/ar/AR001_PRECISE_CSR_SQUASH_FIX.md).
 - [x] Test a trap followed by a younger GPR write and a younger store.
 - [x] Make every reset and flush produce a completely initialized packet bubble.
 - [x] Record the AR-002 implementation problems, handling decisions, and
   reusable principles in
-  [`doc/AR002_CANONICAL_PIPELINE_BUBBLES.md`](doc/AR002_CANONICAL_PIPELINE_BUBBLES.md).
+  [`doc/ar/AR002_CANONICAL_PIPELINE_BUBBLES.md`](doc/ar/AR002_CANONICAL_PIPELINE_BUBBLES.md).
 - [x] Implement precise IALIGN=32 traps for taken branch, JAL, and JALR targets.
 - [x] Record AR-006 implementation and verification evidence in
-  [`doc/AR006_CONTROL_FLOW_MISALIGNMENT.md`](doc/AR006_CONTROL_FLOW_MISALIGNMENT.md).
+  [`doc/ar/AR006_CONTROL_FLOW_MISALIGNMENT.md`](doc/ar/AR006_CONTROL_FLOW_MISALIGNMENT.md).
 - [x] Implement AR-007 CSR legality, no-write semantics, WARL behavior, and
       back-to-back dependency handling.
 - [x] Record the AR-007 contract, RED/GREEN evidence, implementation decisions,
       and learning notes in
-  [`doc/AR007_CSR_LEGALITY_WARL_AND_HAZARDS.md`](doc/AR007_CSR_LEGALITY_WARL_AND_HAZARDS.md).
+  [`doc/ar/AR007_CSR_LEGALITY_WARL_AND_HAZARDS.md`](doc/ar/AR007_CSR_LEGALITY_WARL_AND_HAZARDS.md).
 - [x] Implement and verify AR-005 synchronous instruction BRAM timing across
       sequential fetch, RAW stalls, and redirects.
 - [x] Record the AR-005 timing contract, Vivado inference evidence, problems,
       handling decisions, and reusable principles in
-  [`doc/AR005_SYNCHRONOUS_INSTRUCTION_BRAM.md`](doc/AR005_SYNCHRONOUS_INSTRUCTION_BRAM.md).
+  [`doc/ar/AR005_SYNCHRONOUS_INSTRUCTION_BRAM.md`](doc/ar/AR005_SYNCHRONOUS_INSTRUCTION_BRAM.md).
 - [x] Complete the remaining Phase 0A exit criteria in
   [`doc/ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md`](doc/ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md).
 
@@ -371,15 +383,15 @@ freeze evidence are recorded in
 [`doc/MEMORY_MAP_CONTRACT_DESIGN_GUIDE.md`](doc/MEMORY_MAP_CONTRACT_DESIGN_GUIDE.md).
 The detailed accepted split-memory decision, consequences, verification plan,
 and review answers are recorded in
-[`doc/AR009_ARCHITECTURAL_MEMORY_MAP.md`](doc/AR009_ARCHITECTURAL_MEMORY_MAP.md).
+[`doc/ar/AR009_ARCHITECTURAL_MEMORY_MAP.md`](doc/ar/AR009_ARCHITECTURAL_MEMORY_MAP.md).
 It is accepted but must not be treated as implemented until Phase 2 is
 verified. The accepted constants have one validated machine-readable source and
 generated consumers, as recorded in
-[`doc/AR014_MACHINE_READABLE_SOC_MAP.md`](doc/AR014_MACHINE_READABLE_SOC_MAP.md).
+[`doc/ar/AR014_MACHINE_READABLE_SOC_MAP.md`](doc/ar/AR014_MACHINE_READABLE_SOC_MAP.md).
 The complete core-to-SoC ownership and integration boundary is recorded in
-[`doc/AR016_CORE_TO_SOC_ENVIRONMENT_CONTRACT.md`](doc/AR016_CORE_TO_SOC_ENVIRONMENT_CONTRACT.md).
+[`doc/ar/AR016_CORE_TO_SOC_ENVIRONMENT_CONTRACT.md`](doc/ar/AR016_CORE_TO_SOC_ENVIRONMENT_CONTRACT.md).
 The paired resource measurement is recorded in
-[`doc/AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md`](doc/AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md):
+[`doc/ar/AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md`](doc/ar/AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md):
 the 16 KiB pair uses 8/60 RAMB36 tiles and the selected 64 KiB pair uses 32/60
 on the provisional `xc7z010clg400-1`. Exact-board resource and timing closure
 remain mandatory implementation gates.
@@ -446,7 +458,7 @@ outside the CPU core.
 - [x] Move `data_ram` from `src/core/riscv.sv` into `src/riscv_soc.sv`.
 - [x] Add centralized full-address decode, local RAM address subtraction, and
   registered return-path ownership. See
-  [`doc/AR019_CENTRALIZED_DATA_FABRIC.md`](doc/AR019_CENTRALIZED_DATA_FABRIC.md).
+  [`doc/ar/AR019_CENTRALIZED_DATA_FABRIC.md`](doc/ar/AR019_CENTRALIZED_DATA_FABRIC.md).
 - [x] Add a one-cycle registered, zero-data, side-effect-free default error
   target for every non-RAM data address.
 - [x] Preserve byte/halfword store strobes, load sign extension, and
@@ -458,7 +470,7 @@ outside the CPU core.
   accepted request, and no memory operation after a pipeline kill.
 - [x] Add isolated SoC-level RED tests for unmapped load/store access faults,
   side-effect-free invalid stores, and instruction access fault cause 1. See
-  [`doc/AR018_SOC_FABRIC_RED_TESTS.md`](doc/AR018_SOC_FABRIC_RED_TESTS.md).
+  [`doc/ar/AR018_SOC_FABRIC_RED_TESTS.md`](doc/ar/AR018_SOC_FABRIC_RED_TESTS.md).
 - [x] Add initial RAM-boundary, unmapped-address, request-wait, owner-stability,
   and back-to-back cross-target GREEN tests through the implemented decoder.
 - [x] Add explicit instruction-fetch error signaling and turn the AR-018
@@ -471,9 +483,9 @@ are implemented; that future expansion is not part of the Phase 2 exit gate.
 tests pass with zero-delay and inserted-wait-state targets.
 
 AR-003 transaction-control details and RED/GREEN evidence are recorded in
-[`doc/AR003_WAIT_STATE_SAFE_LSU.md`](doc/AR003_WAIT_STATE_SAFE_LSU.md).
+[`doc/ar/AR003_WAIT_STATE_SAFE_LSU.md`](doc/ar/AR003_WAIT_STATE_SAFE_LSU.md).
 AR-004 registered-result ownership and access-fault evidence are recorded in
-[`doc/AR004_REGISTERED_MEMORY_RESULT.md`](doc/AR004_REGISTERED_MEMORY_RESULT.md).
+[`doc/ar/AR004_REGISTERED_MEMORY_RESULT.md`](doc/ar/AR004_REGISTERED_MEMORY_RESULT.md).
 The AR-003/AR-004 sub-gates are satisfied. AR-019 closes centralized data
 decode/default-target ownership with focused protocol coverage, 3/3 SoC data
 fault runs (including inserted RAM waits), 23/23 smoke, and accepted-map OOC
@@ -502,7 +514,7 @@ next changed, or earlier only if a regression exposes a real failure.
 ## Phase 3 — Implement precise machine timer interrupts
 
 **Status:** complete (2026-08-09). Detailed decisions and verification evidence
-are in [`doc/AR008_PRECISE_MACHINE_TIMER_INTERRUPTS.md`](doc/AR008_PRECISE_MACHINE_TIMER_INTERRUPTS.md).
+are in [`doc/ar/AR008_PRECISE_MACHINE_TIMER_INTERRUPTS.md`](doc/ar/AR008_PRECISE_MACHINE_TIMER_INTERRUPTS.md).
 
 **Purpose:** provide the periodic scheduler tick required by preemptive
 FreeRTOS.
@@ -550,9 +562,9 @@ interrupts and returns correctly, with the complete smoke regression green.
 **Status:** complete in RTL simulation and OOC synthesis (2026-08-11).
 Polling UART TX/RX and output GPIO satisfy the Phase 4 exit gate. UART
 interrupts/PLIC and physical-board validation remain deliberately deferred. See
-[`doc/AR020_MINIMAL_POLLING_UART_TX.md`](doc/AR020_MINIMAL_POLLING_UART_TX.md)
-[`doc/AR021_POLLING_UART_RX_FIFO.md`](doc/AR021_POLLING_UART_RX_FIFO.md), and
-[`doc/AR022_MEMORY_MAPPED_GPIO_OUTPUT.md`](doc/AR022_MEMORY_MAPPED_GPIO_OUTPUT.md).
+[`doc/ar/AR020_MINIMAL_POLLING_UART_TX.md`](doc/ar/AR020_MINIMAL_POLLING_UART_TX.md)
+[`doc/ar/AR021_POLLING_UART_RX_FIFO.md`](doc/ar/AR021_POLLING_UART_RX_FIFO.md), and
+[`doc/ar/AR022_MEMORY_MAPPED_GPIO_OUTPUT.md`](doc/ar/AR022_MEMORY_MAPPED_GPIO_OUTPUT.md).
 
 **Purpose:** provide observable hardware behavior and a FreeRTOS console.
 
@@ -601,7 +613,7 @@ the `01 -> 02 -> 04 -> 08 -> A5` GPIO waveform from bare-metal programs.
 on 2026-08-23. The reset/runtime contract, decisions, and verification evidence
 are recorded in
 [`docs/phase5-startup-runtime-guide.md`](docs/phase5-startup-runtime-guide.md)
-and [`doc/AR023_PHASE5_BARE_METAL_RUNTIME.md`](doc/AR023_PHASE5_BARE_METAL_RUNTIME.md).
+and [`doc/ar/AR023_PHASE5_BARE_METAL_RUNTIME.md`](doc/ar/AR023_PHASE5_BARE_METAL_RUNTIME.md).
 
 **Purpose:** separate CPU/peripheral/board failures from FreeRTOS port failures.
 
@@ -638,7 +650,7 @@ on the physical board.
 **Status:** official-port focused/extended ModelSim profiles and the routed
 exact-board image pass; physical heartbeat/D1/restart execution passed on
 2026-08-23. See
-[`doc/AR025_OFFICIAL_FREERTOS_RISCV_PORT.md`](doc/AR025_OFFICIAL_FREERTOS_RISCV_PORT.md).
+[`doc/ar/AR025_OFFICIAL_FREERTOS_RISCV_PORT.md`](doc/ar/AR025_OFFICIAL_FREERTOS_RISCV_PORT.md).
 
 **Purpose:** run an existing, reviewed kernel rather than inventing a scheduler
 or context-switch ABI.
@@ -754,6 +766,55 @@ heartbeats; PL D1 toggled and deliberate K2 restarts recovered. See
 
 ---
 
+## Continuous Track W — Workload and acceleration discovery
+
+**Status:** W0 planning baseline, source registry, and paper-audit template
+created; starter sources are queued, but no paper has passed local audit, no W0
+workload has been profiled, and no accelerator is selected.
+
+The central research map is
+[`doc/RESEARCH_PROGRAM_PLAN.md`](doc/RESEARCH_PROGRAM_PLAN.md). It keeps
+concise program-level paper decisions while detailed audits use
+[`doc/research/PAPER_AUDIT_TEMPLATE.md`](doc/research/PAPER_AUDIT_TEMPLATE.md).
+Exact citations, provenance, and first reading order are in
+[`doc/research/SOURCE_REGISTRY.md`](doc/research/SOURCE_REGISTRY.md).
+`TODO.md` remains the execution ledger; a paper or simulation result is not an
+implemented feature.
+
+### W0 — Workload and data-model discovery
+
+- [x] Define the research-document structure, paper lifecycle, audit template,
+      provenance boundary, and links to TODO/phase evidence.
+- [ ] Select a bounded DC-bus/battery/motor-compressor surrogate scenario with
+      units, ranges, sample periods, deadlines, safe states, and explicit
+      unknowns.
+- [ ] Classify energy-management/control/estimation algorithm families and
+      select auditable baselines rather than choosing by venue or novelty.
+- [ ] Create deterministic high-level and bounded-C versions of the first
+      rule/PI workload with one shared functional/control oracle.
+- [ ] Add small optimizer/MPC and estimator or fault-classifier workloads only
+      when the M0 signal model justifies them.
+- [ ] Extract shared domain types, bounds, lifetimes, access patterns, and
+      candidate kernels from real implementations; do not assume that a
+      source-level list or dictionary deserves hardware.
+- [ ] Characterize L0 machine costs, optional L1 CoreMark, L2 domain kernels,
+      and L3 end-to-end tasks with exact clock/tool/flags/input identity.
+- [ ] Record cycles, instructions, memory/branch/wait events, footprint,
+      observed execution high-water marks, deadlines, control quality, and P0
+      activity/energy comparisons.
+- [ ] Open `doc/plans/w0-workload-discovery/` when implementation starts and
+      trace stable W0 requirement IDs into tests and actual results.
+- [ ] Pass the W0 accelerator gate before specifying A0: repeatable common
+      hotspot, bounded numeric/fault behavior, full transfer/software overhead,
+      and feasible area/timing/power/verification cost.
+
+**W0 exit gate:** at least one stable C0/M0-relevant end-to-end workload and
+comparable algorithm baselines identify a repeatable bounded kernel, or produce
+a documented no-accelerator decision. A0 remains gated by P1 counters and a
+stable C0/M0 workload.
+
+---
+
 ## Continuous Track U — Scalable UVM adoption
 
 **Status:** architecture accepted in AR-026; UVM 1.2 toolchain sub-gate
@@ -765,7 +826,7 @@ only directories needed by the current slice; do not add empty cache/MMU/GPU/
 NPU placeholders.
 
 Detailed design and directory ownership are in
-[`doc/AR026_SCALABLE_UVM_VERIFICATION_ARCHITECTURE.md`](doc/AR026_SCALABLE_UVM_VERIFICATION_ARCHITECTURE.md)
+[`doc/ar/AR026_SCALABLE_UVM_VERIFICATION_ARCHITECTURE.md`](doc/ar/AR026_SCALABLE_UVM_VERIFICATION_ARCHITECTURE.md)
 and [`docs/verification_framework.md`](docs/verification_framework.md).
 
 ### U0 — Toolchain and passive retirement vertical slice (optional parallel track)
@@ -942,14 +1003,19 @@ for the first FreeRTOS FPGA demonstration:
    path. UVM 1.2 compile/runtime and the negative result gate now pass; the next
    U0 work is the passive retirement contract/monitor, not a download. U0 does
    not block P0.
-5. After P0, open the P1 measurement-driven low-power slice and the C0/M0
-   low-energy control/model evidence packages; do not treat documentation as
-   implementation evidence.
-6. Confirm the XC7Z010 speed grade from a reliable vendor/device record; keep
+5. Start W0 with one bounded surrogate use case, audited algorithms, a
+   deterministic C workload, and L0/L3 measurement; CoreMark is a secondary L1
+   baseline, not the accelerator-selection gate.
+6. Advance M0 low-order modelling and C0 safe-control requirements in parallel;
+   open their evidence packages only with stable requirement IDs, and do not
+   treat documentation as implementation evidence.
+7. Open P1 as the measurement-driven low-power/counter slice; its events should
+   serve W0 profiling without making A0 eligible before stable C0/M0 evidence.
+8. Confirm the XC7Z010 speed grade from a reliable vendor/device record; keep
    targeting conservative `xc7z010clg400-1` until then.
-7. When rebuilding board images, retain the exact bitstream SHA-256 and run
+9. When rebuilding board images, retain the exact bitstream SHA-256 and run
    duration alongside the existing UART/reset evidence.
-8. Keep the 47-test ACT4, 23-test smoke, scheduler-soak, and board timing/DRC
+10. Keep the 47-test ACT4, 23-test smoke, scheduler-soak, and board timing/DRC
    gates active for future changes.
 
 Do not jump directly from the present SoC to a motor, compressor, plasma/electric

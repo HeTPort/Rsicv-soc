@@ -10,11 +10,13 @@ foundation for a much larger research program; it is not the final system.
 > electronics, sensing, closed-loop control, and heterogeneous computation.
 
 The first milestone—booting bare-metal software and preemptive FreeRTOS on the
-custom RV32IM core in FPGA programmable logic—is complete. The **active stage is
-P0**, which is building a reproducible workload power-measurement baseline.
-There is not yet an accepted activity-based power result, power-management IP,
-motor/compressor controller, validated plant model, thrust-producing hardware,
-or propulsion-feasibility evidence.
+custom RV32IM core in FPGA programmable logic—is complete. P0's six-scenario
+95 MHz workload power-measurement portfolio is technically verified, while
+board-rail and ASIC power remain unmeasured. The next research wave is W0
+workload/data-model discovery alongside M0 model and C0 safe-control
+requirements. There is not yet power-management IP, a motor/compressor
+controller, a validated plant model, thrust-producing hardware, or
+propulsion-feasibility evidence.
 
 **License status:** the original project material is source-available for
 noncommercial learning, teaching, and academic research. Commercial use
@@ -24,7 +26,8 @@ requires a separate written license; see [License and commercial use](#license-a
 > memory stalls, a branch redirects the pipeline, or a trap interrupts the
 > normal path.
 
-The repository records the reasoning as well as the RTL. Focused `AR*.md`
+The repository records the reasoning as well as the RTL. Focused
+[`doc/ar/AR*.md`](doc/ar/README.md)
 reports preserve failures, alternatives, decisions, consequences, and proof;
 the [project knowledge base](doc/PROJECT_KNOWLEDGE_BASE.md) is the best gradual
 introduction.
@@ -127,8 +130,8 @@ old ordered data is preserved. An empty RXDATA read returns immediately rather
 than deadlocking the core bus.
 
 See the [Phase 4 UART guide](docs/phase4-uart-guide.md),
-[AR-020 TX](doc/AR020_MINIMAL_POLLING_UART_TX.md), and
-[AR-021 RX FIFO](doc/AR021_POLLING_UART_RX_FIFO.md).
+[AR-020 TX](doc/ar/AR020_MINIMAL_POLLING_UART_TX.md), and
+[AR-021 RX FIFO](doc/ar/AR021_POLLING_UART_RX_FIFO.md).
 
 ## GPIO: the current LED/output path
 
@@ -139,7 +142,7 @@ writes merge only their selected lanes. Invalid offsets, alignment, or strobes
 return a registered error and cannot change the output.
 
 See the [Phase 4 GPIO guide](docs/phase4-gpio-guide.md) and
-[AR-022](doc/AR022_MEMORY_MAPPED_GPIO_OUTPUT.md).
+[AR-022](doc/ar/AR022_MEMORY_MAPPED_GPIO_OUTPUT.md).
 
 ## Verification evidence
 
@@ -174,7 +177,7 @@ execution, then passed 47/47 ACT4, 22/22 directed smoke, the focused data-fabric
 test, 12/12 converter/importer tests, 9/9 map-generator tests, and the regression
 classifier test. It also removed the obsolete fixed-low core `halt_o` port;
 committed `tohost` stores and `commit_pkt_t` are the completion and retirement
-observation contracts. See [AR-012](doc/AR012_RETIREMENT_INTERFACE_CLEANUP.md).
+observation contracts. See [AR-012](doc/ar/AR012_RETIREMENT_INTERFACE_CLEANUP.md).
 
 After per-extension ACT4 tagging and the unified runner were added, the single
 release command passed again in 497.3 seconds: every local gate plus 39 RV32I
@@ -318,7 +321,7 @@ heartbeats:
 wsl.exe -e bash -lc "cd /mnt/d/Rsicv-soc-worktrees/phase2-act4-cleanup && SOC_FREERTOS_MTIME_HZ=5000000 SOC_FREERTOS_DEMO_TIME_SCALE=100 SOC_FREERTOS_SIM_COMPLETION=1 SOC_FREERTOS_IMAGE_SUFFIX=_soak SOC_FREERTOS_MIN_QUEUE_RECEIVES=1000 SOC_FREERTOS_MIN_LED_UPDATES=100 SOC_FREERTOS_MIN_HEARTBEATS=50 SOC_FREERTOS_MIN_TICK_HOOKS=1000 bash sw/build_firmware_wsl.sh --install freertos_demo"
 ```
 
-See [AR-025](doc/AR025_OFFICIAL_FREERTOS_RISCV_PORT.md) for the port boundary,
+See [AR-025](doc/ar/AR025_OFFICIAL_FREERTOS_RISCV_PORT.md) for the port boundary,
 memory policy, and verification evidence.
 
 ### Generate and validate the SoC map
@@ -378,7 +381,8 @@ testdata/     Directed assembly and readmemh images
 tools/        Map generator and dependency-free tests
 verif/act4/   RISC-V Architecture Test integration
 doc/          Living architecture documents and focused AR reports
-docs/         Phase-oriented implementation guides
+docs/         Frozen legacy accepted guides; see docs/README.md
+notes/inbox/  Git-synchronised, non-authoritative idea capture
 ```
 
 Build scripts list sources explicitly. Planned modules are added only when a
@@ -402,7 +406,7 @@ levels are evidence gates, not claims that later capability already exists:
 | Level | Intended outcome | Status |
 | --- | --- | --- |
 | 1. Small control SoC | RV32IM, bus/RAM, timer, UART/GPIO, firmware, FreeRTOS and FPGA proof | **Current foundation complete** |
-| 2. Power characterization and management | Representative workloads and valid SAIF mapping, followed by counters and truthful low-power state | **P0 active; P1 gated** |
+| 2. Power characterization and management | Representative workloads and valid SAIF mapping, followed by counters and truthful low-power state | **P0 technical portfolio verified; P1 eligible but not implemented** |
 | 3. Safe control and low-order model | PWM/capture/watchdog/fault kill in C0; motor/inverter/compressor/flow MIL/SIL in M0 | Planned C0/M0 parallel wave |
 | 4. Sampled-data path and bench | SPI/ADC/interrupt/DMA in C1; then HIL and low-energy correlation in M1 | Planned C1/M1 |
 | 5. Profile-driven compute | One justified accelerator; RVV/NPU/GPU only if measured workloads require them | Deferred and gated |
@@ -410,14 +414,15 @@ levels are evidence gates, not claims that later capability already exists:
 
 The next practical steps are:
 
-1. repair P0's activity window, checkpoint/XDC/clock identity and SAIF hierarchy
-   mapping, then meet the repeatability gate;
-2. add counters and a truthful low-power state only after P0 provides a valid
-   comparison baseline;
-3. begin C0 safe control and M0 low-order plant modelling as the first
-   propulsion-relevant vertical slices;
-4. add C1 sensing/data movement before attempting a real closed-loop platform;
-5. keep NPU/GPU and high-energy propulsion hardware deferred until their entry
+1. retain the verified P0 activity/checkpoint/clock identity as the comparison
+   baseline for later power changes;
+2. start W0 workload/data-model discovery and M0 low-order plant modelling with
+   one bounded surrogate use case;
+3. use W0/M0 evidence to refine C0 safe-control requirements while P1 adds
+   useful counters and a truthful low-power state;
+4. implement the C0/M0 vertical slice, then add C1 sensing/data movement before
+   attempting a real closed-loop platform;
+5. keep A0/NPU/GPU and high-energy propulsion hardware deferred until their entry
    requirements, safety analysis and measured workload/physics evidence exist;
 6. continue the ancillary speed-grade and retained bitstream-evidence work
    without confusing it with propulsion progress.
@@ -425,6 +430,11 @@ The next practical steps are:
 The dependency order, learning prerequisites, phase gates, and separation
 between this repository and later model/bench projects are defined in
 [`doc/ROADMAP_AND_LEARNING_PATH.md`](doc/ROADMAP_AND_LEARNING_PATH.md).
+The literature audit process, source registry, W0 benchmark plan, and
+accelerator decision gate are in
+[`doc/RESEARCH_PROGRAM_PLAN.md`](doc/RESEARCH_PROGRAM_PLAN.md).
+The exact starter citations and reading order are in
+[`doc/research/SOURCE_REGISTRY.md`](doc/research/SOURCE_REGISTRY.md).
 
 You do not need to connect the FPGA board to develop or verify the RTL. JTAG
 compatibility, oscillator, LED polarity, BRAM boot, GPIO, timer progression,
@@ -437,6 +447,11 @@ naming standards are in
 [`doc/SEMANTIC_SIGNAL_SPEC.md`](doc/SEMANTIC_SIGNAL_SPEC.md); accepted choices
 and their history are in
 [`doc/ARCHITECTURE_DESIGN_AND_DECISIONS.md`](doc/ARCHITECTURE_DESIGN_AND_DECISIONS.md).
+Developers and AI tools should use
+[`doc/CONTEXT_ROUTER.md`](doc/CONTEXT_ROUTER.md) to load only the documents
+needed by the current task. Rough cross-device ideas belong in
+[`notes/inbox/`](notes/inbox/) and do not become requirements merely by being
+recorded.
 
 ## License and commercial use
 

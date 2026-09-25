@@ -56,4 +56,4 @@ requires a board-specific top, clock/reset definition, XDC pin assignments,
 I/O voltage selection, bitstream generation, and observation of real LEDs.
 
 Detailed rationale and RED/GREEN evidence are in
-[`AR022_MEMORY_MAPPED_GPIO_OUTPUT.md`](../doc/AR022_MEMORY_MAPPED_GPIO_OUTPUT.md).
+[`AR022_MEMORY_MAPPED_GPIO_OUTPUT.md`](../doc/ar/AR022_MEMORY_MAPPED_GPIO_OUTPUT.md).

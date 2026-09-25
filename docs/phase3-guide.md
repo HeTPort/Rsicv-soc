@@ -4,7 +4,7 @@
 
 This guide is the short implementation map. Detailed rationale, rejected
 options, problems, consequences, and evidence are recorded in
-[`../doc/AR008_PRECISE_MACHINE_TIMER_INTERRUPTS.md`](../doc/AR008_PRECISE_MACHINE_TIMER_INTERRUPTS.md).
+[`../doc/ar/AR008_PRECISE_MACHINE_TIMER_INTERRUPTS.md`](../doc/ar/AR008_PRECISE_MACHINE_TIMER_INTERRUPTS.md).
 Normative signal meanings and future interface rules are in
 [`../doc/SEMANTIC_SIGNAL_SPEC.md`](../doc/SEMANTIC_SIGNAL_SPEC.md).
 

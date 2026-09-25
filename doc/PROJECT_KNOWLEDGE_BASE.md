@@ -4,7 +4,7 @@
 
 **Audience:** New contributors and learners
 
-**Last updated:** 2026-09-24
+**Last updated:** 2026-09-25
 
 **Current reference:** `codex/phase2-act4-cleanup`. Phases 1–4 are complete.
 Phase 5 is complete in ModelSim and Vivado OOC synthesis. AR-024 adds the Bo
@@ -36,6 +36,20 @@ replaceable interfaces are summarized in
 The detailed sequence and learning prerequisites are in
 [`ROADMAP_AND_LEARNING_PATH.md`](ROADMAP_AND_LEARNING_PATH.md). This planning
 change adds no RTL, UVM, low-power, accelerator, or propulsion capability.
+The central literature/reproduction map, W0 workload-discovery process,
+decision policy, and benchmark policy are in
+[`RESEARCH_PROGRAM_PLAN.md`](RESEARCH_PROGRAM_PLAN.md). Detailed paper audits
+remain separate so research can grow without turning the roadmap or TODO into
+an evidence dump. The first reading queue and exact source provenance are in
+[`research/SOURCE_REGISTRY.md`](research/SOURCE_REGISTRY.md).
+
+Documentation is governed through
+[`CONTEXT_ROUTER.md`](CONTEXT_ROUTER.md) and
+[`AR033_DOCUMENT_GOVERNANCE_AND_CONTEXT_ROUTING.md`](ar/AR033_DOCUMENT_GOVERNANCE_AND_CONTEXT_ROUTING.md).
+The router defines the smallest task-specific reading set, `notes/inbox/`
+accepts rough ideas without making them requirements, and the legacy `docs/`
+tree is frozen pending gradual migration. This changes how project knowledge is
+found and maintained; it does not change RTL or software behavior.
 
 The repository now has an adopted noncommercial source-available license and
 commercial contact (`Hetport@outlook.com`); FreeRTOS remains under its upstream
@@ -265,7 +279,7 @@ These mechanisms are complementary:
 
 The current source is `accepted`: it freezes the split 64 KiB ABI while current
 RTL decoding, RAM defaults, and directed test addresses remain unchanged. See
-[`AR014_MACHINE_READABLE_SOC_MAP.md`](AR014_MACHINE_READABLE_SOC_MAP.md) and
+[`AR014_MACHINE_READABLE_SOC_MAP.md`](ar/AR014_MACHINE_READABLE_SOC_MAP.md) and
 [`config/README.md`](../config/README.md) for the complete relationship.
 
 The AR-015 baseline found that two 16 KiB banks use 8/60 RAMB36 tiles (13.33%),
@@ -280,9 +294,9 @@ OOC post-synthesis STA gives WNS +7.373 ns at 50 MHz and +27.373 ns at 25 MHz,
 with a 12.605 ns/19-level multiply-high path now dominant for both profiles.
 Board clock location, placement, routing, I/O timing, and physical closure
 remain unmeasured. See
-[`AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md`](AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md)
+[`AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md`](ar/AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md)
 for the RED baseline and
-[`AR017_RADIX2_ITERATIVE_DIVIDER.md`](AR017_RADIX2_ITERATIVE_DIVIDER.md) for the
+[`AR017_RADIX2_ITERATIVE_DIVIDER.md`](ar/AR017_RADIX2_ITERATIVE_DIVIDER.md) for the
 GREEN optimization.
 
 A separate learner-facing experiment now demonstrates the divider workflow on
@@ -415,6 +429,10 @@ registered default target. Polling UART TX/RX and output GPIO are implemented.
 | `verif/act4/` | Official architectural-test integration metadata |
 | `testdata/` | Directed assembly tests and generated memory images |
 | `doc/` | Architecture reviews, decisions, evidence, and learning notes |
+| `doc/ar/` | Indexed numbered architecture/problem-resolution records |
+| `doc/CONTEXT_ROUTER.md` | Task-to-document routing and context-loading rules |
+| `docs/` | Frozen legacy notes; migrate only when a file is substantially revised |
+| `notes/inbox/` | Git-synchronized, non-authoritative rough ideas awaiting triage |
 | `doc/SEMANTIC_SIGNAL_SPEC.md` | Normative signal ownership, timing, naming, and packing rules |
 
 `src/bus` contains the fabric, default target, and RAM adapter. Empty future
@@ -670,7 +688,7 @@ request to the synchronous RAM controls.
 
 The original Vivado 2019.2 OOC check retained four program-memory and four
 data-memory `RAMB36E1` cells. Detailed AR-003 rationale and evidence are in
-[`AR003_WAIT_STATE_SAFE_LSU.md`](AR003_WAIT_STATE_SAFE_LSU.md).
+[`AR003_WAIT_STATE_SAFE_LSU.md`](ar/AR003_WAIT_STATE_SAFE_LSU.md).
 
 ### 10.5 Implemented centralized data fabric
 
@@ -694,7 +712,7 @@ interface whose paired `fetch_error_o` now produces precise cause-1 traps.
 
 The accepted 64 KiB Vivado OOC check retains 32 `RAMB36E1` cells and the
 fabric/default-target hierarchy. Detailed decisions and evidence are in
-[`AR019_CENTRALIZED_DATA_FABRIC.md`](AR019_CENTRALIZED_DATA_FABRIC.md). This
+[`AR019_CENTRALIZED_DATA_FABRIC.md`](ar/AR019_CENTRALIZED_DATA_FABRIC.md). This
 still does not replace exact-board routed timing closure.
 
 ### 10.6 Minimal polling UART TX
@@ -719,7 +737,7 @@ write is backpressured rather than failed or dropped.
 The shifter emits idle high, one low start bit, eight LSB-first data bits, and
 one high stop bit. The default 25 MHz / 115200 configuration uses a rounded
 integer divider. Final baud accuracy must use the actual board clock. See
-[`AR020_MINIMAL_POLLING_UART_TX.md`](AR020_MINIMAL_POLLING_UART_TX.md) and the
+[`AR020_MINIMAL_POLLING_UART_TX.md`](ar/AR020_MINIMAL_POLLING_UART_TX.md) and the
 [`Phase 4 UART guide`](../docs/phase4-uart-guide.md).
 
 ### 10.7 Polling UART RX and the 16-byte FIFO
@@ -747,7 +765,7 @@ module: asynchronous synchronization, serial framing, temporary byte storage,
 and architectural MMIO policy. It also makes overload behavior explicit;
 adding storage without defining which data is lost is not a complete FIFO
 contract. See
-[`AR021_POLLING_UART_RX_FIFO.md`](AR021_POLLING_UART_RX_FIFO.md).
+[`AR021_POLLING_UART_RX_FIFO.md`](ar/AR021_POLLING_UART_RX_FIFO.md).
 
 ### 10.8 Memory-mapped output GPIO
 
@@ -769,7 +787,7 @@ The owner is captured when the request transfers and selects the later
 response; the fabric never re-decodes the live address during an outstanding
 transaction. Focused target/fabric tests, firmware readback, an independent
 pin-transition scoreboard, and OOC hierarchy retention are GREEN. See
-[`AR022_MEMORY_MAPPED_GPIO_OUTPUT.md`](AR022_MEMORY_MAPPED_GPIO_OUTPUT.md) and
+[`AR022_MEMORY_MAPPED_GPIO_OUTPUT.md`](ar/AR022_MEMORY_MAPPED_GPIO_OUTPUT.md) and
 the [`Phase 4 GPIO guide`](../docs/phase4-gpio-guide.md).
 
 ## 11. CSR and trap model
@@ -842,7 +860,7 @@ and `irq_defer_i` waits for an LSU/divider owner to complete.
 WFI retires once, saves `next_pc`, kills younger packets, and leaves only a
 logical wait record. WFI wake creates `trap_entry_t` without another
 instruction commit or `minstret` increment. See
-[`AR008_PRECISE_MACHINE_TIMER_INTERRUPTS.md`](AR008_PRECISE_MACHINE_TIMER_INTERRUPTS.md).
+[`AR008_PRECISE_MACHINE_TIMER_INTERRUPTS.md`](ar/AR008_PRECISE_MACHINE_TIMER_INTERRUPTS.md).
 
 ### 11.5 Timer registers
 
@@ -876,7 +894,7 @@ the pre-scheduler 4 KiB main stack becomes the interrupt stack through
 The focused demo uses LED, heartbeat, queue producer, and queue receiver tasks.
 The producer wraps a send with `s2`-`s11` sentinels; waking the higher-priority
 receiver forces a scheduler switch, and any failed restore prevents PASS. See
-[`AR025_OFFICIAL_FREERTOS_RISCV_PORT.md`](AR025_OFFICIAL_FREERTOS_RISCV_PORT.md).
+[`AR025_OFFICIAL_FREERTOS_RISCV_PORT.md`](ar/AR025_OFFICIAL_FREERTOS_RISCV_PORT.md).
 
 The short profile completes quickly and remains the normal release gate. The
 separately tagged soak raises completion to 1,000 tick hooks and ordered queue
@@ -1056,7 +1074,7 @@ change pin-level adapters without changing the retirement scoreboard.
 
 The planned ownership tree and gates are documented in the
 [verification framework](../docs/verification_framework.md) and
-[`AR026_SCALABLE_UVM_VERIFICATION_ARCHITECTURE.md`](AR026_SCALABLE_UVM_VERIFICATION_ARCHITECTURE.md).
+[`AR026_SCALABLE_UVM_VERIFICATION_ARCHITECTURE.md`](ar/AR026_SCALABLE_UVM_VERIFICATION_ARCHITECTURE.md).
 
 ## 14. Design invariants worth memorizing
 
@@ -1099,6 +1117,7 @@ The planned ownership tree and gates are documented in the
 | Power and clock gating | Logical WFI and six 95 MHz activity-derived P0 workload estimates are verified, but direct SAIF mapping is only about 5.5% and no safe FPGA clock gating exists. P1 later uses clock enables/vendor clock resources and keeps wake sources alive | P0 then P1 / AR-028 |
 | Reset-to-BRAM control | Deliberate K2 restart testing passes and reset deassertion is synchronized, but Vivado `REQP-1839` still warns that asynchronously reset control registers feed data-BRAM address/control logic | Keep warning visible; synchronous-reset cleanup if later behavior requires it / AR-024 |
 | FreeRTOS duration/hardware | Focused and extended preemption/queue/context checks pass in ModelSim; physical production output adds 537 retained heartbeats, D1 activity, and repeatable K2 restarts | Closed for first FPGA demonstration / AR-025 |
+| Documentation status and context | Duplicated status or broad recursive reading can obscure the active task | Route through `CONTEXT_ROUTER.md`, keep inbox notes non-authoritative, and run the governance checker / AR-033 |
 | UVM scalability | AR-026 accepts the abstraction and the installed ModelSim/UVM 1.2 compile/runtime plus false-marker gate pass. This proves technical availability on this host, not license entitlement or DUT integration; no passive monitor/scoreboard/coverage result exists | Optional parallel U0 / AR-026 |
 
 ## 16. Practical study exercises
@@ -1140,7 +1159,12 @@ compare RAM data, `load_offset`, extracted value, and committed result.
 
 ## 17. Where to read next
 
+- [Task-specific context router](CONTEXT_ROUTER.md)
 - [Post-FreeRTOS roadmap and learning path](ROADMAP_AND_LEARNING_PATH.md)
+- [Research program, decision gates, and W0 workload plan](RESEARCH_PROGRAM_PLAN.md)
+- [Research source registry and first reading queue](research/SOURCE_REGISTRY.md)
+- [Research directory and source-handling rules](research/README.md)
+- [Paper audit and reproduction template](research/PAPER_AUDIT_TEMPLATE.md)
 - [Phase evidence package template](PHASE_EVIDENCE_TEMPLATE.md)
 - [Phase planning/evidence index](plans/README.md)
 - [Engineering reference index](REFERENCE_INDEX.md)
@@ -1148,37 +1172,38 @@ compare RAM data, `load_offset`, extracted value, and committed result.
 - [License and IP strategy](LICENSE_STRATEGY.md)
 - [P0 power-baseline requirements](plans/p0-power-baseline/requirements.md)
 - [P0 six-scenario results and limitations](plans/p0-power-baseline/results.md)
-- [AR-028 P0 95 MHz mapping decision and measured workloads](AR028_P0_95MHZ_ACTIVITY_MAPPING_AND_WORKLOAD_BASELINE.md)
+- [AR-028 P0 95 MHz mapping decision and measured workloads](ar/AR028_P0_95MHZ_ACTIVITY_MAPPING_AND_WORKLOAD_BASELINE.md)
 - [Architecture design and decisions](ARCHITECTURE_DESIGN_AND_DECISIONS.md)
+- [AR-033 documentation governance and context routing](ar/AR033_DOCUMENT_GOVERNANCE_AND_CONTEXT_ROUTING.md)
 - [Architecture review and action plan](ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md)
 - [Verification framework](../docs/verification_framework.md)
 - [Memory-map and bus design guide](MEMORY_MAP_CONTRACT_DESIGN_GUIDE.md)
-- [AR-009 accepted architectural memory map](AR009_ARCHITECTURAL_MEMORY_MAP.md)
-- [AR-016 core-to-SoC environment contract](AR016_CORE_TO_SOC_ENVIRONMENT_CONTRACT.md)
-- [AR-001 precise CSR squash](AR001_PRECISE_CSR_SQUASH_FIX.md)
-- [AR-002 canonical bubbles](AR002_CANONICAL_PIPELINE_BUBBLES.md)
-- [AR-005 synchronous instruction BRAM](AR005_SYNCHRONOUS_INSTRUCTION_BRAM.md)
-- [AR-006 control-flow misalignment](AR006_CONTROL_FLOW_MISALIGNMENT.md)
-- [AR-007 CSR contract](AR007_CSR_LEGALITY_WARL_AND_HAZARDS.md)
-- [AR-008 precise machine-timer interrupts](AR008_PRECISE_MACHINE_TIMER_INTERRUPTS.md)
-- [AR-012 retirement and public-interface cleanup](AR012_RETIREMENT_INTERFACE_CLEANUP.md)
+- [AR-009 accepted architectural memory map](ar/AR009_ARCHITECTURAL_MEMORY_MAP.md)
+- [AR-016 core-to-SoC environment contract](ar/AR016_CORE_TO_SOC_ENVIRONMENT_CONTRACT.md)
+- [AR-001 precise CSR squash](ar/AR001_PRECISE_CSR_SQUASH_FIX.md)
+- [AR-002 canonical bubbles](ar/AR002_CANONICAL_PIPELINE_BUBBLES.md)
+- [AR-005 synchronous instruction BRAM](ar/AR005_SYNCHRONOUS_INSTRUCTION_BRAM.md)
+- [AR-006 control-flow misalignment](ar/AR006_CONTROL_FLOW_MISALIGNMENT.md)
+- [AR-007 CSR contract](ar/AR007_CSR_LEGALITY_WARL_AND_HAZARDS.md)
+- [AR-008 precise machine-timer interrupts](ar/AR008_PRECISE_MACHINE_TIMER_INTERRUPTS.md)
+- [AR-012 retirement and public-interface cleanup](ar/AR012_RETIREMENT_INTERFACE_CLEANUP.md)
 - [Semantic signal specification](SEMANTIC_SIGNAL_SPEC.md)
-- [AR-013 regression exit-status gate](AR013_REGRESSION_EXIT_STATUS_GATE.md)
-- [AR-014 machine-readable SoC map](AR014_MACHINE_READABLE_SOC_MAP.md)
-- [AR-015 RAM-capacity utilization and timing comparison](AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md)
-- [AR-016 core-to-SoC environment contract](AR016_CORE_TO_SOC_ENVIRONMENT_CONTRACT.md)
-- [AR-017 Radix-2 iterative divider](AR017_RADIX2_ITERATIVE_DIVIDER.md)
-- [AR-018 SoC fabric RED tests](AR018_SOC_FABRIC_RED_TESTS.md)
-- [AR-019 centralized data fabric](AR019_CENTRALIZED_DATA_FABRIC.md)
-- [AR-020 minimal polling UART TX](AR020_MINIMAL_POLLING_UART_TX.md)
-- [AR-021 polling UART RX and parameterized FIFO](AR021_POLLING_UART_RX_FIFO.md)
-- [AR-022 memory-mapped GPIO output](AR022_MEMORY_MAPPED_GPIO_OUTPUT.md)
-- [AR-023 Phase 5 bare-metal runtime](AR023_PHASE5_BARE_METAL_RUNTIME.md)
-- [AR-024 ZYNQ MINI REVB FPGA integration](AR024_ZYNQ_MINI_REVB_FPGA_INTEGRATION.md)
-- [AR-025 official FreeRTOS RISC-V port](AR025_OFFICIAL_FREERTOS_RISCV_PORT.md)
-- [AR-026 scalable UVM verification architecture](AR026_SCALABLE_UVM_VERIFICATION_ARCHITECTURE.md)
-- [AR-027 common-library and multiplier-pipeline review](AR027_RTL_COMMON_AND_MULTIPLIER_PIPELINE_REVIEW.md)
-- [AR-029 fixed RV32 contract and refactoring scope](AR029_RV32_CONTRACT_AND_REFACTORING_SCOPE.md)
+- [AR-013 regression exit-status gate](ar/AR013_REGRESSION_EXIT_STATUS_GATE.md)
+- [AR-014 machine-readable SoC map](ar/AR014_MACHINE_READABLE_SOC_MAP.md)
+- [AR-015 RAM-capacity utilization and timing comparison](ar/AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md)
+- [AR-016 core-to-SoC environment contract](ar/AR016_CORE_TO_SOC_ENVIRONMENT_CONTRACT.md)
+- [AR-017 Radix-2 iterative divider](ar/AR017_RADIX2_ITERATIVE_DIVIDER.md)
+- [AR-018 SoC fabric RED tests](ar/AR018_SOC_FABRIC_RED_TESTS.md)
+- [AR-019 centralized data fabric](ar/AR019_CENTRALIZED_DATA_FABRIC.md)
+- [AR-020 minimal polling UART TX](ar/AR020_MINIMAL_POLLING_UART_TX.md)
+- [AR-021 polling UART RX and parameterized FIFO](ar/AR021_POLLING_UART_RX_FIFO.md)
+- [AR-022 memory-mapped GPIO output](ar/AR022_MEMORY_MAPPED_GPIO_OUTPUT.md)
+- [AR-023 Phase 5 bare-metal runtime](ar/AR023_PHASE5_BARE_METAL_RUNTIME.md)
+- [AR-024 ZYNQ MINI REVB FPGA integration](ar/AR024_ZYNQ_MINI_REVB_FPGA_INTEGRATION.md)
+- [AR-025 official FreeRTOS RISC-V port](ar/AR025_OFFICIAL_FREERTOS_RISCV_PORT.md)
+- [AR-026 scalable UVM verification architecture](ar/AR026_SCALABLE_UVM_VERIFICATION_ARCHITECTURE.md)
+- [AR-027 common-library and multiplier-pipeline review](ar/AR027_RTL_COMMON_AND_MULTIPLIER_PIPELINE_REVIEW.md)
+- [AR-029 fixed RV32 contract and refactoring scope](ar/AR029_RV32_CONTRACT_AND_REFACTORING_SCOPE.md)
 - [Revised core refactoring specification](../RISC-V_Core_Refactoring_Spec.md)
 - [Phase 4 UART implementation guide](../docs/phase4-uart-guide.md)
 - [Phase 4 GPIO implementation guide](../docs/phase4-gpio-guide.md)

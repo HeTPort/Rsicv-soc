@@ -167,13 +167,13 @@ Phase 1 accepts:
 
 The detailed split-memory decision, access/error contract, capacity caveat,
 verification plan, and acceptance record are in
-[`AR009_ARCHITECTURAL_MEMORY_MAP.md`](AR009_ARCHITECTURAL_MEMORY_MAP.md).
+[`AR009_ARCHITECTURAL_MEMORY_MAP.md`](ar/AR009_ARCHITECTURAL_MEMORY_MAP.md).
 The core-to-SoC ownership and implementation boundary are in
-[`AR016_CORE_TO_SOC_ENVIRONMENT_CONTRACT.md`](AR016_CORE_TO_SOC_ENVIRONMENT_CONTRACT.md).
+[`AR016_CORE_TO_SOC_ENVIRONMENT_CONTRACT.md`](ar/AR016_CORE_TO_SOC_ENVIRONMENT_CONTRACT.md).
 The table is an accepted ABI, not yet an implemented decoder.
 
 The physical capacity tradeoff is now measured separately in
-[`AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md`](AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md).
+[`AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md`](ar/AR015_RAM_CAPACITY_UTILIZATION_COMPARISON.md).
 On provisional `xc7z010clg400-1`, the two 16 KiB banks use 8/60 RAMB36 tiles
 and the two 64 KiB banks use 32/60. The project selected 64 KiB per bank on
 2026-08-01; exact-board resource and timing closure remain mandatory. Paired
@@ -221,5 +221,5 @@ Vivado report        = physical resource evidence for one configuration
 ```
 
 The complete ownership table, validation contract, and generation commands are
-recorded in [`AR014_MACHINE_READABLE_SOC_MAP.md`](AR014_MACHINE_READABLE_SOC_MAP.md)
+recorded in [`AR014_MACHINE_READABLE_SOC_MAP.md`](ar/AR014_MACHINE_READABLE_SOC_MAP.md)
 and [`config/README.md`](../config/README.md).

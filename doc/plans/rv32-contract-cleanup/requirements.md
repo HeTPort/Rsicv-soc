@@ -5,7 +5,7 @@
 **Owner:** RTL architecture
 **Last updated:** 2026-09-24
 **Depends on:** AR-017, AR-027, fixed RV32IM software/ACT baseline
-**Related evidence:** [AR-029](../../AR029_RV32_CONTRACT_AND_REFACTORING_SCOPE.md)
+**Related evidence:** [AR-029](../../ar/AR029_RV32_CONTRACT_AND_REFACTORING_SCOPE.md)
 
 ## Scope and outcome
 

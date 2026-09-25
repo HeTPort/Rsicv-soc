@@ -110,7 +110,7 @@ adoption and system integration were subsequently verified in Phases 3–5.
 
 **Progress:** fixed, verified, and superseded by the single retirement owner.
 The reproduced CSR corruption is retained as a smoke regression. See
-[`AR001_PRECISE_CSR_SQUASH_FIX.md`](AR001_PRECISE_CSR_SQUASH_FIX.md) for the
+[`AR001_PRECISE_CSR_SQUASH_FIX.md`](ar/AR001_PRECISE_CSR_SQUASH_FIX.md) for the
 RED/GREEN evidence. Directed CSR, GPR, and store squash cases are now covered;
 the broader retirement-ownership work below remains open.
 
@@ -155,7 +155,7 @@ events cannot accidentally create normal retirement effects.
 ### AR-002 — Pipeline bubbles do not clear all packet fields
 
 **Status:** fixed and verified. See
-[`AR002_CANONICAL_PIPELINE_BUBBLES.md`](AR002_CANONICAL_PIPELINE_BUBBLES.md)
+[`AR002_CANONICAL_PIPELINE_BUBBLES.md`](ar/AR002_CANONICAL_PIPELINE_BUBBLES.md)
 for the implementation decisions, encountered problems, regression evidence,
 and reusable design principles.
 
@@ -182,7 +182,7 @@ maintenance hazard whenever a new field is added.
 ### AR-003 — The current stall model cannot support a wait-state bus
 
 **Status:** fixed and verified. See
-[`AR003_WAIT_STATE_SAFE_LSU.md`](AR003_WAIT_STATE_SAFE_LSU.md) for the accepted
+[`AR003_WAIT_STATE_SAFE_LSU.md`](ar/AR003_WAIT_STATE_SAFE_LSU.md) for the accepted
 contract, state-machine design, RED/GREEN evidence, performance consequences,
 and reusable principles.
 
@@ -238,7 +238,7 @@ EX/WB.
 ### AR-004 — Load response data bypasses the pipeline packet
 
 **Status:** fixed and verified. See
-[`AR004_REGISTERED_MEMORY_RESULT.md`](AR004_REGISTERED_MEMORY_RESULT.md) for the
+[`AR004_REGISTERED_MEMORY_RESULT.md`](ar/AR004_REGISTERED_MEMORY_RESULT.md) for the
 packet and fault contracts, RED/GREEN evidence, implementation decisions,
 problems encountered, and reusable principles.
 
@@ -261,7 +261,7 @@ problems encountered, and reusable principles.
 ### AR-005 — Instruction memory is not the synchronous BRAM assumed by the plan
 
 **Status:** fixed and verified. See
-[`AR005_SYNCHRONOUS_INSTRUCTION_BRAM.md`](AR005_SYNCHRONOUS_INSTRUCTION_BRAM.md)
+[`AR005_SYNCHRONOUS_INSTRUCTION_BRAM.md`](ar/AR005_SYNCHRONOUS_INSTRUCTION_BRAM.md)
 for the timing contract, RED/GREEN evidence, Vivado inference result, problems
 encountered, and reusable principles.
 
@@ -290,7 +290,7 @@ with the current request PC because of nonblocking clocked-update timing.
 ### AR-006 — Taken control-flow targets do not check IALIGN=32
 
 **Status:** fixed and verified. See
-[`AR006_CONTROL_FLOW_MISALIGNMENT.md`](AR006_CONTROL_FLOW_MISALIGNMENT.md) for
+[`AR006_CONTROL_FLOW_MISALIGNMENT.md`](ar/AR006_CONTROL_FLOW_MISALIGNMENT.md) for
 the RED/GREEN evidence, handling decisions, and reusable principles.
 
 **Evidence**
@@ -323,7 +323,7 @@ bit zero, but bit one can remain set.
 ### AR-007 — CSR legality, no-write semantics, and hazards are incomplete
 
 **Status:** fixed and verified for the current M-mode CSR contract. See
-[`AR007_CSR_LEGALITY_WARL_AND_HAZARDS.md`](AR007_CSR_LEGALITY_WARL_AND_HAZARDS.md)
+[`AR007_CSR_LEGALITY_WARL_AND_HAZARDS.md`](ar/AR007_CSR_LEGALITY_WARL_AND_HAZARDS.md)
 for the exact implemented CSR set, RED/GREEN evidence, implementation
 decisions, and concepts. Phase 3 now composes `mip.MTIP` from the hardware
 timer level; ordinary CSR writes cannot manufacture or clear it.
@@ -403,7 +403,7 @@ mstatus.MIE && mie.MTIE && mip.MTIP
 - [x] At least 10,000 simulated timer interrupts before closing Phase 3.
 
 Implementation rationale, limitations, signal flow, and evidence are in
-[`AR008_PRECISE_MACHINE_TIMER_INTERRUPTS.md`](AR008_PRECISE_MACHINE_TIMER_INTERRUPTS.md).
+[`AR008_PRECISE_MACHINE_TIMER_INTERRUPTS.md`](ar/AR008_PRECISE_MACHINE_TIMER_INTERRUPTS.md).
 
 ### AR-009 — The accepted memory map requires migration from the current ACT4 flow
 
@@ -459,10 +459,10 @@ regions:
       adopted; the generated-map staleness check prevents drift.
 - [x] Use an explicit registered default error target for unmapped data-bus
       addresses. See
-      [`AR019_CENTRALIZED_DATA_FABRIC.md`](AR019_CENTRALIZED_DATA_FABRIC.md).
+      [`AR019_CENTRALIZED_DATA_FABRIC.md`](ar/AR019_CENTRALIZED_DATA_FABRIC.md).
 - [x] Add isolated executable RED cases for unmapped load/store and invalid
       fetch without adding expected failures to the default smoke suite. See
-      [`AR018_SOC_FABRIC_RED_TESTS.md`](AR018_SOC_FABRIC_RED_TESTS.md).
+      [`AR018_SOC_FABRIC_RED_TESTS.md`](ar/AR018_SOC_FABRIC_RED_TESTS.md).
 - [x] Reserve a large enough timer decode window for standard offsets:
       `mtimecmp=0x4000` and `mtime=0xBFF8` require a window extending beyond
       4 KiB.
@@ -502,9 +502,9 @@ regions:
       Phase 3/4 focused and SoC-level manifests.
 
 Detailed rationale, failure codes, commands, and the acceptance evidence are in
-[`AR018_SOC_FABRIC_RED_TESTS.md`](AR018_SOC_FABRIC_RED_TESTS.md). The data
+[`AR018_SOC_FABRIC_RED_TESTS.md`](ar/AR018_SOC_FABRIC_RED_TESTS.md). The data
 implementation record is
-[`AR019_CENTRALIZED_DATA_FABRIC.md`](AR019_CENTRALIZED_DATA_FABRIC.md).
+[`AR019_CENTRALIZED_DATA_FABRIC.md`](ar/AR019_CENTRALIZED_DATA_FABRIC.md).
 
 ### AR-010 — Current tests are green but too shallow for the claimed features
 
@@ -523,7 +523,7 @@ reporting through committed `tohost`; it is part of the smoke manifest.
 - [x] Require a zero native simulator exit in addition to the existing
       PASS-marker, fatal-marker, and error-count checks. Keep the focused
       false-pass regression and RED/GREEN evidence in
-      [`AR013_REGRESSION_EXIT_STATUS_GATE.md`](AR013_REGRESSION_EXIT_STATUS_GATE.md).
+      [`AR013_REGRESSION_EXIT_STATUS_GATE.md`](ar/AR013_REGRESSION_EXIT_STATUS_GATE.md).
 - [ ] Make each trap test check `mcause`, `mepc`, `mtval`, and relevant
       `mstatus` fields before reporting PASS.
 - [ ] For misaligned stores, prove the addressed memory bytes did not change.
@@ -616,14 +616,14 @@ completion uses committed `tohost` stores.
 - [x] Remove empty placeholder RTL files; add implemented modules when their
       owning phase starts and defines a real interface.
 
-See [`AR012_RETIREMENT_INTERFACE_CLEANUP.md`](AR012_RETIREMENT_INTERFACE_CLEANUP.md)
+See [`AR012_RETIREMENT_INTERFACE_CLEANUP.md`](ar/AR012_RETIREMENT_INTERFACE_CLEANUP.md)
 for alternatives, consequences, and the fresh 47/47 ACT4 plus 22/22 smoke
 preservation evidence.
 
 ### AR-013 — Regression PASS ignored the simulator process status
 
 **Status:** fixed and verified. See
-[`AR013_REGRESSION_EXIT_STATUS_GATE.md`](AR013_REGRESSION_EXIT_STATUS_GATE.md)
+[`AR013_REGRESSION_EXIT_STATUS_GATE.md`](ar/AR013_REGRESSION_EXIT_STATUS_GATE.md)
 for the root cause, alternatives, shared classifier, focused RED/GREEN test,
 and 22/22 full-regression evidence.
 
@@ -684,7 +684,7 @@ For the initial single-hart FreeRTOS target:
 ### AR-029 — Width knobs overstated the supported architecture
 
 **Status:** implemented and verified. See
-[`AR029_RV32_CONTRACT_AND_REFACTORING_SCOPE.md`](AR029_RV32_CONTRACT_AND_REFACTORING_SCOPE.md).
+[`AR029_RV32_CONTRACT_AND_REFACTORING_SCOPE.md`](ar/AR029_RV32_CONTRACT_AND_REFACTORING_SCOPE.md).
 The production scalar/core-bus contract is now explicitly RV32. Unsupported
 RV64 macro branches and shadow core/SoC/bus/peripheral width parameters are
 removed, while 64-bit timers/counters and genuinely generic RAM/divider

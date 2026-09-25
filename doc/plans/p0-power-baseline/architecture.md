@@ -118,7 +118,7 @@ timeout or missing terminal oracle is failure even if an activity file exists.
   isolate internal block activity and needs instrumentation/hardware.
 
 See
-[`../../AR027_RTL_COMMON_AND_MULTIPLIER_PIPELINE_REVIEW.md`](../../AR027_RTL_COMMON_AND_MULTIPLIER_PIPELINE_REVIEW.md)
+[`../../ar/AR027_RTL_COMMON_AND_MULTIPLIER_PIPELINE_REVIEW.md`](../../ar/AR027_RTL_COMMON_AND_MULTIPLIER_PIPELINE_REVIEW.md)
 for why P0 precedes multiplier and low-power RTL changes.
 
 ## Implementation partition

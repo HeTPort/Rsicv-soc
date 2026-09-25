@@ -13,6 +13,8 @@ tagged release.
 - [ ] Exact commit/tree, branch, configuration, tool versions, FPGA part, and
       clock constraints are recorded.
 - [ ] Generated files pass stale checks and their source is identified.
+- [ ] `tools/check_doc_governance.ps1` passes, including required entry points,
+      frozen-`docs/` classification, phase-status guards, and local-link checks.
 - [ ] Worktree contains no accidental logs, credentials, generated caches, or
       unrelated user files.
 

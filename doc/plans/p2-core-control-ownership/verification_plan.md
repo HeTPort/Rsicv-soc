@@ -5,7 +5,7 @@
 **Owner:** RTL verification
 **Last updated:** 2026-09-25
 **Depends on:** focused core/retirement/protocol tests and exact-board flow
-**Related evidence:** [AR-031](../../AR031_CORE_CONTROL_OWNERSHIP.md)
+**Related evidence:** [AR-031](../../ar/AR031_CORE_CONTROL_OWNERSHIP.md)
 
 ## Traceability
 

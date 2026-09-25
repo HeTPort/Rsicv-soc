@@ -5,7 +5,7 @@
 **Owner:** RTL architecture and verification
 **Last updated:** 2026-09-24
 **Depends on:** AR-027, AR-028, AR-029, verified P0 workload framework
-**Related evidence:** [AR-030](../../AR030_REGISTERED_BLOCKING_MULTIPLIER.md)
+**Related evidence:** [AR-030](../../ar/AR030_REGISTERED_BLOCKING_MULTIPLIER.md)
 
 ## Scope
 
