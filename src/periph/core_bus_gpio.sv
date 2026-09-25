@@ -8,9 +8,6 @@ import riscv_pkg::*;
 // The fabric supplies target-local byte addresses. GPIO_OUT is architecturally
 // a 32-bit register, while GPIO_WIDTH selects how many low bits reach pins.
 module core_bus_gpio #(
-  parameter int AW = riscv_pkg::AW,
-  parameter int DW = riscv_pkg::DW,
-
   parameter int unsigned GPIO_WIDTH = 8,
 
   parameter logic [GPIO_WIDTH-1:0] RESET_VALUE = '0,
@@ -223,9 +220,6 @@ module core_bus_gpio #(
    * Elaboration-time contract checks.
    */
   initial begin
-    if (DW != 32)
-      $fatal(1, "core_bus_gpio currently requires DW=32");
-
     if (GPIO_WIDTH == 0 || GPIO_WIDTH > DW)
       $fatal(
         1,

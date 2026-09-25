@@ -39,7 +39,7 @@ $package = Get-SourcePath "src/core/riscv_pkg.sv"
 $leafSources = @(
     $package,
     (Get-SourcePath "src/core/radix2_divider.sv"),
-    (Get-SourcePath "src/core/rv32m_mul_comb.sv"),
+    (Get-SourcePath "src/core/rv32m_mul_reg.sv"),
     (Get-SourcePath "src/core/rv32m_unit.sv")
 )
 
@@ -51,7 +51,7 @@ $coreRelative = @(
     "src/core/ex2wb.sv",
     "src/core/decode.sv",
     "src/core/radix2_divider.sv",
-    "src/core/rv32m_mul_comb.sv",
+    "src/core/rv32m_mul_reg.sv",
     "src/core/rv32m_unit.sv",
     "src/core/execute.sv",
     "src/core/lsu.sv",

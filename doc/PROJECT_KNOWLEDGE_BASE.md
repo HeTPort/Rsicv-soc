@@ -4,7 +4,7 @@
 
 **Audience:** New contributors and learners
 
-**Last updated:** 2026-09-20
+**Last updated:** 2026-09-24
 
 **Current reference:** `codex/phase2-act4-cleanup`. Phases 1–4 are complete.
 Phase 5 is complete in ModelSim and Vivado OOC synthesis. AR-024 adds the Bo
@@ -19,8 +19,10 @@ identification remains open.
 
 AR-026 accepts a future scalable UVM verification architecture based on stable
 retirement, memory, translation, coherence, and accelerator transactions above
-protocol-specific interfaces and VIP. This is a plan, not an implementation or
-new coverage claim. The first slice will passively adapt the existing
+protocol-specific interfaces and VIP. ModelSim SE-64 2019.2 now compiles and
+runs its installed UVM 1.2 library, including a passing negative result-gate
+check, but there is still no DUT-facing UVM component or coverage claim. The
+first DUT slice will passively adapt the existing
 `commit_pkt_t` into a `retire_event`, preserve `trap_entry_t` as a separate
 `trap_entry_event`, and feed an ordered scoreboard.
 
@@ -46,11 +48,29 @@ is rejected. Direct name mapping remains about 5.5%; these are comparative
 Vivado FPGA estimates, not board-rail or ASIC power. Spin idle is not deep
 sleep: changing operands and repeated fetches keep BRAM and incidental DSP
 logic active; WFI/timer is the separate sleep/wake reference.
-AR-027 now implements packed RV32M request/response contracts and
-a shared single-product combinational backend. OOC SoC synthesis reduced the
-multiplier mapping from the previously recorded 12 DSP48E1 cells to 4 while
-retaining zero added MUL latency. A registered multiplier and any future
-`src/common/` growth remain gated by routed timing and workload/energy evidence.
+AR-030 replaces AR-027's combinational RV32M multiply backend with a fixed
+registered blocking backend. Four registered 17-bit partial products feed two
+registered aligned sums and a registered final product; the core holds ID/EX
+and emits EX/WB bubbles until the response. It retains 4 DSP48E1 cells, closes
+the exact 95 MHz route at WNS +0.430 ns, reduces `p0_mix` energy 4.03%, and
+eliminates multiplier switching in the no-MUL spin workload. The whole SoC
+   initially missed 100 MHz at WNS -0.312 ns on a timer-to-EX/WB path.
+AR-029 fixes the production architecture at RV32 instead of advertising an
+unsupported RV64 macro/width matrix. The 64-bit timer and architectural
+counters remain explicit paired-word state, while wide future NPU/MAC datapaths
+remain independent of scalar XLEN. Fake core/SoC/bus/peripheral `AW`/`DW`
+overrides were removed; genuinely generic RAM and divider parameters remain.
+AR-031 centralizes pipeline movement in `core_ctrl`: typed EX and retirement
+redirect candidates enter one priority point, and one `pipe_ctrl_t` drives
+fetch, holds, flushes, delayed fetch invalidation, and kills. MRET redirect and
+CSR restoration now occur together at retirement. Exact 95 and 100 MHz routes
+pass at +0.078 and +0.098 ns; this costs 121 LUT versus P1 but leaves `p0_mix`
+cycles and estimated dynamic power unchanged.
+AR-032 then performs a behavior-preserving semantic cleanup: `decode` and
+`execute` reserve `_i/_o` for ports and build outgoing packets from the named
+canonical bubble before assigning boundary-owned fields. This changes neither
+instruction behavior nor pipeline timing; focused/protocol tests, smoke 23/23,
+ACT4 47/47, and layered lint pass.
 
 > Update this document whenever a change alters a module boundary, pipeline
 > timing, packet field, architectural behavior, memory map, verification
@@ -85,8 +105,11 @@ the minimal architecture needed for the first working system.
 ### Implemented
 
 - RV32IM decode and execution.
+- A deliberate fixed RV32 scalar/core-bus contract; RV64 is a separately
+  specified future architecture rather than a compile-time setting.
 - Radix-2 iterative DIV/DIVU/REM/REMU with EX backpressure and kill support;
-  multiplication remains combinational.
+  multiplication uses the registered blocking `rv32m_mul_reg` backend behind
+  the shared `rv32m_unit` request/response facade.
 - Packed pipeline packets.
 - Canonical, side-effect-free pipeline bubbles.
 - Register file with same-cycle WB-to-ID bypass.
@@ -183,12 +206,13 @@ the minimal architecture needed for the first working system.
   PLIC are deferred.
 - Positive identification of the package speed grade; local builds use
   conservative `xc7z010clg400-1`.
-- The AR-026 UVM framework, ISS differential adapter, reactive memory agents,
-  riscv-dv integration, generated RAL, and accelerator/cache/MMU domains are
-  accepted future work, not implemented verification features.
-- A `src/common/` primitive library or registered multiplier. AR-027's RV32M
-  facade and shared combinational backend are implemented; new common blocks
-  and latency-changing backends still require their entry gates.
+- The AR-026 passive DUT environment, ISS differential adapter, reactive memory
+  agents, riscv-dv integration, generated RAL, and accelerator/cache/MMU
+  domains are accepted future work. Only the standalone UVM 1.2 toolchain
+  smoke and its negative result gate are implemented and verified.
+- A `src/common/` primitive library. AR-030's registered multiplier is now
+  implemented in `src/core`; new common blocks still require real reuse and
+  their own entry gates.
 
 The implementation contract and ordered verification gates for the first item
 are defined in the
@@ -221,7 +245,7 @@ The current mapping is:
 | AR-021 | Polling UART RX and parameterized default 16-byte FIFO implemented and verified through OOC synthesis |
 | AR-022 | Memory-mapped output GPIO implemented and verified through OOC synthesis |
 | AR-025 | Official FreeRTOS V11.3.0 RISC-V port; focused and extended ModelSim profiles plus routed bitstream verified, physical execution pending |
-| AR-026 | Scalable UVM architecture accepted; passive retirement vertical slice not implemented |
+| AR-026 | Scalable UVM architecture accepted; ModelSim/UVM 1.2 toolchain sub-gate verified, passive retirement vertical slice not implemented |
 
 The authoritative phase checklist is [`TODO.md`](../TODO.md); the detailed
 finding status is in
@@ -360,15 +384,15 @@ registered default target. Polling UART TX/RX and output GPIO are implemented.
 
 | Path | Purpose |
 |---|---|
-| `src/core/riscv.sv` | CPU composition, execute/retirement redirect selection, and external data bus |
-| `src/core/riscv_pkg.sv` | ISA constants, enums, packet definitions, trap causes |
+| `src/core/riscv.sv` | CPU composition and external data-bus wiring; consumes typed control actions without selecting policy |
+| `src/core/riscv_pkg.sv` | Fixed RV32 architectural widths, ISA constants, enums, packet definitions, trap causes |
 | `src/core/decode.sv` | Instruction fields, immediates, operands, and control generation |
 | `src/core/execute.sv` | ALU, branches/jumps, completed RV32M result consumption, CSR operations, trap metadata |
 | `src/core/rv32m_unit.sv` | Single-outstanding valid/ready RV32M facade, kill/wait ownership, and result selection |
-| `src/core/rv32m_mul_comb.sv` | One shared signed 33-by-33 product for all four RV32M multiply variants |
+| `src/core/rv32m_mul_reg.sv` | Fixed-latency blocking multiplier with registered partial-product, reduction, product, response/backpressure, and kill ownership |
 | `src/core/radix2_divider.sv` | Iterative DIV/DIVU/REM/REMU arithmetic, completion, and kill handling |
-| `src/core/core_ctrl.sv` | RAW hazards, LSU/divider EX wait, stalls, flushes, delayed fetch kill |
-| `src/core/retire_stage.sv` | Final RF/CSR commands, exception/IRQ choice, WFI state, redirect and commit observations |
+| `src/core/core_ctrl.sv` | Redirect priority, RAW/wait policy, fetch/PC/stage movement, delayed fetch invalidation, and younger-work kills |
+| `src/core/retire_stage.sv` | Final RF/CSR commands, exception/IRQ/MRET choice, WFI state, redirect candidate, and commit observations |
 | `src/core/lsu.sv` | Effective address, alignment, store lanes, transaction FSM, load extension |
 | `src/core/csr_regfile.sv` | M-mode CSR state, legality, WARL preview, MTIP composition, ordered retirement update |
 | `src/core/regfile.sv` | 32 integer registers, x0 behavior, WB-to-read bypass |
@@ -467,6 +491,13 @@ one typed value.
 An invalid registered packet is always a canonical all-zero bubble. A bubble is
 not a NOP instruction: it is the absence of an instruction.
 
+Packet producers follow the same construction pattern as the registers that
+consume them: begin with the packet type's canonical bubble, then fill only the
+fields whose meaning is established at that boundary. `decode` keeps its
+fetch-error replacement fault-only, while `execute` leaves LSU completion
+fields zero for the LSU merge in `riscv.sv`. Internal helpers use semantic
+names; `_i/_o` identify real module ports.
+
 ### 6.3 Valid, bubble, faulting, and killed are different
 
 - **Valid normal instruction:** may retire and produce its permitted effects.
@@ -533,7 +564,9 @@ register addresses even when the instruction does not use those operands.
 
 ## 9. Branch, jump, redirect, and stale fetch behavior
 
-Branches, JAL, JALR, and MRET resolve in EX.
+Branches, JAL, and JALR resolve in EX and emit a candidate. MRET's effective
+target is captured into EX/WB, then retirement emits its redirect in the same
+cycle as `mstatus` restoration.
 
 ```mermaid
 flowchart TD
@@ -550,7 +583,8 @@ Important details:
 
 - A not-taken branch does not observe or fault on its encoded target.
 - JALR clears target bit zero before checking alignment.
-- Trap redirect has priority over an EX redirect.
+- Any older retirement redirect (trap, interrupt, or MRET) has priority over a
+  younger EX branch/jump candidate in `core_ctrl`.
 - One-cycle synchronous program memory permits one old-path response after a
   redirect, so one delayed kill is required.
 
@@ -983,8 +1017,9 @@ Use this order:
 Recommended waveform groups:
 
 - `if2id_pkt_out`, `id2ex_pkt_out`, `ex2wb_pkt_out`;
-- `pc_stall`, `ifid_stall`, `idex_flush`, `pipe_kill`;
-- `ex_redirect_en`, `ex_redirect_pc`, `wb_trap_event`;
+- `pipe_ctrl`, especially `pc_stall`, `ifid_stall`, `idex_flush`,
+  `pipe_kill`, and `ex_kill`;
+- `ex_redirect_candidate`, `retire_redirect`, and `selected_redirect`;
 - `data_req_valid_o`, `data_req_ready_i`, `data_req_o`;
 - `data_rsp_valid_i`, `data_rsp_i`, `lsu_busy`, `lsu_complete`;
 - `div_start`, `div_busy`, `div_complete`, `div_wait`, `div_quotient`,
@@ -1056,14 +1091,15 @@ The planned ownership tree and gates are documented in the
 | Unmapped access faults | Data load/store and out-of-range instruction fetches trap precisely; canonical fetch-fault packets plus consecutive-invalid, redirect/stale-response, and LSU-stall timing cases are directed and passing | Closed for current fixed-latency interface; revisit for instruction wait states/multiple targets / AR-018 |
 | Interrupt boundary | Implemented and verified; broader randomized boundary coverage remains useful | Continuous verification / AR-008/AR-010 |
 | Timer | Implemented word-access timer and polling/interrupt firmware APIs; both exact-board LED-visible timer profiles pass physically | Closed for bare-metal baseline / AR-024 |
-| RV32M timing | The AR-027 shared-product backend reduces OOC SoC DSP mapping from 12 to 4 with no added MUL cycle. It routes at 25 MHz with WNS +17.517 ns but fails the controlled 100 MHz route at WNS -0.387 ns; the 15-level worst path crosses 2 DSP48E1 and 11 CARRY4 cells from ID/EX operand to EX/WB result | AR-027; develop a registered backend behind the existing facade, then compare CPI, route, and energy before acceptance |
+| RV32M timing | AR-030's registered blocking backend removes multiply from the critical path, retains 4 DSPs, and passes 95 MHz at WNS +0.430 ns. It adds four cycles per MUL (+2.42% on `p0_mix`) but lowers dynamic power 6.30% and energy/work 4.03%. The 100 MHz SoC route remains -0.312 ns on `mtime_q -> EX/WB`, not multiplication | Registered multiplier closed for 95 MHz; address timer/read-to-writeback path only in a separately scoped 100 MHz phase / AR-030 |
+| Central control timing | AR-031 closes the exact current 95/100 MHz routes at +0.078/+0.098 ns, but the worst path now runs from an ID/EX operand through branch/redirect selection to ID/EX enable and is route dominated | Closed for current target; pipeline or register the redirect/control boundary before raising frequency/depth / AR-031 |
 | Retirement ownership | `retire_stage` is the owner; obsolete `halt_o` is removed and the public-interface cleanup is verified | Closed / AR-012 |
 | Peripherals | Timer, GPIO, and external polling-UART TX pass physically; UART RX remains pin-level simulated, while UART interrupts/PLIC are deferred | Closed for first polling baseline; future interrupt phase if justified |
 | UART RX capacity | The 16-byte default FIFO tolerates bounded polling latency but sustained traffic can still overrun | Firmware must monitor errors; revisit interrupts/DMA only after board baseline |
 | Power and clock gating | Logical WFI and six 95 MHz activity-derived P0 workload estimates are verified, but direct SAIF mapping is only about 5.5% and no safe FPGA clock gating exists. P1 later uses clock enables/vendor clock resources and keeps wake sources alive | P0 then P1 / AR-028 |
 | Reset-to-BRAM control | Deliberate K2 restart testing passes and reset deassertion is synchronized, but Vivado `REQP-1839` still warns that asynchronously reset control registers feed data-BRAM address/control logic | Keep warning visible; synchronous-reset cleanup if later behavior requires it / AR-024 |
 | FreeRTOS duration/hardware | Focused and extended preemption/queue/context checks pass in ModelSim; physical production output adds 537 retained heartbeats, D1 activity, and repeatable K2 restarts | Closed for first FPGA demonstration / AR-025 |
-| UVM scalability | AR-026 accepts the abstraction but no UVM component/coverage result exists. ModelSim's installed tree contains UVM 1.2, so no separate pirated package is technically needed; entitlement and a minimal smoke still must be proved | Optional parallel U0 / AR-026 |
+| UVM scalability | AR-026 accepts the abstraction and the installed ModelSim/UVM 1.2 compile/runtime plus false-marker gate pass. This proves technical availability on this host, not license entitlement or DUT integration; no passive monitor/scoreboard/coverage result exists | Optional parallel U0 / AR-026 |
 
 ## 16. Practical study exercises
 
@@ -1142,6 +1178,8 @@ compare RAM data, `load_offset`, extracted value, and committed result.
 - [AR-025 official FreeRTOS RISC-V port](AR025_OFFICIAL_FREERTOS_RISCV_PORT.md)
 - [AR-026 scalable UVM verification architecture](AR026_SCALABLE_UVM_VERIFICATION_ARCHITECTURE.md)
 - [AR-027 common-library and multiplier-pipeline review](AR027_RTL_COMMON_AND_MULTIPLIER_PIPELINE_REVIEW.md)
+- [AR-029 fixed RV32 contract and refactoring scope](AR029_RV32_CONTRACT_AND_REFACTORING_SCOPE.md)
+- [Revised core refactoring specification](../RISC-V_Core_Refactoring_Spec.md)
 - [Phase 4 UART implementation guide](../docs/phase4-uart-guide.md)
 - [Phase 4 GPIO implementation guide](../docs/phase4-gpio-guide.md)
 - [Phase 5 startup/runtime implementation guide](../docs/phase5-startup-runtime-guide.md)

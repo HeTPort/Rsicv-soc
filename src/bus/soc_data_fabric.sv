@@ -6,8 +6,6 @@ import riscv_pkg::*;
 // decoded once, the accepting target is registered until its response, and
 // each peripheral/RAM-facing copy is translated to a local byte address.
 module soc_data_fabric #(
-  parameter int AW = riscv_pkg::AW,
-  parameter int DW = riscv_pkg::DW,
   parameter logic [AW-1:0] TIMER_BASE = 32'h0200_0000,
   parameter logic [AW-1:0] TIMER_END  = 32'h0200_ffff,
   parameter logic [AW-1:0] UART_BASE = 32'h1000_0000,
@@ -161,8 +159,6 @@ module soc_data_fabric #(
   end
 
   core_bus_default_target #(
-    .AW(AW),
-    .DW(DW),
     .DEFAULT_RDATA(DEFAULT_RDATA),
     .DEFAULT_ERROR(DEFAULT_ERROR)
   ) u_default_target (
@@ -220,8 +216,6 @@ module soc_data_fabric #(
     if (!((GPIO_END < DATA_RAM_BASE) ||
             (DATA_RAM_END < GPIO_BASE)))
       $fatal(1, "soc_data_fabric parameter error: GPIO and RAM overlap");
-    if (DW <= 0 || (DW % 8) != 0)
-      $fatal(1, "soc_data_fabric parameter error: DW must be byte aligned");
   end
 
 `ifndef SYNTHESIS

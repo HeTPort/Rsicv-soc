@@ -4,7 +4,7 @@
 
 **Audience:** Designers, reviewers, learners, and future maintainers
 
-**Last updated:** 2026-09-20
+**Last updated:** 2026-09-25
 
 **Current milestone:** The first custom-RV32IM FreeRTOS FPGA demonstration is
 complete. AR-024 implements the ZYNQ MINI REVB boundary; together with AR-025
@@ -15,16 +15,24 @@ all pass. Positive speed-grade identification and optional UART interrupts/PLIC
 remain open.
 
 AR-026 now accepts a scalable UVM verification direction for post-release
-growth. It is documentation-only: no UVM source or new verification claim is
-implemented yet. The first gated slice is a passive adapter from the existing
-`commit_pkt_t` to a stable retirement transaction and ordered scoreboard.
+growth. Its ModelSim SE-64 2019.2/UVM 1.2 toolchain sub-gate is verified, but
+no DUT-facing UVM component or coverage claim exists yet. The first gated DUT
+slice remains a passive adapter from the existing `commit_pkt_t`/`trap_entry_t`
+observations to stable retirement events and an ordered scoreboard.
 
-AR-027 now implements a replaceable RV32M request/response facade and a shared
-single-product combinational multiplier. Vivado OOC SoC synthesis reduces the
-mapping from the previously recorded 12 DSP48E1 cells to 4 without adding a
-MUL cycle. No common RTL or multiplier register is added: P0 workload activity
-and an exact routed timing report must precede a latency-changing backend. P0
+AR-030 now implements the registered blocking multiplier behind AR-027's
+replaceable RV32M facade. Four DSP48E1 cells are retained; registered partial
+products and reduction stages add four cycles per MUL, remove multiplication
+from the 100 MHz worst path, close 95 MHz at WNS +0.430 ns, and reduce measured
+`p0_mix` energy per iteration by 4.03%. AR-031 subsequently centralizes
+pipeline-control ownership and its exact current route closes 100 MHz at WNS
++0.098 ns; the new route-dominated operand-to-redirect-to-ID/EX-enable path has
+only narrow margin and remains the next scaling risk. P0
 is a measurement-only phase with six technically verified workload classes.
+AR-032 closes the first behavior-preserving P3 cleanup slice: decode/execute
+internal naming now distinguishes ports from local values, and outgoing packets
+start from their canonical bubbles. This changes no interface, stage, cycle, or
+ownership contract; focused/full regressions and layered lint pass.
 The clockless OOC spike mapped only 4% and is rejected; all six exact 95 MHz
 routed workload estimates pass reviewed block-level activity and repeatability,
 while direct-name mapping remains about 5.5%. The
@@ -868,7 +876,7 @@ Required decisions:
 
 ### AR-026 — Scalable UVM verification architecture
 
-**State:** Accepted; implementation not started
+**State:** Accepted; U0 toolchain sub-gate verified, passive slice not started
 
 **Owning stage:** Continuous verification and post-release expansion
 
@@ -905,10 +913,15 @@ grow independently. UVM build/tool complexity, semantic-type governance,
 multiple-clock handling, partial-order scoreboarding, coherence, and model
 configuration remain explicit risks rather than solved features.
 
-**Evidence:** This is an accepted documentation decision only. Existing commit
-and regression behavior justifies the first seam but does not count as UVM
-verification. Full rationale, open-source influences, directory ownership,
-exit gates, and risks are in
+**Evidence:** ModelSim SE-64 2019.2 explicitly compiles and runs the installed
+UVM 1.2 library with a registered `uvm_test`, zero UVM errors/fatals, and a
+native zero result; a deliberate missing-marker run is rejected with exit 3.
+This closes only the toolchain sub-gate. Existing commit and regression
+behavior justifies the first DUT seam but does not count as UVM integration.
+Commands and results are in
+[`plans/u0-passive-uvm/results.md`](plans/u0-passive-uvm/results.md). Full
+rationale, open-source influences, directory ownership, exit gates, and risks
+are in
 [`AR026_SCALABLE_UVM_VERIFICATION_ARCHITECTURE.md`](AR026_SCALABLE_UVM_VERIFICATION_ARCHITECTURE.md).
 
 ### AR-011 — Early FPGA feasibility
@@ -1452,7 +1465,7 @@ fetch/BRAM and incidental un-gated multiplier switching, compared with
 board-rail measurement, or ASIC claim is added. Detailed RED/GREEN evidence,
 hashes, alternatives, and limitations are in [AR-028](AR028_P0_95MHZ_ACTIVITY_MAPPING_AND_WORKLOAD_BASELINE.md)
 and the [P0 results](plans/p0-power-baseline/results.md).
-| Common RTL / multiplier | AR-027 implements the RV32M facade and shared-product combinational backend; the measured 100 MHz failure triggers registered-backend development | Facade tests and smoke pass; 4-DSP/32-BRAM mapping retained; 25 MHz WNS +17.517 ns PASS; 100 MHz WNS -0.387 ns/TNS -3.637 ns FAIL on a 2-DSP/11-CARRY4 multiplier path |
+| Common RTL / multiplier | AR-030 supersedes the AR-027 combinational backend with a fixed registered blocking implementation behind the same facade | 4 DSP/32 BRAM retained; 95 MHz WNS +0.430 ns PASS; multiplier removed from the 100 MHz worst path; power/energy and regressions PASS |
 
 ### Planning governance — evidence-gated program roadmap
 
@@ -1503,8 +1516,7 @@ no RTL, firmware, test outcome, FPGA result, or GitHub default-branch setting.
 
 **Date:** 2026-09-07
 
-**State:** Facade/shared combinational backend implemented and verified;
-100 MHz gate failed, registered-backend candidate now justified
+**State:** Facade verified; combinational backend superseded by AR-030
 
 **Problem/evidence:** CoralNPU demonstrates a broad reusable RTL library, while
 the local `execute.sv` multiply-high path is the documented 12.605 ns OOC
@@ -1535,6 +1547,176 @@ Acceptance requires protocol/corner/kill
 tests, full RV32M/regression preservation, same-target routed timing/resources,
 and P0 energy per fixed workload. Full analysis is in
 [`AR027_RTL_COMMON_AND_MULTIPLIER_PIPELINE_REVIEW.md`](AR027_RTL_COMMON_AND_MULTIPLIER_PIPELINE_REVIEW.md).
+
+### D-029 — Freeze the production core at RV32 and remove false width parameters
+
+**Date:** 2026-09-24
+**State:** Implemented and verified
+**Stage:** Post-FreeRTOS contract cleanup
+
+#### Context and observed problem
+
+The power-management target needs deterministic control, precise interrupts,
+safe peripherals, DMA/sampled-data growth, and measured energy behavior. It has
+no scalar RV64 requirement. Nevertheless the package exposed an RV64 macro and
+many modules exposed `AW`/`DW` overrides even though their packet types and
+behavior remained fixed to RV32.
+
+#### Root cause
+
+Future-looking local parameters were added without an end-to-end supported
+configuration or verification matrix. Width-looking syntax was mistaken for a
+real architecture family.
+
+#### Options considered
+
+1. Complete RV64 now — rejected because it requires a separate decode, LSU,
+   CSR, bus/software, ACT, timing, and power program with no present consumer.
+2. Keep the placeholders — rejected because unsupported configurations are a
+   misleading interface.
+3. Freeze RV32 and retain independently useful wide state/generic leaf IP —
+   accepted.
+
+#### Decision and consequences
+
+`riscv_pkg` fixes XLEN/AW/DW at 32; unsupported RV64 branches and shadow module
+parameters are removed. RAM and the standalone divider retain genuine
+parameters. `mtime`, `mtimecmp`, `mcycle`, and `minstret` remain 64-bit. Future
+NPU/MAC widths remain accelerator-local and do not require RV64. The register
+file no longer places reset in its combinational read mux; its state array
+still resets asynchronously.
+
+Firmware ABI, memory map, bus timing, and instruction latency do not change.
+Full problem/decision/evidence is in
+[`AR029_RV32_CONTRACT_AND_REFACTORING_SCOPE.md`](AR029_RV32_CONTRACT_AND_REFACTORING_SCOPE.md).
+
+#### Follow-up
+
+The AR-030 registered multiplier is accepted for the 95 MHz production
+profile. A separate
+control phase will align implementation with the semantic ownership rule by
+moving redirect priority and all PC/pipeline movement decisions into
+`core_ctrl`; it will not absorb LSU/MDU or CSR/trap state machines.
+This follow-up is complete and verified by D-031/AR-031.
+
+### D-030 — Fixed registered blocking RV32M multiplier
+
+**Date:** 2026-09-25
+**State:** Verified
+**Stage:** P1 registered multiplier
+
+#### Context and observed problem
+
+The AR-027 combinational 33-by-33 multiplier retained four DSPs but failed the
+controlled 100 MHz route at WNS -0.387 ns on a 2-DSP/11-CARRY path. It also
+toggled under non-MUL operand traffic.
+
+#### Options and decision
+
+Keeping the combinational path preserved CPI but retained both failures. An
+arbitrary latency parameter was rejected because delay registers do not prove
+an arithmetic cut. A throughput-one pipeline was unnecessary for the current
+single-outstanding core. The selected backend is fixed and blocking:
+`IDLE -> PARTIAL -> REDUCE -> COMBINE -> RESP`. It registers four independent
+17-bit partial products, two aligned sums, and the final 66-bit product.
+
+#### Consequences
+
+- `rv32m_unit` remains the only core-facing MDU contract; divider behavior is
+  unchanged.
+- The pipeline pays four cycles per MUL. `p0_mix` cycles/CPI rise 2.42%.
+- Top-level routed use rises by 53 LUT and 230 FF; DSP and BRAM counts remain
+  four and 32.
+- `p0_mix` dynamic power falls 6.30% and energy/work falls 4.03%; idle dynamic
+  power falls 5.70%, with zero registered-multiplier transitions.
+- 95 MHz passes at WNS +0.430 ns. At 100 MHz multiplication is no longer the
+  worst path, but the SoC remains WNS -0.312 ns on `mtime_q -> EX/WB`.
+- AR-031 later changes placement/control structure and closes its exact 100 MHz
+  build at +0.098 ns; this does not retroactively change the AR-030 baseline.
+
+#### Verification
+
+Focused RV32M 175 cases, divider 42 cases, smoke 23/23, ACT4 47/47, Verilator
+leaf/core/SoC lint, OOC synthesis, exact-board routes, and two independent
+SAIF/power runs per comparison workload pass. Detailed evidence is in
+[`AR030_REGISTERED_BLOCKING_MULTIPLIER.md`](AR030_REGISTERED_BLOCKING_MULTIPLIER.md)
+and [`plans/p1-registered-multiplier/results.md`](plans/p1-registered-multiplier/results.md).
+
+### D-031 — Centralized pipeline-control ownership
+
+**Date:** 2026-09-25
+**State:** Verified
+**Stage:** P2 core-control ownership
+
+#### Problem and options
+
+Redirect priority, fetch enable, EX kill, and flush intent were divided between
+`riscv.sv`, `execute.sv`, and `core_ctrl.sv`; MRET moved the PC in EX although
+its privilege restoration belonged to retirement. Keeping the split preserved
+short code but not a single precedence rule. Moving LSU/RV32M/CSR state into a
+large controller was rejected because those protocols have independent owners.
+
+#### Decision
+
+EX and retirement emit typed `redirect_t` candidates. `core_ctrl` selects the
+older retirement candidate and emits one `pipe_ctrl_t` covering fetch request,
+PC/IF-ID/ID-EX movement, immediate and delayed flush, pipeline kill, and EX
+functional-unit kill. MRET carries its effective target in `ex_wb_pkt_t` and
+redirects with the CSR MRET command at retirement. EX/WB has no fabricated
+stall until a real downstream backpressure consumer exists.
+
+#### Consequences and evidence
+
+- One module now defines priority among redirect, wait, RAW, WFI, and stale
+  synchronous-fetch events; stage modules consume actions, not policy.
+- LSU/RV32M handshakes and retirement/CSR decisions remain locally owned.
+- Exact 95 MHz routing passes at +0.078 ns with 3,942 LUT/3,096 FF/32 BRAM/4 DSP;
+  the P1 delta is +121 LUT, -2 FF, and no BRAM/DSP change.
+- Exact 100 MHz routing passes at +0.098 ns for this implementation. The worst
+  path is operand -> branch/redirect -> ID/EX enable, so control fanout is the
+  explicit future scaling limit.
+- `p0_mix` retains 346,235 cycles and 0.119 W dynamic power; two runs match at
+  report resolution. The 64-wake WFI/MRET window increases by one cycle total.
+- Focused control, retirement, fetch, LSU, RV32M, divider, 23/23 smoke, 47/47
+  ACT4, 10,000 interrupt/MRET, lint, and exact-route gates pass.
+
+Detailed evidence is in [`AR031_CORE_CONTROL_OWNERSHIP.md`](AR031_CORE_CONTROL_OWNERSHIP.md)
+and [`plans/p2-core-control-ownership/results.md`](plans/p2-core-control-ownership/results.md).
+
+### D-032 — Canonical packet construction and internal naming
+
+**Date:** 2026-09-25
+**State:** Verified
+**Stage:** P3 semantic/code cleanup
+
+#### Context and observed problem
+
+`decode.sv` and `execute.sv` used `_i/_o` on local aliases, so internal
+combinational values looked like module ports. Their outgoing packets were also
+assembled through many independent field assignments, obscuring the canonical
+bubble default and making new-field review harder.
+
+#### Options and decision
+
+A large module split and a new common-library layer were rejected because no
+new ownership boundary or second consumer exists. ALU, immediate-generation,
+and LSU-alignment extraction remain deferred until each has a focused contract
+and test. The accepted slice reserves `_i/_o` for real ports, removes redundant
+local pass-through aliases, and initializes each ID/EX or EX/WB packet from its
+typed canonical bubble before assigning boundary-owned fields. Fetch faults
+still replace ordinary decode with a fault-only packet; LSU completion still
+merges outside `execute` in `riscv.sv`.
+
+#### Consequences and verification
+
+The source now expresses the existing ownership more directly without changing
+ports, packets, registers, stage count, handshakes, priority, or cycle behavior.
+Focused fetch/control/retirement/CSR/LSU/RV32M/divider tests pass, as do smoke
+23/23, ACT4 47/47, and Verilator 5.032 leaf/core/SoC lint. No Vivado reroute was
+run and no area/timing/power gain is claimed, because the accepted slice changes
+no physical constraint, state boundary, or critical Boolean equation. Detailed
+evidence is in [`AR032_P3_SEMANTIC_CODE_CLEANUP.md`](AR032_P3_SEMANTIC_CODE_CLEANUP.md)
+and [`plans/p3-semantic-cleanup/results.md`](plans/p3-semantic-cleanup/results.md).
 
 ## 10. Architecture decision template
 
@@ -1653,6 +1835,10 @@ An architecture-changing task is incomplete until this document is updated.
 - [AR-025 official FreeRTOS RISC-V port](AR025_OFFICIAL_FREERTOS_RISCV_PORT.md)
 - [AR-026 scalable UVM verification architecture](AR026_SCALABLE_UVM_VERIFICATION_ARCHITECTURE.md)
 - [AR-027 common-library and multiplier-pipeline review](AR027_RTL_COMMON_AND_MULTIPLIER_PIPELINE_REVIEW.md)
+- [AR-029 RV32 contract and refactoring scope](AR029_RV32_CONTRACT_AND_REFACTORING_SCOPE.md)
+- [AR-030 registered blocking multiplier](AR030_REGISTERED_BLOCKING_MULTIPLIER.md)
+- [AR-031 centralized core-control ownership](AR031_CORE_CONTROL_OWNERSHIP.md)
+- [AR-032 P3 semantic/code cleanup](AR032_P3_SEMANTIC_CODE_CLEANUP.md)
 - [Phase 5 startup/runtime implementation guide](../docs/phase5-startup-runtime-guide.md)
 - [ACT4 integration handoff](ACT4_RV32I_INTEGRATION_HANDOFF_2026-07-27.md)
 - [ACT4 integration guide](../verif/act4/README.md)

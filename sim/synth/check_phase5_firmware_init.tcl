@@ -32,7 +32,7 @@ set rtl_files [list \
   [file join $repo_root src core ex2wb.sv] \
   [file join $repo_root src core decode.sv] \
   [file join $repo_root src core radix2_divider.sv] \
-  [file join $repo_root src core rv32m_mul_comb.sv] \
+  [file join $repo_root src core rv32m_mul_reg.sv] \
   [file join $repo_root src core rv32m_unit.sv] \
   [file join $repo_root src core execute.sv] \
   [file join $repo_root src core lsu.sv] \
@@ -60,8 +60,6 @@ synth_design \
   -part $part_name \
   -mode out_of_context \
   -generic [list \
-    AW=$SOC_ADDRESS_WIDTH \
-    DW=$SOC_DATA_WIDTH \
     PROG_RAM_DEPTH=$SOC_PROG_RAM_DEPTH_WORDS \
     DATA_RAM_DEPTH=$SOC_DATA_RAM_DEPTH_WORDS \
     PROGRAM_INIT_FILE=$program_image \

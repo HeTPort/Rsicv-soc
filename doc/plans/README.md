@@ -15,6 +15,10 @@ they are. New packages should link to them when they provide relevant evidence.
 
 | ID | Package | Status / creation trigger |
 | --- | --- | --- |
+| R0 | [`rv32-contract-cleanup/`](rv32-contract-cleanup/) | **Verified:** fixed RV32 contract and removal of unsupported width knobs |
+| M1 | [`p1-registered-multiplier/`](p1-registered-multiplier/) | **Verified:** registered blocking multiplier accepted for 95 MHz; 100 MHz SoC timer path deferred |
+| C2 | [`p2-core-control-ownership/`](p2-core-control-ownership/) | **Verified:** typed redirect arbitration, retirement-owned MRET, and centralized PC/pipeline movement and kill policy |
+| C3 | [`p3-semantic-cleanup/`](p3-semantic-cleanup/) | **Verified:** behavior-preserving decode/execute naming and canonical packet construction cleanup |
 | P0 | [`p0-power-baseline/`](p0-power-baseline/) | **Active:** requirements/capture plan accepted; results `NOT RUN` |
 | U0 | `u0-passive-uvm/` | Create when UVM tool-version smoke becomes active |
 | U1 | `u1-iss-differential/` | Create after U0 exit gate passes |

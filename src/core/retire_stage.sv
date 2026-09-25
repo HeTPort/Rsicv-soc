@@ -5,10 +5,7 @@ import riscv_pkg::*;
 // Sole owner of architectural retirement decisions. Combinational outputs
 // select the current boundary's effects; small clocked state tracks commit
 // order and the logical WFI wait/resume point.
-module retire_stage #(
-  parameter int AW = riscv_pkg::AW,
-  parameter int DW = riscv_pkg::DW
-)(
+module retire_stage (
   input  wire logic             clk_i,
   input  wire logic             rst_ni,
   input  wire ex_wb_pkt_t       pkt_i,
@@ -87,6 +84,14 @@ module retire_stage #(
       redirect_o.valid  = 1'b1;
       redirect_o.pc     = csr_irq_context_i.mtvec;
       redirect_o.reason = REDIRECT_SYNC_TRAP;
+    end
+
+    // MRET state restoration and PC movement are one architectural retirement
+    // decision. The target was captured into pkt_i.next_pc in EX.
+    if (pkt_i.valid && !sync_trap_o && pkt_i.is_mret) begin
+      redirect_o.valid  = 1'b1;
+      redirect_o.pc     = pkt_i.next_pc;
+      redirect_o.reason = REDIRECT_MRET;
     end
 
     // An interrupt is taken after the normal instruction effects have been

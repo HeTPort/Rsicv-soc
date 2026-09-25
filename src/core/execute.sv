@@ -1,90 +1,82 @@
 `timescale 1ns / 1ps
-`default_nettype wire
+`default_nettype none
 import riscv_pkg::*;
 // ============================================================
 // Module: execute
 // Description:
 //   RV32IM execute stage (memory interaction moved to LSU).
 // ============================================================
-module execute #(
-  parameter int AW = riscv_pkg::AW,
-  parameter int DW = riscv_pkg::DW
-)(
-  input  id_ex_pkt_t   pkt_exe_i,
+module execute (
+  input  wire id_ex_pkt_t   pkt_exe_i,
 
   // LSU feedback: misalignment result (computed in LSU)
-  input  logic          mem_misaligned_i,
+  input  wire logic          mem_misaligned_i,
 
   // CSR feedback
-  input  logic [DW-1:0] csr_rdata_i,
-  input  logic          csr_implemented_i,
-  input  logic          csr_read_only_i,
-  input  logic          csr_privilege_ok_i,
-  input  logic [AW-1:0] mepc_i,
+  input  wire logic [DW-1:0] csr_rdata_i,
+  input  wire logic          csr_implemented_i,
+  input  wire logic          csr_read_only_i,
+  input  wire logic          csr_privilege_ok_i,
+  input  wire logic [AW-1:0] mepc_i,
 
   // Completed RV32M result selected by the replaceable arithmetic facade.
-  input  logic [DW-1:0] rv32m_result_i,
+  input  wire logic [DW-1:0] rv32m_result_i,
 
-  // 横向输出信号
-  output logic          redirect_en_o,
-  output logic [AW-1:0] redirect_pc_o,
-  output logic          flush_req_o,
+  // EX produces a candidate; core_ctrl owns selection and movement.
+  output redirect_t     redirect_candidate_o,
 
-  // 输出结构体
   output ex_wb_pkt_t   pkt_exe_o
 );
-  localparam int SHAMT_W = (DW == 64) ? 6 : 5;
+  logic          valid;
+  logic [AW-1:0] pc;
+  logic [DW-1:0] instr, operand1, operand2, immediate;
+  logic [4:0]    rd_addr;
+  logic          rf_write;
+  alu_op_e       alu_op;
+  branch_op_e    branch_op;
+  jump_op_e      jump_op;
+  logic          mem_write, mem_unsigned;
+  mem_size_e     mem_size;
+  wb_sel_e       wb_sel;
+  logic          muldiv_valid;
+  muldiv_op_e    muldiv_op;
+  logic          illegal_instr, instr_access_fault, ecall, ebreak;
+  logic          is_mret, is_wfi;
+  csr_pkt_t      csr_intent;
 
-  logic          valid_i;
-  logic [AW-1:0] pc_i;
-  logic [DW-1:0] instr_i, op1_i, op2_i, imm_i;
-  logic [4:0]    rd_i;
-  logic          rf_we_i;
-  alu_op_e       alu_op_i;
-  branch_op_e    branch_op_i;
-  jump_op_e      jump_op_i;
-  logic          mem_we_i, mem_unsigned_i;
-  mem_size_e     mem_size_i;
-  wb_sel_e       wb_sel_i;
-  logic          muldiv_valid_i;
-  muldiv_op_e    muldiv_op_i;
-  logic          illegal_instr_i, instr_access_fault_i, ecall_i, ebreak_i;
-  logic          is_mret_i, is_wfi_i;
-  csr_pkt_t      csr_i;
-
-  assign valid_i         = pkt_exe_i.valid;
-  assign pc_i            = pkt_exe_i.pc;
-  assign instr_i         = pkt_exe_i.instr;
-  assign op1_i           = pkt_exe_i.ex_data.op1;
-  assign op2_i           = pkt_exe_i.ex_data.op2;
-  assign imm_i           = pkt_exe_i.ex_data.imm;
-  assign rd_i            = pkt_exe_i.rf.addr;
-  assign rf_we_i         = pkt_exe_i.rf.we;
-  assign alu_op_i        = pkt_exe_i.ex_ctrl.alu_op;
-  assign branch_op_i     = pkt_exe_i.ex_ctrl.branch_op;
-  assign jump_op_i       = pkt_exe_i.ex_ctrl.jump_op;
-  assign mem_we_i        = pkt_exe_i.ex_ctrl.mem_we;
-  assign mem_size_i      = pkt_exe_i.ex_ctrl.mem_size;
-  assign mem_unsigned_i  = pkt_exe_i.ex_ctrl.mem_unsigned;
-  assign wb_sel_i        = pkt_exe_i.ex_ctrl.wb_sel;
-  assign muldiv_valid_i  = pkt_exe_i.ex_ctrl.muldiv_valid;
-  assign muldiv_op_i     = pkt_exe_i.ex_ctrl.muldiv_op;
-  assign illegal_instr_i = pkt_exe_i.exc.illegal_instr;
-  assign instr_access_fault_i = pkt_exe_i.exc.instr_access_fault;
-  assign ecall_i         = pkt_exe_i.exc.ecall;
-  assign ebreak_i        = pkt_exe_i.exc.ebreak;
-  assign is_mret_i       = pkt_exe_i.is_mret;
-  assign is_wfi_i        = pkt_exe_i.is_wfi;
-  assign csr_i           = pkt_exe_i.csr;
+  assign valid              = pkt_exe_i.valid;
+  assign pc                 = pkt_exe_i.pc;
+  assign instr              = pkt_exe_i.instr;
+  assign operand1           = pkt_exe_i.ex_data.op1;
+  assign operand2           = pkt_exe_i.ex_data.op2;
+  assign immediate          = pkt_exe_i.ex_data.imm;
+  assign rd_addr            = pkt_exe_i.rf.addr;
+  assign rf_write           = pkt_exe_i.rf.we;
+  assign alu_op             = pkt_exe_i.ex_ctrl.alu_op;
+  assign branch_op          = pkt_exe_i.ex_ctrl.branch_op;
+  assign jump_op            = pkt_exe_i.ex_ctrl.jump_op;
+  assign mem_write          = pkt_exe_i.ex_ctrl.mem_we;
+  assign mem_size           = pkt_exe_i.ex_ctrl.mem_size;
+  assign mem_unsigned       = pkt_exe_i.ex_ctrl.mem_unsigned;
+  assign wb_sel             = pkt_exe_i.ex_ctrl.wb_sel;
+  assign muldiv_valid       = pkt_exe_i.ex_ctrl.muldiv_valid;
+  assign muldiv_op          = pkt_exe_i.ex_ctrl.muldiv_op;
+  assign illegal_instr      = pkt_exe_i.exc.illegal_instr;
+  assign instr_access_fault = pkt_exe_i.exc.instr_access_fault;
+  assign ecall              = pkt_exe_i.exc.ecall;
+  assign ebreak             = pkt_exe_i.exc.ebreak;
+  assign is_mret            = pkt_exe_i.is_mret;
+  assign is_wfi             = pkt_exe_i.is_wfi;
+  assign csr_intent         = pkt_exe_i.csr;
 
   // ------------------------------------------------------------
   // Effective address (still needed for JALR target)
   // ------------------------------------------------------------
   logic [AW-1:0] eff_addr;
-  assign eff_addr = op1_i[AW-1:0] + imm_i[AW-1:0];
+  assign eff_addr = operand1[AW-1:0] + immediate[AW-1:0];
 
   logic [DW-1:0] pc4_data;
-  assign pc4_data = DW'(pc_i) + DW'(4);
+  assign pc4_data = DW'(pc) + DW'(4);
 
   // ------------------------------------------------------------
   // ALU
@@ -92,19 +84,19 @@ module execute #(
   logic [DW-1:0] alu_result;
   always_comb begin
     alu_result = '0;
-    unique case (alu_op_i)
+    unique case (alu_op)
       ALU_NONE:   alu_result = '0;
-      ALU_ADD:    alu_result = op1_i + op2_i;
-      ALU_SUB:    alu_result = op1_i - op2_i;
-      ALU_SLL:    alu_result = op1_i << op2_i[SHAMT_W-1:0];
-      ALU_SLT:    alu_result = ($signed(op1_i) < $signed(op2_i)) ? DW'(1) : '0;
-      ALU_SLTU:   alu_result = (op1_i < op2_i) ? DW'(1) : '0;
-      ALU_XOR:    alu_result = op1_i ^ op2_i;
-      ALU_SRL:    alu_result = op1_i >> op2_i[SHAMT_W-1:0];
-      ALU_SRA:    alu_result = $signed(op1_i) >>> op2_i[SHAMT_W-1:0];
-      ALU_OR:     alu_result = op1_i | op2_i;
-      ALU_AND:    alu_result = op1_i & op2_i;
-      ALU_COPY_B: alu_result = op2_i;
+      ALU_ADD:    alu_result = operand1 + operand2;
+      ALU_SUB:    alu_result = operand1 - operand2;
+      ALU_SLL:    alu_result = operand1 << operand2[SHAMT_W-1:0];
+      ALU_SLT:    alu_result = ($signed(operand1) < $signed(operand2)) ? DW'(1) : '0;
+      ALU_SLTU:   alu_result = (operand1 < operand2) ? DW'(1) : '0;
+      ALU_XOR:    alu_result = operand1 ^ operand2;
+      ALU_SRL:    alu_result = operand1 >> operand2[SHAMT_W-1:0];
+      ALU_SRA:    alu_result = $signed(operand1) >>> operand2[SHAMT_W-1:0];
+      ALU_OR:     alu_result = operand1 | operand2;
+      ALU_AND:    alu_result = operand1 & operand2;
+      ALU_COPY_B: alu_result = operand2;
       default:    alu_result = '0;
     endcase
   end
@@ -115,14 +107,14 @@ module execute #(
   logic branch_taken;
   always_comb begin
     branch_taken = 1'b0;
-    unique case (branch_op_i)
+    unique case (branch_op)
       BR_NONE: branch_taken = 1'b0;
-      BR_BEQ:  branch_taken = (op1_i == op2_i);
-      BR_BNE:  branch_taken = (op1_i != op2_i);
-      BR_BLT:  branch_taken = ($signed(op1_i) < $signed(op2_i));
-      BR_BGE:  branch_taken = ($signed(op1_i) >= $signed(op2_i));
-      BR_BLTU: branch_taken = (op1_i < op2_i);
-      BR_BGEU: branch_taken = (op1_i >= op2_i);
+      BR_BEQ:  branch_taken = (operand1 == operand2);
+      BR_BNE:  branch_taken = (operand1 != operand2);
+      BR_BLT:  branch_taken = ($signed(operand1) < $signed(operand2));
+      BR_BGE:  branch_taken = ($signed(operand1) >= $signed(operand2));
+      BR_BLTU: branch_taken = (operand1 < operand2);
+      BR_BGEU: branch_taken = (operand1 >= operand2);
       default: branch_taken = 1'b0;
     endcase
   end
@@ -140,13 +132,13 @@ module execute #(
 
     if (branch_taken) begin
       control_transfer = 1'b1;
-      control_target   = pc_i + imm_i[AW-1:0];
+      control_target   = pc + immediate[AW-1:0];
     end
     else begin
-      unique case (jump_op_i)
+      unique case (jump_op)
         JMP_JAL: begin
           control_transfer = 1'b1;
-          control_target   = pc_i + imm_i[AW-1:0];
+          control_target   = pc + immediate[AW-1:0];
         end
         JMP_JALR: begin
           control_transfer = 1'b1;
@@ -161,7 +153,7 @@ module execute #(
   end
 
   assign instr_misaligned =
-      valid_i &&
+      valid &&
       control_transfer &&
       (control_target[IALIGN_LSB-1:0] != '0);
 
@@ -169,19 +161,19 @@ module execute #(
   // RV32M arithmetic is owned by rv32m_unit.
   // ------------------------------------------------------------
   logic [DW-1:0] muldiv_result;
-  assign muldiv_result = (muldiv_op_i == MULDIV_NONE) ? '0 : rv32m_result_i;
+  assign muldiv_result = (muldiv_op == MULDIV_NONE) ? '0 : rv32m_result_i;
 
   // ------------------------------------------------------------
   // CSR write data computation
   // ------------------------------------------------------------
   logic [DW-1:0] csr_wdata_final;
   always_comb begin
-    csr_wdata_final = csr_i.wdata;
-    unique case (csr_i.op)
-      CSR_OP_RW, CSR_OP_RWI: csr_wdata_final = csr_i.wdata;
-      CSR_OP_RS, CSR_OP_RSI: csr_wdata_final = csr_rdata_i | csr_i.wdata;
-      CSR_OP_RC, CSR_OP_RCI: csr_wdata_final = csr_rdata_i & ~csr_i.wdata;
-      default:               csr_wdata_final = csr_i.wdata;
+    csr_wdata_final = csr_intent.wdata;
+    unique case (csr_intent.op)
+      CSR_OP_RW, CSR_OP_RWI: csr_wdata_final = csr_intent.wdata;
+      CSR_OP_RS, CSR_OP_RSI: csr_wdata_final = csr_rdata_i | csr_intent.wdata;
+      CSR_OP_RC, CSR_OP_RCI: csr_wdata_final = csr_rdata_i & ~csr_intent.wdata;
+      default:               csr_wdata_final = csr_intent.wdata;
     endcase
   end
 
@@ -193,144 +185,123 @@ module execute #(
   logic exception_like;
 
   assign csr_illegal =
-      valid_i &&
-      csr_i.valid &&
+      valid &&
+      csr_intent.valid &&
       (!csr_implemented_i ||
        !csr_privilege_ok_i ||
-       (csr_i.write && csr_read_only_i));
-  assign illegal_effective = illegal_instr_i | csr_illegal;
+       (csr_intent.write && csr_read_only_i));
+  assign illegal_effective = illegal_instr | csr_illegal;
   assign exception_like =
-      instr_access_fault_i |
+      instr_access_fault |
       illegal_effective |
-      ecall_i |
-      ebreak_i |
+      ecall |
+      ebreak |
       instr_misaligned |
       mem_misaligned_i;
 
-  logic          wb_valid_o, wb_rf_wen_o, wb_illegal_instr_o, wb_instr_access_fault_o, wb_ecall_o, wb_ebreak_o;
-  logic          wb_instr_misaligned_o, wb_mem_misaligned_o;
-  logic [4:0]    wb_rf_waddr_o;
-  wb_sel_e       wb_sel_o;
-  logic [DW-1:0] wb_alu_data_o, wb_pc4_data_o;
-  mem_size_e     wb_mem_size_o;
-  logic          wb_mem_unsigned_o;
-  logic [AW-1:0] wb_trap_pc_o;
-  logic [DW-1:0] wb_trap_cause_o;
-  logic [DW-1:0] wb_trap_val_o;
-  logic          wb_is_mret_o;
-  csr_pkt_t      wb_csr_o;
+  logic          result_rf_write;
+  logic          result_illegal_instr, result_instr_access_fault;
+  logic          result_ecall, result_ebreak;
+  wb_sel_e       result_wb_sel;
+  logic [DW-1:0] result_data;
+  logic [DW-1:0] result_trap_cause;
+  logic [DW-1:0] result_trap_val;
+  csr_pkt_t      result_csr;
 
   always_comb begin
-    wb_valid_o          = valid_i;
-    wb_rf_wen_o         = 1'b0;
-    wb_rf_waddr_o       = rd_i;
-    wb_sel_o            = wb_sel_i;
-    wb_alu_data_o       = alu_result;
-    wb_pc4_data_o       = pc4_data;
-    wb_mem_size_o       = mem_size_i;
-    wb_mem_unsigned_o   = mem_unsigned_i;
-    wb_illegal_instr_o  = valid_i && illegal_effective;
-    wb_instr_access_fault_o = valid_i && instr_access_fault_i;
-    wb_ecall_o          = valid_i && ecall_i;
-    wb_ebreak_o         = valid_i && ebreak_i;
-    wb_instr_misaligned_o = instr_misaligned;
-    wb_mem_misaligned_o = valid_i && mem_misaligned_i;
-    wb_trap_pc_o        = pc_i;
-    wb_trap_cause_o     = '0;
-    wb_trap_val_o       = '0;
-    wb_is_mret_o        = valid_i && is_mret_i;
-    wb_csr_o            = '0;
-    redirect_en_o       = 1'b0;
-    redirect_pc_o       = '0;
-    flush_req_o         = 1'b0;
+    result_rf_write         = 1'b0;
+    result_wb_sel            = wb_sel;
+    result_data       = alu_result;
+    result_illegal_instr  = valid && illegal_effective;
+    result_instr_access_fault = valid && instr_access_fault;
+    result_ecall          = valid && ecall;
+    result_ebreak         = valid && ebreak;
+    result_trap_cause     = '0;
+    result_trap_val       = '0;
+    result_csr            = '0;
+    redirect_candidate_o = '0;
 
-    if (valid_i && !exception_like) begin
-      wb_rf_wen_o = rf_we_i;
+    if (valid && !exception_like) begin
+      result_rf_write = rf_write;
       // CSR instruction
-      if (csr_i.valid) begin
-        wb_rf_wen_o   = rf_we_i;
-        wb_alu_data_o = csr_rdata_i;   // CSR read data goes to RF
-        wb_csr_o      = csr_i;
-        wb_csr_o.wdata = csr_wdata_final;
+      if (csr_intent.valid) begin
+        result_rf_write   = rf_write;
+        result_data = csr_rdata_i;   // CSR read data goes to RF
+        result_csr      = csr_intent;
+        result_csr.wdata = csr_wdata_final;
       end
-      // MULDIV result reuses wb_alu_data_o path.
-      else if (muldiv_valid_i && wb_sel_i == WB_MULDIV) begin
-        wb_alu_data_o = muldiv_result;
+      // MULDIV result reuses result_data path.
+      else if (muldiv_valid && wb_sel == WB_MULDIV) begin
+        result_data = muldiv_result;
       end
 
-      // MRET redirect
-      if (is_mret_i) begin
-        redirect_en_o = 1'b1;
-        redirect_pc_o = mepc_i;
-        flush_req_o   = 1'b1;
-      end
-      // Taken branch or jump redirect. A misaligned target is excluded by
+      // Taken branch or jump redirect candidate. A misaligned target is excluded by
       // exception_like and therefore cannot redirect or write its link register.
-      else if (control_transfer) begin
-        redirect_en_o = 1'b1;
-        redirect_pc_o = control_target;
-        flush_req_o   = 1'b1;
+      if (control_transfer) begin
+        redirect_candidate_o.valid = 1'b1;
+        redirect_candidate_o.pc = control_target;
+        redirect_candidate_o.reason =
+            (branch_op != BR_NONE) ? REDIRECT_BRANCH : REDIRECT_JUMP;
       end
     end else begin
-      wb_rf_wen_o = 1'b0;
-      wb_sel_o    = WB_NONE;
+      result_rf_write = 1'b0;
+      result_wb_sel    = WB_NONE;
       // Compute trap cause / val for exception-like instructions
-      if (valid_i) begin
-        if (instr_access_fault_i) begin
-          wb_trap_cause_o = MCAUSE_INST_ACCESS;
-          wb_trap_val_o   = DW'(pc_i);
+      if (valid) begin
+        if (instr_access_fault) begin
+          result_trap_cause = MCAUSE_INST_ACCESS;
+          result_trap_val   = DW'(pc);
         end else if (illegal_effective) begin
-          wb_trap_cause_o = MCAUSE_ILLEGAL_INST;
-          wb_trap_val_o   = instr_i;
+          result_trap_cause = MCAUSE_ILLEGAL_INST;
+          result_trap_val   = instr;
         end else if (instr_misaligned) begin
-          wb_trap_cause_o = MCAUSE_INST_MISALIGNED;
-          wb_trap_val_o   = DW'(control_target);
-        end else if (ebreak_i) begin
-          wb_trap_cause_o = MCAUSE_BREAKPOINT;
-          wb_trap_val_o   = DW'(pc_i);
-        end else if (ecall_i) begin
-          wb_trap_cause_o = MCAUSE_ECALL_M;
-          wb_trap_val_o   = '0;
+          result_trap_cause = MCAUSE_INST_MISALIGNED;
+          result_trap_val   = DW'(control_target);
+        end else if (ebreak) begin
+          result_trap_cause = MCAUSE_BREAKPOINT;
+          result_trap_val   = DW'(pc);
+        end else if (ecall) begin
+          result_trap_cause = MCAUSE_ECALL_M;
+          result_trap_val   = '0;
         end else if (mem_misaligned_i) begin
-          wb_trap_cause_o = mem_we_i ? MCAUSE_STORE_MISALIGNED : MCAUSE_LOAD_MISALIGNED;
-          wb_trap_val_o   = DW'(op1_i[AW-1:0] + imm_i[AW-1:0]);
+          result_trap_cause = mem_write ? MCAUSE_STORE_MISALIGNED : MCAUSE_LOAD_MISALIGNED;
+          result_trap_val   = DW'(operand1[AW-1:0] + immediate[AW-1:0]);
         end
       end
     end
   end
 
-  assign pkt_exe_o.valid               = wb_valid_o;
-  assign pkt_exe_o.pc                  = pc_i;
-  assign pkt_exe_o.next_pc             = control_transfer ? control_target : AW'(pc4_data);
-  assign pkt_exe_o.instr               = instr_i[31:0];
-  assign pkt_exe_o.rf.we               = wb_rf_wen_o;
-  assign pkt_exe_o.rf.addr             = wb_rf_waddr_o;
-  assign pkt_exe_o.wb_sel              = wb_sel_o;
-  assign pkt_exe_o.alu_data            = wb_alu_data_o;
-  assign pkt_exe_o.pc4_data            = wb_pc4_data_o;
-  assign pkt_exe_o.mem_info.mem_size     = wb_mem_size_o;
-  assign pkt_exe_o.mem_info.mem_unsigned = wb_mem_unsigned_o;
-  assign pkt_exe_o.mem_info.load_offset  = '0;  // overridden by LSU in top
-  assign pkt_exe_o.mem_valid           = 1'b0;  // overridden by LSU in top
-  assign pkt_exe_o.mem_we              = 1'b0;
-  assign pkt_exe_o.mem_addr            = '0;
-  assign pkt_exe_o.mem_wdata           = '0;
-  assign pkt_exe_o.mem_wstrb           = '0;
-  assign pkt_exe_o.mem_rdata           = '0;
-  assign pkt_exe_o.mem_load_data       = '0;
-  assign pkt_exe_o.mem_error           = 1'b0;
-  assign pkt_exe_o.instr_misaligned    = wb_instr_misaligned_o;
-  assign pkt_exe_o.mem_misaligned      = wb_mem_misaligned_o;
-  assign pkt_exe_o.exc.illegal_instr   = wb_illegal_instr_o;
-  assign pkt_exe_o.exc.instr_access_fault = wb_instr_access_fault_o;
-  assign pkt_exe_o.exc.ecall           = wb_ecall_o;
-  assign pkt_exe_o.exc.ebreak          = wb_ebreak_o;
-  assign pkt_exe_o.csr                 = wb_csr_o;
-  assign pkt_exe_o.trap_pc             = wb_trap_pc_o;
-  assign pkt_exe_o.trap_cause          = wb_trap_cause_o;
-  assign pkt_exe_o.trap_val            = wb_trap_val_o;
-  assign pkt_exe_o.is_mret             = wb_is_mret_o;
-  assign pkt_exe_o.is_wfi              = valid_i && is_wfi_i;
+  // EX owns these execution/trap facts. Memory completion fields intentionally
+  // remain zero until the LSU-owned merge in riscv.sv.
+  always_comb begin
+    pkt_exe_o = EX_WB_PKT_BUBBLE;
+    pkt_exe_o.valid = valid;
+    pkt_exe_o.pc    = pc;
+    // Capture the architectural MRET target with the instruction. Retirement
+    // emits the redirect in the same cycle as mstatus restoration.
+    pkt_exe_o.next_pc = is_mret ? mepc_i :
+                        (control_transfer ? control_target : AW'(pc4_data));
+    pkt_exe_o.instr         = instr[31:0];
+    pkt_exe_o.rf.we         = result_rf_write;
+    pkt_exe_o.rf.addr       = rd_addr;
+    pkt_exe_o.wb_sel        = result_wb_sel;
+    pkt_exe_o.alu_data      = result_data;
+    pkt_exe_o.pc4_data      = pc4_data;
+    pkt_exe_o.mem_info.mem_size     = mem_size;
+    pkt_exe_o.mem_info.mem_unsigned = mem_unsigned;
+    pkt_exe_o.instr_misaligned = instr_misaligned;
+    pkt_exe_o.mem_misaligned   = valid && mem_misaligned_i;
+    pkt_exe_o.exc.illegal_instr      = result_illegal_instr;
+    pkt_exe_o.exc.instr_access_fault = result_instr_access_fault;
+    pkt_exe_o.exc.ecall               = result_ecall;
+    pkt_exe_o.exc.ebreak              = result_ebreak;
+    pkt_exe_o.csr        = result_csr;
+    pkt_exe_o.trap_pc    = pc;
+    pkt_exe_o.trap_cause = result_trap_cause;
+    pkt_exe_o.trap_val   = result_trap_val;
+    pkt_exe_o.is_mret    = valid && is_mret;
+    pkt_exe_o.is_wfi     = valid && is_wfi;
+  end
 
 endmodule
 `default_nettype wire

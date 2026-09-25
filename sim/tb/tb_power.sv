@@ -79,8 +79,6 @@ module tb_power #(
   end
 
   riscv_soc #(
-    .AW(AW),
-    .DW(DW),
     .PROG_RAM_DEPTH(PROG_RAM_DEPTH),
     .DATA_RAM_DEPTH(DATA_RAM_DEPTH),
     .DATA_REQ_WAIT_CYCLES(0),

@@ -31,10 +31,7 @@ module tb_lsu_protocol;
   integer complete_count;
   core_bus_req_t held_req;
 
-  lsu #(
-    .AW(AW),
-    .DW(DW)
-  ) dut (
+  lsu dut (
     .clk_i             (clk),
     .rst_ni            (rst_n),
     .pkt_ex_i          (pkt_ex),

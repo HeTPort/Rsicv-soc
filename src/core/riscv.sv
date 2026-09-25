@@ -2,10 +2,7 @@
 `default_nettype none
 import riscv_pkg::*;
 
-module riscv #(
-  parameter int AW = riscv_pkg::AW,
-  parameter int DW = riscv_pkg::DW
-)(
+module riscv (
   input  wire logic          clk_i,
   input  wire logic          rst_ni,
   output logic          instr_ren_o,
@@ -24,12 +21,6 @@ module riscv #(
   output logic          exception_o,
   output commit_pkt_t   commit_o
 );
-  initial begin
-    if (DW != 32) begin
-      $fatal(1, "Current core supports only RV32. RV64 is reserved for future extension.");
-    end
-  end
-
   // ============================================================
   // 1. Pipeline Payload Structures (Vertical Data Flow)
   // ============================================================
@@ -63,10 +54,8 @@ module riscv #(
   logic             retire_wfi_enter;
   logic             retire_wfi_wait;
 
-  // EX outputs
-  logic          ex_redirect_en;
-  logic [AW-1:0] ex_redirect_pc;
-  logic          ex_flush_req;
+  // EX produces a candidate; centralized control owns redirect selection.
+  redirect_t     ex_redirect_candidate;
 
   // CSR interface
   logic [DW-1:0] csr_rdata;
@@ -78,10 +67,6 @@ module riscv #(
 
   // Trap / mret controls
   logic          wb_trap_event;
-  logic          trap_redirect_en;
-  logic [AW-1:0] trap_redirect_pc;
-  logic          pc_redirect_en;
-  logic [AW-1:0] pc_redirect_pc;
 
   // LSU <-> pipeline interface
   mem_pkt_t       lsu_mem_info;
@@ -92,7 +77,6 @@ module riscv #(
   logic           lsu_store_fault;
   logic           lsu_busy;
   logic           lsu_complete;
-  logic           ex_kill;
   logic           ex_mem_transaction;
 
   // Replaceable RV32M unit <-> pipeline interface
@@ -107,18 +91,10 @@ module riscv #(
   // ============================================================
   // 3. Control Unit Interface Signals
   // ============================================================
-  logic pc_stall, ifid_stall, idex_stall, exwb_stall;
-  logic ifid_flush, idex_flush, pipe_kill;
+  redirect_t selected_redirect;
+  pipe_ctrl_t pipe_ctrl;
 
-  assign trap_redirect_en = retire_redirect.valid;
-  assign trap_redirect_pc = retire_redirect.pc;
-  assign pc_redirect_en   = ex_redirect_en || trap_redirect_en;
-  assign pc_redirect_pc   = trap_redirect_en ? trap_redirect_pc : ex_redirect_pc;
-
-  retire_stage #(
-    .AW(AW),
-    .DW(DW)
-  ) u_retire_stage (
+  retire_stage u_retire_stage (
     .clk_i             (clk_i),
     .rst_ni            (rst_ni),
     .pkt_i             (ex2wb_pkt_out),
@@ -142,28 +118,24 @@ module riscv #(
   // 4. Core Control Unit Instantiation
   // ============================================================
   core_ctrl u_core_ctrl (
-    .clk_i          (clk_i),
-    .rst_ni         (rst_ni),
-    .id_valid       (if2id_pkt_out.valid),
-    .id_rs1_addr    (id_rs1_raddr),
-    .id_rs2_addr    (id_rs2_raddr),
-    .id_use_rs1     (id2ex_pkt.use_rs1),
-    .id_use_rs2     (id2ex_pkt.use_rs2),
-    .ex_valid       (id2ex_pkt_out.valid),
-    .ex_rd_addr     (id2ex_pkt_out.rf.addr),
-    .ex_rf_we       (id2ex_pkt_out.rf.we),
-    .ex_flush_req   (ex_flush_req),
-    .ex_wait_i      (ex_wait),
-    .retire_redirect_en(trap_redirect_en),
-    .wfi_enter_i    (retire_wfi_enter),
-    .wfi_wait_i     (retire_wfi_wait),
-    .pc_stall       (pc_stall),
-    .ifid_stall     (ifid_stall),
-    .idex_stall     (idex_stall),
-    .exwb_stall     (exwb_stall),
-    .ifid_flush     (ifid_flush),
-    .idex_flush     (idex_flush),
-    .pipe_kill      (pipe_kill)
+    .clk_i             (clk_i),
+    .rst_ni            (rst_ni),
+    .id_valid_i        (if2id_pkt_out.valid),
+    .id_rs1_addr_i     (id_rs1_raddr),
+    .id_rs2_addr_i     (id_rs2_raddr),
+    .id_use_rs1_i      (id2ex_pkt.use_rs1),
+    .id_use_rs2_i      (id2ex_pkt.use_rs2),
+    .ex_valid_i        (id2ex_pkt_out.valid),
+    .ex_rd_addr_i      (id2ex_pkt_out.rf.addr),
+    .ex_rf_we_i        (id2ex_pkt_out.rf.we),
+    .ex_exc_i          (id2ex_pkt_out.exc),
+    .ex_redirect_i     (ex_redirect_candidate),
+    .ex_wait_i         (ex_wait),
+    .retire_redirect_i (retire_redirect),
+    .wfi_enter_i       (retire_wfi_enter),
+    .wfi_wait_i        (retire_wfi_wait),
+    .redirect_o        (selected_redirect),
+    .pipe_ctrl_o       (pipe_ctrl)
   );
 
   assign illegal_instr_o = ex2wb_pkt_out.valid && ex2wb_pkt_out.exc.illegal_instr;
@@ -191,10 +163,7 @@ module riscv #(
       (wb_csr_we && (wb_csr_addr == CSR_MEPC)) ?
       AW'(wb_csr_wdata_effective) : csr_mepc;
 
-  csr_regfile #(
-    .AW(AW),
-    .DW(DW)
-  ) u_csr_regfile (
+  csr_regfile u_csr_regfile (
     .clk_i        (clk_i),
     .rst_ni       (rst_ni),
     .current_priv_i(PRIV_MODE_M),
@@ -232,17 +201,16 @@ module riscv #(
   // 5. PC & IF Stage
   // ============================================================
   pc_counter #(
-    .AW(AW),
     .RESET_PC('0)
   ) u_pc_counter (
     .clk_i        (clk_i),
     .rst_ni       (rst_ni),
-    .stall_i      (pc_stall),
-    .redirect_en_i(pc_redirect_en),
-    .redirect_pc_i(pc_redirect_pc),
+    .stall_i      (pipe_ctrl.pc_stall),
+    .redirect_en_i(selected_redirect.valid),
+    .redirect_pc_i(selected_redirect.pc),
     .pc_o         (if_pc)
   );
-  assign instr_ren_o  = !pipe_kill && (!pc_stall || pc_redirect_en);
+  assign instr_ren_o  = pipe_ctrl.instr_req;
   assign instr_addr_o = if_pc;
 
   always_ff @(posedge clk_i or negedge rst_ni) begin
@@ -268,8 +236,8 @@ module riscv #(
   if2id u_if2id (
     .clk_i   (clk_i),
     .rst_ni  (rst_ni),
-    .flush_i (ifid_flush),
-    .stall_i (ifid_stall),
+    .flush_i (pipe_ctrl.ifid_flush),
+    .stall_i (pipe_ctrl.ifid_stall),
     .pkt2id_i (if2id_pkt),
     .pkt2id_o (if2id_pkt_out)
   );
@@ -286,18 +254,11 @@ module riscv #(
   id2ex u_id2ex (
     .clk_i   (clk_i),
     .rst_ni  (rst_ni),
-    .flush_i (idex_flush),
-    .stall_i (idex_stall),
+    .flush_i (pipe_ctrl.idex_flush),
+    .stall_i (pipe_ctrl.idex_stall),
     .pkt2ex_i (id2ex_pkt),
     .pkt2ex_o (id2ex_pkt_out)
   );
-
-  // EX kill for outstanding LSU or RV32M work: pipe_kill or any EX exception.
-  assign ex_kill = pipe_kill |
-                   id2ex_pkt_out.exc.illegal_instr |
-                   id2ex_pkt_out.exc.instr_access_fault |
-                   id2ex_pkt_out.exc.ecall |
-                   id2ex_pkt_out.exc.ebreak;
 
   assign rv32m_req_valid = id2ex_pkt_out.valid &&
                            id2ex_pkt_out.ex_ctrl.muldiv_valid;
@@ -307,9 +268,7 @@ module riscv #(
 
   assign ex_wait    = lsu_busy || rv32m_wait;
 
-  rv32m_unit #(
-    .DW(DW)
-  ) u_rv32m_unit (
+  rv32m_unit u_rv32m_unit (
     .clk_i       (clk_i),
     .rst_ni      (rst_ni),
     .req_valid_i (rv32m_req_valid),
@@ -318,7 +277,7 @@ module riscv #(
     .rsp_valid_o (rv32m_rsp_valid),
     .rsp_ready_i (1'b1),
     .rsp_o       (rv32m_rsp),
-    .kill_i      (ex_kill),
+    .kill_i      (pipe_ctrl.ex_kill),
     .wait_o      (rv32m_wait),
     .busy_o      ()
   );
@@ -335,23 +294,18 @@ module riscv #(
     .csr_privilege_ok_i(csr_privilege_ok),
     .mepc_i           (csr_mepc_for_ex),
     .rv32m_result_i   (rv32m_rsp.result),
-    .redirect_en_o    (ex_redirect_en),
-    .redirect_pc_o    (ex_redirect_pc),
-    .flush_req_o      (ex_flush_req),
+    .redirect_candidate_o(ex_redirect_candidate),
     .pkt_exe_o        (ex2wb_pkt_in)
   );
 
   // ============================================================
   // 8. LSU (Load/Store Unit) — transaction owner for the external data bus
   // ============================================================
-  lsu #(
-    .AW(AW),
-    .DW(DW)
-  ) u_lsu (
+  lsu u_lsu (
     .clk_i             (clk_i),
     .rst_ni            (rst_ni),
     .pkt_ex_i          (id2ex_pkt_out),
-    .ex_kill_i         (ex_kill),
+    .ex_kill_i         (pipe_ctrl.ex_kill),
     .bus_req_valid_o   (data_req_valid_o),
     .bus_req_ready_i   (data_req_ready_i),
     .bus_req_o         (data_req_o),
@@ -374,7 +328,7 @@ module riscv #(
   assign ex_mem_transaction = id2ex_pkt_out.valid &&
                               id2ex_pkt_out.ex_ctrl.mem_req &&
                               !lsu_mem_misaligned &&
-                              !ex_kill;
+                              !pipe_ctrl.ex_kill;
 
   always_comb begin
     ex2wb_pkt_in_safe = ex2wb_pkt_in;
@@ -404,7 +358,7 @@ module riscv #(
     if (rv32m_req_valid && !rv32m_rsp_valid)
       ex2wb_pkt_in_safe = EX_WB_PKT_BUBBLE;
 
-    if (pipe_kill)
+    if (pipe_ctrl.pipe_kill)
       ex2wb_pkt_in_safe = EX_WB_PKT_BUBBLE;
   end
 
@@ -414,7 +368,7 @@ module riscv #(
       assert (!(wb_csr_we && !ex2wb_pkt_out.valid))
         else $error("Invalid EX/WB packet enabled a CSR write");
 
-      if (pipe_kill) begin
+      if (pipe_ctrl.pipe_kill) begin
         assert (!(ex2wb_pkt_in_safe.valid ||
                   ex2wb_pkt_in_safe.rf.we ||
                   ex2wb_pkt_in_safe.csr.valid ||
@@ -441,7 +395,7 @@ module riscv #(
   ex2wb u_ex2wb (
     .clk_i    (clk_i),
     .rst_ni   (rst_ni),
-    .stall_i  (exwb_stall),
+    .stall_i  (1'b0),
     .pkt2wb_i (ex2wb_pkt_in_safe),
     .pkt2wb_o (ex2wb_pkt_out)
   );
@@ -453,9 +407,7 @@ module riscv #(
   assign wb_rf_waddr    = retire_rf_write.addr;
   assign wb_rf_wdata    = retire_rf_write.data;
 
-  regfile #(
-    .DW(DW)
-  ) u_regfile (
+  regfile u_regfile (
     .clk_i       (clk_i),
     .rst_ni      (rst_ni),
     .rs1_raddr_i (id_rs1_raddr),
@@ -473,12 +425,12 @@ module riscv #(
   always @(negedge clk_i) begin
     if (rst_ni) begin
       if (!id2ex_pkt_out.valid) begin
-        assert (!(data_req_valid_o || ex_redirect_en || ex_flush_req))
+        assert (!(data_req_valid_o || ex_redirect_candidate.valid))
           else $error("Invalid ID/EX packet caused an EX-stage side effect");
       end
 
       if (ex2wb_pkt_in.instr_misaligned) begin
-        assert (!(ex_redirect_en || ex_flush_req || ex2wb_pkt_in.rf.we))
+        assert (!(ex_redirect_candidate.valid || ex2wb_pkt_in.rf.we))
           else $error("Misaligned control transfer was not suppressed");
         assert (ex2wb_pkt_in.trap_cause == MCAUSE_INST_MISALIGNED)
           else $error("Misaligned control transfer has the wrong trap cause");

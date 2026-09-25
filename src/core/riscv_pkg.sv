@@ -6,8 +6,7 @@
 //   Global definitions for the simple RISC-V core.
 //
 // Notes:
-//   - Current target ISA is RV32IM (Default).
-//   - XLEN/DW are localparamized for future RV64 extension (+define+RISCV_XLEN_64).
+//   - The production architecture is deliberately fixed to RV32IM.
 //   - Opcode/funct3/funct7 constants are kept compatible with the original code.
 //   - New enum control types are used to move instruction decode
 //     out of execute and into decode.
@@ -15,37 +14,26 @@
 package riscv_pkg;
 
   // ------------------------------------------------------------
-  // Section 1: Architecture Configuration (Compile-Time Switch)
+  // Section 1: Fixed architectural widths
   // ------------------------------------------------------------
-  // Usage: 
-  //   RV32: make/compile normally (defaults to 32)
-  //   RV64: add "+define+RISCV_XLEN_64" to your compiler/simulator flags
-  `ifndef RISCV_XLEN_64
-    `define RISCV_XLEN 32
-  `else
-    `define RISCV_XLEN 64
-  `endif
-
-  // ------------------------------------------------------------
-  // Global localparams
-  // ------------------------------------------------------------
-  localparam int XLEN       = `RISCV_XLEN;
-  // 解耦物理地址宽度：实际芯片中地址宽度往往不等于 XLEN，RV64 默认设为 40
-  localparam int unsigned AW         = (XLEN == 64) ? 40 : 32; 
-  localparam int unsigned DW         = XLEN;
+  // Wide timers, counters, and future accelerators remain independent of XLEN.
+  // A future RV64 core is a separately specified architecture, not a macro
+  // configuration of this RV32 implementation.
+  localparam int unsigned XLEN       = 32;
+  localparam int unsigned AW         = 32;
+  localparam int unsigned DW         = 32;
   localparam int unsigned REG_NUM    = 32;
   localparam int unsigned REG_ADDR_W = 5; // $clog2(32)
   localparam int unsigned BYTE_NUM   = DW / 8;
   localparam int unsigned IALIGN_BITS = 32;
   localparam int unsigned IALIGN_LSB  = $clog2(IALIGN_BITS / 8);
 
-  // Shift amount width: 5 bits for RV32, 6 bits for RV64
-  localparam int SHAMT_W    = (XLEN == 64) ? 6 : 5; // Shift amount width
+  localparam int unsigned SHAMT_W    = 5;
 
   // ------------------------------------------------------------
   // Section 2: Common instruction constants
   // ------------------------------------------------------------
-  localparam logic [XLEN-1:0] INST_NOP    = {{(XLEN-12){1'b0}}, 12'h013}; // addi x0,x0,0
+  localparam logic [31:0] INST_NOP    = 32'h0000_0013; // addi x0,x0,0
   localparam logic [31:0] INST_ECALL  = 32'h0000_0073;
   localparam logic [31:0] INST_EBREAK = 32'h0010_0073;
   localparam logic [31:0] INST_MRET   = 32'h3020_0073; // 特权架构返回
@@ -66,12 +54,6 @@ package riscv_pkg;
   localparam logic [6:0] OPCODE_JAL      = 7'b1101111;
   localparam logic [6:0] OPCODE_SYSTEM   = 7'b1110011;
   
-  // RV64 Specific Opcodes
-  `ifdef RISCV_XLEN_64
-  localparam logic [6:0] OPCODE_OP_IMM_32 = 7'b0011011; // ADDIW, SLLIW, etc.
-  localparam logic [6:0] OPCODE_OP_32     = 7'b0111011; // ADDW, SUBW, SLLW, etc.
-  `endif
-
   // ------------------------------------------------------------
   // Section 4: OP-IMM funct3
   // ------------------------------------------------------------
@@ -104,10 +86,6 @@ package riscv_pkg;
   localparam logic [2:0] FUNCT3_LW  = 3'b010;
   localparam logic [2:0] FUNCT3_LBU = 3'b100;
   localparam logic [2:0] FUNCT3_LHU = 3'b101;
-  `ifdef RISCV_XLEN_64
-  localparam logic [2:0] FUNCT3_LWU = 3'b110;
-  localparam logic [2:0] FUNCT3_LD  = 3'b011;
-  `endif
 
   // ------------------------------------------------------------
   // Section 7: Store funct3
@@ -115,9 +93,6 @@ package riscv_pkg;
   localparam logic [2:0] FUNCT3_SB = 3'b000;
   localparam logic [2:0] FUNCT3_SH = 3'b001;
   localparam logic [2:0] FUNCT3_SW = 3'b010;
-  `ifdef RISCV_XLEN_64
-  localparam logic [2:0] FUNCT3_SD = 3'b011;
-  `endif
 
   // ------------------------------------------------------------
   // Section 8: Branch funct3
@@ -154,14 +129,6 @@ package riscv_pkg;
     ALU_OR     = 5'd9,
     ALU_AND    = 5'd10,
     ALU_COPY_B = 5'd11
-    `ifdef RISCV_XLEN_64
-    , // 逗号放在宏内部，避免 RV32 末尾出现悬空逗号
-    ALU_ADDW   = 5'd12,
-    ALU_SUBW   = 5'd13,
-    ALU_SLLW   = 5'd14,
-    ALU_SRLW   = 5'd15,
-    ALU_SRAW   = 5'd16
-    `endif
   } alu_op_e;
 
   // Branch operation type
@@ -187,10 +154,6 @@ package riscv_pkg;
     MEM_SIZE_BYTE = 2'd0,
     MEM_SIZE_HALF = 2'd1,
     MEM_SIZE_WORD = 2'd2
-    `ifdef RISCV_XLEN_64
-    ,
-    MEM_SIZE_DWORD = 2'd3 // Double word for RV64 LD/SD
-    `endif
   } mem_size_e;
 
   // Writeback select type
@@ -230,7 +193,7 @@ package riscv_pkg;
   // ------------------------------------------------------------
   // Section 10b: mcause exception / interrupt codes
   // ------------------------------------------------------------
-  // Interrupt bit is at MSB (bit XLEN-1)
+  // Interrupt bit is at RV32 mcause[31].
   localparam logic [DW-1:0] MCAUSE_INST_MISALIGNED  = {1'b0, 31'd0};
   localparam logic [DW-1:0] MCAUSE_INST_ACCESS      = {1'b0, 31'd1};
   localparam logic [DW-1:0] MCAUSE_ILLEGAL_INST     = {1'b0, 31'd2};
@@ -363,7 +326,7 @@ package riscv_pkg;
   typedef struct packed {
     mem_size_e     mem_size;
     logic          mem_unsigned;
-    // 按照你原有代码，保持 [1:0] (若未来支持 RV64 可改为 $clog2(BYTE_NUM)-1:0)
+    // RV32 byte offset within one 32-bit word.
     logic [1:0]    load_offset;
   } mem_pkt_t;
 
@@ -416,6 +379,20 @@ package riscv_pkg;
     logic [AW-1:0]    pc;
     redirect_reason_e reason;
   } redirect_t;
+
+  // Same-cycle pipeline movement actions. These fields share one producer
+  // (`core_ctrl`), direction, and validity window; functional-unit protocol
+  // state and architectural retirement commands deliberately remain separate.
+  typedef struct packed {
+    logic pc_stall;
+    logic instr_req;
+    logic ifid_stall;
+    logic idex_stall;
+    logic ifid_flush;
+    logic idex_flush;
+    logic pipe_kill;
+    logic ex_kill;
+  } pipe_ctrl_t;
 
   typedef struct packed {
     csr_write_req_t csr_write;

@@ -8,10 +8,7 @@ import riscv_pkg::*;
 //   Supports CSR read/write, trap entry (mepc/mcause/mtval/mstatus),
 //   and mret (mstatus restore).
 // ============================================================
-module csr_regfile #(
-  parameter int AW = riscv_pkg::AW,
-  parameter int DW = riscv_pkg::DW
-)(
+module csr_regfile (
   input  wire logic         clk_i,
   input  wire logic         rst_ni,
   input  wire priv_mode_e   current_priv_i,

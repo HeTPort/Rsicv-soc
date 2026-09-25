@@ -7,7 +7,7 @@ lint_off -rule SYMRSVDWORD -file "*/src/core/riscv_pkg.sv" -match "*Symbol match
 
 // Unit-scope wildcard imports and DW parameter names are the established
 // repository/Questa-2019-compatible source convention, not local ambiguity.
-lint_off -rule IMPORTSTAR -file "*/src/core/rv32m_mul_comb.sv"
+lint_off -rule IMPORTSTAR -file "*/src/core/rv32m_mul_reg.sv"
 lint_off -rule IMPORTSTAR -file "*/src/core/rv32m_unit.sv"
 lint_off -rule IMPORTSTAR -file "*/src/core/if2id.sv"
 lint_off -rule IMPORTSTAR -file "*/src/core/id2ex.sv"
@@ -19,7 +19,7 @@ lint_off -rule IMPORTSTAR -file "*/src/core/retire_stage.sv"
 lint_off -rule IMPORTSTAR -file "*/src/core/csr_regfile.sv"
 lint_off -rule IMPORTSTAR -file "*/src/core/core_ctrl.sv"
 lint_off -rule IMPORTSTAR -file "*/src/core/riscv.sv"
-lint_off -rule VARHIDDEN -file "*/src/core/rv32m_mul_comb.sv" -match "*Declaration of signal hides declaration in upper scope: 'DW'*"
+lint_off -rule VARHIDDEN -file "*/src/core/rv32m_mul_reg.sv" -match "*Declaration of signal hides declaration in upper scope: 'DW'*"
 lint_off -rule VARHIDDEN -file "*/src/core/rv32m_unit.sv" -match "*Declaration of signal hides declaration in upper scope: 'DW'*"
 lint_off -rule VARHIDDEN -file "*/src/core/radix2_divider.sv" -match "*Declaration of signal hides declaration in upper scope: 'DW'*"
 lint_off -rule VARHIDDEN -file "*/src/core/pc_counter.sv" -match "*Declaration of signal hides declaration in upper scope: 'AW'*"
@@ -35,7 +35,7 @@ lint_off -rule VARHIDDEN -file "*/src/core/riscv.sv"
 // RV32 result; waivers are deliberately signal- and file-specific.
 lint_off -rule WIDTHEXPAND -file "*/src/core/radix2_divider.sv" -match "*iteration_q*"
 lint_off -rule UNUSEDSIGNAL -file "*/src/core/radix2_divider.sv" -match "*remainder_work_q*"
-lint_off -rule UNUSEDSIGNAL -file "*/src/core/rv32m_mul_comb.sv" -match "*product_ext*"
+lint_off -rule UNUSEDSIGNAL -file "*/src/core/rv32m_mul_reg.sv" -match "*Bits of signal are not used: 'product_q'[65:64]*"
 
 // Existing core-level warnings are retained as narrow baseline waivers until
 // their owning interface is migrated; this prevents them from hiding new IDs.
@@ -45,7 +45,9 @@ lint_off -rule PINCONNECTEMPTY -file "*/src/core/riscv.sv" -match "*busy_o*"
 lint_off -rule WIDTHEXPAND -file "*/src/core/csr_regfile.sv" -match "*MSTATUS_MPP_M*"
 lint_off -rule UNUSEDPARAM -file "*/src/core/csr_regfile.sv" -match "*MSTATUS_MPP_HI*"
 lint_off -rule UNUSEDSIGNAL -file "*/src/core/riscv.sv" -match "*rv32m_req_ready*"
-lint_off -rule UNUSEDSIGNAL -file "*/src/core/riscv.sv" -match "*Bits of signal are not used: 'retire_redirect'[2:0]*"
+// Redirect reason is part of the typed semantic contract and is checked in
+// focused control verification; the PC datapath consumes only valid/target.
+lint_off -rule UNUSEDSIGNAL -file "*/src/core/riscv.sv" -match "*Bits of signal are not used: 'selected_redirect'[2:0]*"
 lint_off -rule UNUSEDSIGNAL -file "*/src/core/execute.sv" -match "*pkt_exe_i*"
 lint_off -rule UNUSEDSIGNAL -file "*/src/core/execute.sv" -match "*eff_addr*"
 lint_off -rule UNUSEDSIGNAL -file "*/src/core/csr_regfile.sv" -match "*Bits of signal are not used: 'addr'*"

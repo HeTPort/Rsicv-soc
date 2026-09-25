@@ -6,8 +6,6 @@ import riscv_pkg::*;
 // Optional request/response delays exist for verification and model a target
 // that applies back-pressure independently of its response latency.
 module core_bus_data_ram #(
-  parameter int AW = riscv_pkg::AW,
-  parameter int DW = riscv_pkg::DW,
   parameter int DEPTH = 4096,
   parameter INIT_FILE = "",
   parameter int REQ_WAIT_CYCLES = 0,

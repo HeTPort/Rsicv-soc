@@ -232,9 +232,9 @@ Current planning position:
 - AR identifiers are stable finding numbers, not phase numbers. Detailed
   ownership and status are maintained in
   [`doc/ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md`](doc/ARCHITECTURE_REVIEW_AND_ACTION_PLAN.md).
-- AR-026 accepts the scalable UVM architecture but does not claim an
-  implementation. Its first gate is a passive `commit_pkt_t` retirement
-  monitor and scoreboard that preserves all current regressions.
+- AR-026 accepts the scalable UVM architecture. Its ModelSim/UVM 1.2 toolchain
+  sub-gate is verified; the passive `commit_pkt_t`/`trap_entry_t` monitor and
+  scoreboard remain unimplemented and must preserve all current regressions.
 
 ---
 
@@ -756,7 +756,8 @@ heartbeats; PL D1 toggled and deliberate K2 restarts recovered. See
 
 ## Continuous Track U — Scalable UVM adoption
 
-**Status:** architecture accepted in AR-026; implementation not started.
+**Status:** architecture accepted in AR-026; UVM 1.2 toolchain sub-gate
+verified on 2026-09-16; passive retirement integration not started.
 
 This track is additive. Directed smoke, ACT4, focused SVA testbenches,
 firmware, synthesis/timing, and board checks remain required evidence. Create
@@ -769,8 +770,11 @@ and [`docs/verification_framework.md`](docs/verification_framework.md).
 
 ### U0 — Toolchain and passive retirement vertical slice (optional parallel track)
 
-- [ ] Prove which UVM version the installed ModelSim/Questa toolchain can
-      compile and run; pin the version and command line in the repository.
+- [x] Prove which UVM version the installed ModelSim/Questa toolchain can
+      compile and run. ModelSim SE-64 2019.2 explicitly selects its installed
+      UVM 1.2 library, runs `uvm_test`/`run_phase`, reports zero UVM
+      errors/fatals, and rejects a false-marker run with exit 3. Commands and
+      evidence are retained under `doc/plans/u0-passive-uvm/`.
 - [ ] Create the minimum real tree: `verif/uvm/domains/retirement`,
       `verif/uvm/tb/interfaces`, `verif/uvm/adapters`,
       `verif/uvm/envs/core`, `verif/uvm/tests`, and the required simulation
@@ -893,10 +897,26 @@ for the first FreeRTOS FPGA demonstration:
   combinational multiplier; focused protocol/corner/kill tests, smoke 23/23,
   ACT4 RV32M 8/8, FreeRTOS demo, layered lint, 4-DSP OOC synthesis, and the
   exact-board 25 MHz route at WNS +17.517 ns pass.
-- [ ] Implement and evaluate a registered multiplier backend behind
-  `rv32m_unit`; the exact-board 100 MHz route triggered this gate with WNS
-  -0.387 ns, TNS -3.637 ns, and a 2-DSP48E1/11-CARRY4 worst path. Do not accept
-  it until protocol/regression, routed timing, CPI, and workload-energy gates pass.
+- [x] Freeze the production scalar/core-bus contract at RV32 in AR-029; remove
+  unsupported RV64 macro branches and shadow core/SoC/bus/peripheral `AW`/`DW`
+  parameters while retaining 64-bit timers/counters and genuine RAM/divider
+  parameters. Focused/full verification is recorded in the phase evidence
+  package.
+- [x] Implement and evaluate the AR-030 registered blocking multiplier behind
+  `rv32m_unit`. Focused 175-case, divider 42-case, smoke 23/23, ACT4 47/47,
+  layered lint, 95/100 MHz routes, and two-run `p0_mix`/`p0_idle_spin` power
+  comparisons pass their declared gates. Accept it for 95 MHz; 100 MHz remains
+  deferred on the new timer-to-EX/WB critical path (WNS -0.312 ns).
+- [x] Complete AR-031 core-control ownership: typed redirect candidates,
+  retirement-over-EX priority, one `pipe_ctrl_t`, retirement-owned MRET, and
+  centralized fetch/hold/flush/kill actions. Focused/protocol/smoke/ACT4/lint
+  pass; exact 95/100 MHz routes close at +0.078/+0.098 ns. The P1-relative cost
+  is +121 LUT/-2 FF with unchanged BRAM/DSP and neutral `p0_mix` power/cycles.
+- [x] Complete the first AR-032 P3 semantic-cleanup slice: reserve `_i/_o` for
+  ports in decode/execute, remove redundant pass-through aliases, and build
+  ID/EX and EX/WB packets from canonical bubbles. Focused/protocol tests,
+  smoke 23/23, ACT4 47/47, and layered lint pass; ALU/immediate/alignment
+  extraction remains gated by dedicated contracts and tests.
 - [x] UART RX FIFO baseline; keep external UART interrupt deferred.
 - [ ] Machine software interrupt (`msip`).
 - [ ] PLIC or a small external interrupt controller.
@@ -912,15 +932,16 @@ for the first FreeRTOS FPGA demonstration:
 
 1. Use the verified six-workload P0 baseline for later architectural
    comparisons; do not claim 80% direct SAIF mapping or physical board power.
-2. Implement a registered multiplier candidate behind AR-027's verified
-   `rv32m_unit` contract. The retained 100 MHz route failed with WNS -0.387 ns
-   on the multiplier path, so the timing gate has triggered.
-3. Compare that candidate against the combinational backend for 100 MHz routed
-   timing, resource use, architectural regressions, CPI, and fixed-workload
-   energy before changing the production default.
-4. Start U0 later or in parallel only through a legally entitled tool path.
-   The installed tree already contains UVM 1.2; no separate pirated download is
-   technically required. U0 does not block P0.
+2. AR-030's registered multiplier is the 95 MHz production default. Its next
+   action is maintenance only; do not parameterize stage count without a new
+   throughput/latency requirement.
+3. The exact AR-031 build now closes 100 MHz, but with only +0.098 ns margin.
+   Before treating 100 MHz as a product guarantee, run seed/temperature/board
+   closure and address the operand-to-redirect-to-ID/EX-enable control path.
+4. Continue U0 later or in parallel only through the installed/licensed tool
+   path. UVM 1.2 compile/runtime and the negative result gate now pass; the next
+   U0 work is the passive retirement contract/monitor, not a download. U0 does
+   not block P0.
 5. After P0, open the P1 measurement-driven low-power slice and the C0/M0
    low-energy control/model evidence packages; do not treat documentation as
    implementation evidence.

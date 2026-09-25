@@ -152,8 +152,8 @@ module tb_retire_stage;
     assert (commit.valid && !commit.trap)
       else $fatal(1, "asynchronous interrupt was mislabeled as commit trap");
 
-    // MRET keeps its existing redirect/status split and excludes an interrupt
-    // from the same retirement boundary.
+    // MRET owns CSR restoration and redirect at the same retirement boundary,
+    // and excludes an interrupt from that boundary.
     pkt = EX_WB_PKT_BUBBLE;
     pkt.valid   = 1'b1;
     pkt.pc      = 32'h80;
@@ -161,7 +161,8 @@ module tb_retire_stage;
     pkt.is_mret = 1'b1;
     #1;
     assert (csr_retire_cmd.mret && !csr_retire_cmd.trap.interrupt &&
-            !csr_retire_cmd.trap.valid && !redirect.valid)
+            !csr_retire_cmd.trap.valid && redirect.valid &&
+            redirect.pc == pkt.next_pc && redirect.reason == REDIRECT_MRET)
       else $fatal(1, "MRET boundary incorrectly selected an interrupt");
 
     // A retiring taken branch supplies its resolved target as next_pc.

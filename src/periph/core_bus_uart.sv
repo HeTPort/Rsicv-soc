@@ -6,8 +6,6 @@ import riscv_pkg::*;
 // shifter. RX uses an asynchronous-input receiver plus a parameterized FIFO;
 // the default depth is the architectural first-milestone value of 16 bytes.
 module core_bus_uart #(
-  parameter int AW = riscv_pkg::AW,
-  parameter int DW = riscv_pkg::DW,
   parameter int unsigned CLK_FREQ_HZ = 25_000_000,
   parameter int unsigned BAUD_RATE   = 115_200,
   parameter int unsigned RX_FIFO_DEPTH = 16,
@@ -259,8 +257,6 @@ module core_bus_uart #(
   end
 
   initial begin
-    if (DW != 32)
-      $fatal(1, "core_bus_uart currently requires DW=32");
     if (RX_FIFO_DEPTH == 0 || RX_FIFO_DEPTH > 255)
       $fatal(1, "core_bus_uart RX_FIFO_DEPTH must be in 1..255");
     if (TXDATA_OFFSET[1:0] != 2'b00 || STATUS_OFFSET[1:0] != 2'b00 ||

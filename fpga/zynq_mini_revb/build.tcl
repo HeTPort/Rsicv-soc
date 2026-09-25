@@ -69,6 +69,16 @@ set xdc_file      [file normalize [file join $script_dir constraints.xdc]]
 set build_name [expr {
   $core_clock_hz == 25000000 ? $app_name : "${app_name}_${core_clock_mhz}mhz"
 }]
+if {[info exists ::env(ZYNQ_MINI_BUILD_SUFFIX)] &&
+    $::env(ZYNQ_MINI_BUILD_SUFFIX) ne ""} {
+  set build_suffix $::env(ZYNQ_MINI_BUILD_SUFFIX)
+  if {![regexp {^[A-Za-z0-9._-]+$} $build_suffix]} {
+    error "Invalid ZYNQ_MINI_BUILD_SUFFIX '$build_suffix'; use only letters, digits, dot, underscore, or dash"
+  }
+  append build_name "_" $build_suffix
+} else {
+  set build_suffix ""
+}
 set output_dir [file normalize [file join $repo_root build zynq_mini_revb $build_name]]
 
 foreach required_file [list $program_image $data_image $xdc_file] {
@@ -87,7 +97,7 @@ set rtl_files [list \
   [file join $repo_root src core ex2wb.sv] \
   [file join $repo_root src core decode.sv] \
   [file join $repo_root src core radix2_divider.sv] \
-  [file join $repo_root src core rv32m_mul_comb.sv] \
+  [file join $repo_root src core rv32m_mul_reg.sv] \
   [file join $repo_root src core rv32m_unit.sv] \
   [file join $repo_root src core execute.sv] \
   [file join $repo_root src core lsu.sv] \
@@ -214,6 +224,7 @@ puts $metadata "APPLICATION=$app_name"
 puts $metadata "PROGRAM_IMAGE=$program_image"
 puts $metadata "DATA_IMAGE=$data_image"
 puts $metadata "CORE_CLOCK_HZ=$core_clock_hz"
+puts $metadata "BUILD_SUFFIX=$build_suffix"
 puts $metadata "TIMER_TICK_CYCLES=$timer_tick_cycles"
 puts $metadata "ROUTED_WNS_NS=$routed_wns"
 puts $metadata "BRAM_COUNT=[llength $bram_cells]"

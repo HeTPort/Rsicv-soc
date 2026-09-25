@@ -143,7 +143,8 @@ module tb_fetch_error_timing;
       SCENARIO_REDIRECT:
         // Exercise both the immediate redirect flush and its delayed fetch kill.
         instr_fetch_error = response_valid_q &&
-                            (dut.ex_redirect_en || dut.u_core_ctrl.fetch_kill_q);
+                            (dut.ex_redirect_candidate.valid ||
+                             dut.u_core_ctrl.fetch_kill_q);
       SCENARIO_STALL:
         instr_fetch_error = response_valid_q && stall_error_hold_q;
       default:

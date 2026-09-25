@@ -3,10 +3,7 @@
 import riscv_pkg::*;
 
 // Single-outstanding load/store transaction owner.
-module lsu #(
-  parameter int AW = riscv_pkg::AW,
-  parameter int DW = riscv_pkg::DW
-)(
+module lsu (
   input  logic          clk_i,
   input  logic          rst_ni,
 
@@ -31,8 +28,6 @@ module lsu #(
   output logic          busy_o,
   output logic          complete_o
 );
-  localparam int BYTE_NUM = DW / 8;
-
   typedef enum logic [1:0] {
     LSU_IDLE,
     LSU_REQUEST,
@@ -145,7 +140,7 @@ module lsu #(
                   end
                 end
                 MEM_SIZE_WORD: begin
-                  req_q.wstrb <= {BYTE_NUM{1'b1}};
+                  req_q.wstrb <= '1;
                   req_q.wdata <= ex_store_data;
                 end
                 default: begin

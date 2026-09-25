@@ -5,8 +5,6 @@ import riscv_pkg::*;
 // CLINT-compatible machine timer register target for the CPU-local bus.
 // The fabric supplies local byte offsets, not full architectural addresses.
 module mtime_timer #(
-  parameter int AW = riscv_pkg::AW,
-  parameter int DW = riscv_pkg::DW,
   parameter int unsigned TICK_CYCLES = 1,
   parameter logic [63:0] RESET_MTIME = 64'd0,
   parameter logic [63:0] RESET_MTIMECMP = 64'hffff_ffff_ffff_ffff,
@@ -123,8 +121,6 @@ module mtime_timer #(
   end
 
   initial begin
-    if (DW != 32)
-      $fatal(1, "mtime_timer currently requires DW=32");
     if (TICK_CYCLES == 0)
       $fatal(1, "mtime_timer TICK_CYCLES must be nonzero");
     if (MTIMECMP_OFFSET[1:0] != 2'b00 || MTIME_OFFSET[1:0] != 2'b00)

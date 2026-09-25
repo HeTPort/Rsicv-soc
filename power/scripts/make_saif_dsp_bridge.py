@@ -11,7 +11,8 @@ from pathlib import Path
 
 DURATION_RE = re.compile(r"\(DURATION\s+(\d+)\)")
 NET_RE = re.compile(
-    r"^\s*\((lhs_ext|rhs_ext|product_ext)\\\[(\d+)\\\]\s+"
+    r"^\s*\((lhs_ext|rhs_ext|product_ext|req_q\\\.lhs|req_q\\\.rhs|"
+    r"pp_ll_q|pp_lh_q|pp_hl_q|pp_hh_q)\\\[(\d+)\\\]\s+"
     r"\(T0\s+(\d+)\)\s+\(T1\s+(\d+)\)\s+\(TX\s+(\d+)\)\s+"
     r"\(TC\s+(\d+)\)"
 )
@@ -62,6 +63,11 @@ def main() -> int:
     parser.add_argument("output_tcl", type=Path)
     parser.add_argument("output_json", type=Path)
     parser.add_argument("--clock-mhz", type=float, default=95.0)
+    parser.add_argument(
+        "--cell-pattern",
+        default="*u_rv32m_mul_reg*",
+        help="Vivado hierarchical multiplier instance glob",
+    )
     args = parser.parse_args()
 
     text = args.saif.read_text(encoding="utf-8", errors="replace")
@@ -70,7 +76,11 @@ def main() -> int:
         raise SystemExit("SAIF lacks DURATION")
     duration_ps = int(duration_match.group(1))
     groups: dict[str, list[dict[str, int]]] = {
-        "lhs_ext": [], "rhs_ext": [], "product_ext": []
+        name: [] for name in (
+            "lhs_ext", "rhs_ext", "product_ext",
+            r"req_q\.lhs", r"req_q\.rhs",
+            "pp_ll_q", "pp_lh_q", "pp_hl_q", "pp_hh_q",
+        )
     }
     for line in text.splitlines():
         match = NET_RE.match(line)
@@ -85,11 +95,18 @@ def main() -> int:
 
     summaries = {
         name: summarize(rows, duration_ps, args.clock_mhz)
-        for name, rows in groups.items()
+        for name, rows in groups.items() if rows
     }
-    operand_rows = groups["lhs_ext"] + groups["rhs_ext"]
+    if groups["lhs_ext"] and groups["rhs_ext"] and groups["product_ext"]:
+        operand_sources = ["lhs_ext", "rhs_ext"]
+        product_sources = ["product_ext"]
+    else:
+        operand_sources = [r"req_q\.lhs", r"req_q\.rhs"]
+        product_sources = ["pp_ll_q", "pp_lh_q", "pp_hl_q", "pp_hh_q"]
+    operand_rows = [row for name in operand_sources for row in groups[name]]
+    product_rows = [row for name in product_sources for row in groups[name]]
     operand = summarize(operand_rows, duration_ps, args.clock_mhz)
-    product = summaries["product_ext"]
+    product = summarize(product_rows, duration_ps, args.clock_mhz)
     operand_probability = vivado_legal_probability(operand)
     product_probability = vivado_legal_probability(product)
     operand["vivado_static_probability"] = operand_probability
@@ -103,6 +120,9 @@ def main() -> int:
         "saif": str(args.saif.resolve()),
         "duration_ps": duration_ps,
         "clock_mhz": args.clock_mhz,
+        "cell_pattern": args.cell_pattern,
+        "operand_sources": operand_sources,
+        "product_sources": product_sources,
         "groups": summaries,
         "bridge_values": {"operand": operand, "product": product},
         "limitations": [
@@ -117,7 +137,7 @@ def main() -> int:
 
     tcl = f"""# Generated from {args.saif.resolve().as_posix()}
 # Do not edit: regenerate with make_saif_dsp_bridge.py.
-set p0_dsp_cells [get_cells -hierarchical -filter {{REF_NAME == DSP48E1 && NAME =~ *u_rv32m_mul_comb*}}]
+set p0_dsp_cells [get_cells -hierarchical -filter {{REF_NAME == DSP48E1 && NAME =~ {args.cell_pattern}}}]
 if {{[llength $p0_dsp_cells] != 4}} {{
   error "Expected four routed multiplier DSP48E1 cells, got [llength $p0_dsp_cells]"
 }}

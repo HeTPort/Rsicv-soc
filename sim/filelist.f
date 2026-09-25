@@ -6,7 +6,7 @@
 ./../src/core/ex2wb.sv
 ./../src/core/decode.sv
 ./../src/core/radix2_divider.sv
-./../src/core/rv32m_mul_comb.sv
+./../src/core/rv32m_mul_reg.sv
 ./../src/core/rv32m_unit.sv
 ./../src/core/execute.sv
 ./../src/core/lsu.sv

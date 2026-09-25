@@ -2,13 +2,12 @@
 `default_nettype none
 import riscv_pkg::*;
 
-// Single-outstanding RV32M facade. Multiplication completes combinationally;
-// division is delegated to the existing kill-safe iterative implementation.
+// Single-outstanding RV32M facade. Multiplication uses a fixed-latency
+// registered blocking backend; division uses the existing kill-safe iterative
+// implementation.
 // A divider response is captured only when downstream backpressure overlaps
 // its one-cycle completion pulse.
-module rv32m_unit #(
-  parameter int DW = riscv_pkg::DW
-)(
+module rv32m_unit (
   input  wire logic       clk_i,
   input  wire logic       rst_ni,
   input  wire logic       req_valid_i,
@@ -29,7 +28,13 @@ module rv32m_unit #(
   logic div_start;
   logic div_busy;
   logic div_complete;
-  logic [DW-1:0] mul_result;
+  logic mul_req_valid;
+  logic mul_req_ready;
+  logic mul_rsp_valid;
+  logic mul_rsp_ready;
+  logic mul_wait;
+  logic mul_busy;
+  rv32m_rsp_t mul_rsp;
   logic [DW-1:0] div_quotient;
   logic [DW-1:0] div_remainder;
   logic [DW-1:0] div_result;
@@ -68,17 +73,30 @@ module rv32m_unit #(
     endcase
   end
 
-  rv32m_mul_comb #(
-    .DW(DW)
-  ) u_rv32m_mul_comb (
-    .req_i    (req_i),
-    .result_o (mul_result)
+  assign mul_req_valid = req_valid_i && is_mul &&
+                         !div_busy && !div_complete && !rsp_hold_valid_q;
+  assign mul_rsp_ready = rsp_ready_i &&
+                         !rsp_hold_valid_q && !div_complete;
+
+  rv32m_mul_reg u_rv32m_mul_reg (
+    .clk_i       (clk_i),
+    .rst_ni      (rst_ni),
+    .req_valid_i (mul_req_valid),
+    .req_ready_o (mul_req_ready),
+    .req_i       (req_i),
+    .rsp_valid_o (mul_rsp_valid),
+    .rsp_ready_i (mul_rsp_ready),
+    .rsp_o       (mul_rsp),
+    .kill_i      (kill_i),
+    .wait_o      (mul_wait),
+    .busy_o      (mul_busy)
   );
 
   assign req_ready_o = !kill_i &&
-                       ((is_mul && rsp_ready_i) ||
+                       ((is_mul && mul_req_ready &&
+                         !div_busy && !div_complete && !rsp_hold_valid_q) ||
                         (is_div && !div_busy && !div_complete &&
-                         !rsp_hold_valid_q));
+                         !rsp_hold_valid_q && !mul_busy));
   assign div_start = req_valid_i && req_ready_o && is_div;
   assign div_result = div_select_remainder_q ? div_remainder : div_quotient;
 
@@ -132,18 +150,18 @@ module rv32m_unit #(
       end else if (div_complete) begin
         rsp_valid_o   = 1'b1;
         rsp_o.result  = div_result;
-      end else if (req_valid_i && is_mul) begin
-        rsp_valid_o   = 1'b1;
-        rsp_o.result  = mul_result;
+      end else if (mul_rsp_valid) begin
+        rsp_valid_o = 1'b1;
+        rsp_o       = mul_rsp;
       end
     end
   end
 
-  assign busy_o = div_busy || div_complete || rsp_hold_valid_q;
+  assign busy_o = mul_busy || div_busy || div_complete || rsp_hold_valid_q;
   // This ownership signal intentionally does not depend on kill_i. The core's
   // retirement redirect can generate kill_i, so coupling kill back into its
   // interrupt-deferral input would create a combinational control loop.
-  assign wait_o = div_busy ||
+  assign wait_o = mul_wait || div_busy ||
                   (req_valid_i && is_div && !div_complete &&
                    !rsp_hold_valid_q);
 

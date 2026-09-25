@@ -1,15 +1,14 @@
 `timescale 1ns / 1ps
 `default_nettype wire
 module pc_counter #(
-  parameter int AW = 32,
-  parameter logic [AW-1:0] RESET_PC = '0
+  parameter logic [riscv_pkg::AW-1:0] RESET_PC = '0
 )(
   input  logic          clk_i,
   input  logic          rst_ni,
   input  logic          stall_i,
   input  logic          redirect_en_i,
-  input  logic [AW-1:0] redirect_pc_i,
-  output logic [AW-1:0] pc_o
+  input  logic [riscv_pkg::AW-1:0] redirect_pc_i,
+  output logic [riscv_pkg::AW-1:0] pc_o
 );
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) begin
@@ -18,11 +17,8 @@ module pc_counter #(
     else if (redirect_en_i) begin
       pc_o <= redirect_pc_i;
     end
-    else if (stall_i) begin
-      pc_o <= pc_o;
-    end
-    else begin
-      pc_o <= pc_o + AW'(4);
+    else if (!stall_i) begin
+      pc_o <= pc_o + riscv_pkg::AW'(4);
     end
   end
 endmodule

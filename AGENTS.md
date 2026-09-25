@@ -111,12 +111,17 @@ The project is meant to be simulated with ModelSim/QuestaSim and synthesized wit
 
 The pipeline data flow was refactored from flat signals into packed SystemVerilog structs (`fetch_pkt_t`, `id_ex_pkt_t`, `ex_wb_pkt_t` defined in `src/core/riscv_pkg.sv`). Most pipeline modules now accept/return a single struct instead of dozens of individual signals. Empty future-module placeholders and unrelated tool settings were removed; planned peripherals should be added only when their phase defines a real interface.
 
+`decode.sv` and `execute.sv` construct outgoing packets from the corresponding
+typed canonical bubble, then assign only boundary-owned meaningful fields.
+Internal combinational names describe semantics; `_i/_o` is reserved for real
+module ports.
+
 ### LSU / control split
 
 A later refactor extracted the load/store logic out of `execute.sv` into `src/core/lsu.sv` and the hazard/flush control out of `riscv.sv` into `src/core/core_ctrl.sv`:
 
-- `execute.sv` does ALU, branch/jump, combinational multiply, and
-  completed-divider result selection; it receives `mem_misaligned_i` from the
+- `execute.sv` does ALU, branch/jump, and completed RV32M result selection; it
+  receives `mem_misaligned_i` from the
   LSU for exception reporting.
 - `lsu.sv` owns request payload registers, the
   `IDLE -> REQUEST -> RESPONSE -> COMPLETE` state machine, byte/halfword store
@@ -125,7 +130,9 @@ A later refactor extracted the load/store logic out of `execute.sv` into `src/co
   peripherals are targets outside the CPU.
 - `retire_stage.sv` receives pre-aligned `load_data_i` from the LSU and owns
   final writeback selection; the superseded `wb_stage.sv` was removed.
-- `core_ctrl.sv` centralizes `hazard_stall`, `pc_stall`/`ifid_stall`/`idex_stall`, `ifid_flush`/`idex_flush`, delayed fetch kill, and `pipe_kill`.
+- `core_ctrl.sv` selects typed retirement-over-EX redirects and centralizes
+  fetch/PC movement, RAW/wait holds, IF/ID and ID/EX flushes, delayed fetch
+  invalidation, `pipe_kill`, and `ex_kill` in one `pipe_ctrl_t`.
 - `radix2_divider.sv` produces one quotient bit per run cycle. `riscv.sv` holds
   ID/EX and bubbles EX/WB until `div_complete`, combines `div_wait` with
   `lsu_busy` at `ex_wait_i`, and cancels the unit through `ex_kill`.
@@ -298,11 +305,16 @@ These structs reduce top-level wiring and make bubble injection safer because re
 
 ### Branch / jump handling
 
-Branches and jumps are resolved in EX. When taken:
+Branches and jumps are resolved in EX and emitted as typed candidates. When a
+candidate is selected:
 
-- `ex_redirect_en` / `ex_redirect_pc` update `pc_counter`.
-- `ex_flush_req` flushes `if2id` and `id2ex`.
-- Because the instruction memory has one-cycle latency, the fetch started before the redirect will return on the next cycle. `fetch_kill_q` (a delayed version of `ex_flush_req`) is OR'd into `ifid_flush` to discard that stale fetch result.
+- `core_ctrl` gives an older retirement redirect priority over EX and drives
+  the selected target to `pc_counter`.
+- `pipe_ctrl_t` flushes `if2id` and `id2ex` and suppresses younger work.
+- Because instruction memory has one-cycle latency, `fetch_kill_q` registers
+  one delayed invalidation to discard the stale response.
+- MRET carries its effective `mepc` target through EX/WB; retirement emits the
+  redirect in the same cycle as the CSR MRET command.
 
 ### Hazard handling
 
@@ -317,8 +329,10 @@ assign hazard_stall =
     );
 ```
 
-`core_ctrl.sv` also generates `pc_stall`, `ifid_stall`, `idex_stall`,
-`exwb_stall`, `ifid_flush`, `idex_flush`, delayed fetch kill, and `pipe_kill`.
+`core_ctrl.sv` also generates `pc_stall`, `instr_req`, `ifid_stall`,
+`idex_stall`, `ifid_flush`, `idex_flush`, delayed fetch kill, `pipe_kill`, and
+`ex_kill`. EX/WB advances every cycle because there is no downstream
+backpressure consumer; no artificial `exwb_stall` policy is exported.
 When a hazard is detected:
 
 - `pc_stall` and `ifid_stall` are asserted.
@@ -352,9 +366,12 @@ the effective post-retirement CSR context.
 ### Control/data conventions
 
 - `riscv_pkg.sv` defines opcodes, funct3/funct7 constants, enum control types (`alu_op_e`, `branch_op_e`, `jump_op_e`, `mem_size_e`, `wb_sel_e`, `muldiv_op_e`), and the pipeline packet structs. It replaces the old `define.sv`.
-- `riscv_pkg.sv` also contains compile-time hooks for future RV64 support (`+define+RISCV_XLEN_64`) and additional ALU ops (`ALU_ADDW`, `ALU_SUBW`, etc.).
-- RV32M multiplication remains combinational in `execute.sv`. DIV/DIVU/REM/REMU
-  use `radix2_divider.sv`; `riscv.sv` selects quotient/remainder, asserts the
+- `riscv_pkg.sv` deliberately fixes the production architecture to RV32. Wide
+  timers/counters and future accelerators keep their own explicit widths; RV64
+  would be a separately specified core variant rather than a compile-time macro.
+- RV32M multiplication uses the fixed registered blocking
+  `rv32m_mul_reg.sv` backend (PARTIAL/REDUCE/COMBINE/RESP). DIV/DIVU/REM/REMU
+  use `radix2_divider.sv`; `rv32m_unit.sv` arbitrates both backends, asserts the
   generic EX wait path, and suppresses incomplete EX/WB packets.
 - Data memory is little-endian; `lsu.sv` handles store strobe alignment and load byte/halfword extraction and sign/zero extension before forwarding the data to `retire_stage.sv`.
 - `data_ram.sv` is a pure BRAM template (no reset branch, no range checks) and

@@ -64,10 +64,7 @@ module tb_riscv_core #(
   // ------------------------------------------------------------
   // DUT
   // ------------------------------------------------------------
-  riscv #(
-    .AW(AW),
-    .DW(DW)
-  ) u_riscv (
+  riscv u_riscv (
     .clk_i           (clk),
     .rst_ni          (rst_n),
     .instr_ren_o     (instr_ren),
@@ -111,8 +108,6 @@ module tb_riscv_core #(
   // Data target outside the CPU boundary
   // ------------------------------------------------------------
   core_bus_data_ram #(
-    .AW(AW),
-    .DW(DW),
     .DEPTH(DATA_RAM_DEPTH),
     .INIT_FILE(DATA_FILE),
     .REQ_WAIT_CYCLES(DATA_REQ_WAIT_CYCLES),

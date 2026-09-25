@@ -7,8 +7,6 @@ import riscv_pkg::*;
 // cycle N+1. Writes are acknowledged as errors but never reach a stateful
 // device.
 module core_bus_default_target #(
-  parameter int AW = riscv_pkg::AW,
-  parameter int DW = riscv_pkg::DW,
   parameter logic [DW-1:0] DEFAULT_RDATA = '0,
   parameter bit DEFAULT_ERROR = 1'b1
 )(

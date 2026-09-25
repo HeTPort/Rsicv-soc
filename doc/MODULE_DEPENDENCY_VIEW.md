@@ -45,7 +45,7 @@ flowchart TD
   CPU --> DEC["decode"]
   CPU --> IDEX["id2ex"]
   CPU --> M["rv32m_unit"]
-  M --> MUL["rv32m_mul_comb"]
+  M --> MUL["rv32m_mul_reg"]
   M --> DIV["radix2_divider"]
   CPU --> EX["execute"]
   CPU --> LSU["lsu"]
@@ -55,9 +55,9 @@ flowchart TD
 
 The important replaceable boundary is `rv32m_unit`: decode issues a typed
 `rv32m_req_t`, and the unit returns `rv32m_rsp_t` plus busy/complete behavior.
-The current multiplier backend is combinational; a registered backend can be
-substituted behind this boundary, but its latency and backpressure must be
-verified because that changes pipeline timing and CPI.
+The current multiplier backend is the AR-030 registered blocking design. It
+runs PARTIAL/REDUCE/COMBINE/RESP while `rv32m_unit` holds the owning ID/EX
+packet; the divider remains the independent iterative backend.
 
 ## 3. Runtime data and control dependencies
 
@@ -86,15 +86,17 @@ flowchart LR
   EXWB --> RET["retire_stage"]
   RET --> RF["regfile"]
   RET --> CSR["csr_regfile"]
-  RET -->|redirect / kill| CTRL["core_ctrl"]
-  CTRL --> IF
-  CTRL --> IDEX
+  EX -->|EX redirect candidate / exception facts| CTRL["core_ctrl"]
+  RET -->|retirement redirect / WFI events| CTRL
+  CTRL -->|selected redirect / fetch and pipe_ctrl_t| IF
+  CTRL -->|hold / flush / kill| IDEX
 ```
 
 `retire_stage` is the sole owner of final architectural RF/CSR effects, trap
-selection, MRET/WFI, redirects, and commit. `core_ctrl` owns pipeline
-stall/flush/kill generation. `lsu` owns data-request state; the fabric owns
-address decoding and response ownership.
+selection, MRET/WFI, retirement redirects, and commit. `execute` produces only
+younger branch/jump candidates. `core_ctrl` owns candidate priority and all
+pipeline stall/flush/kill movement. `lsu` owns data-request state; the fabric
+owns address decoding and response ownership.
 
 ## 4. Shared compile-time dependencies
 
@@ -134,6 +136,7 @@ bus already provides the necessary leaf-module abstraction.
 - `fpga/zynq_mini_revb/top.sv` is the exact-board synthesis hierarchy above
   `riscv_soc`; the 25 MHz and 100 MHz profiles share this hierarchy.
 
-The 100 MHz routed build currently fails timing on the combinational multiply
-path. Therefore the hierarchy is structurally more abstract, but it is not yet
-a timing-closed 100 MHz implementation.
+The registered multiplier removes multiplication from the 100 MHz worst path.
+After AR-031 control consolidation, the exact current 95/100 MHz routes pass at
+WNS +0.078/+0.098 ns. The new worst path is operand -> branch/redirect -> ID/EX
+enable; it is the next control-path scaling boundary.

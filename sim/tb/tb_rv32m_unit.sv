@@ -18,9 +18,7 @@ module tb_rv32m_unit;
   logic busy;
   int unsigned case_count;
 
-  rv32m_unit #(
-    .DW(DW)
-  ) dut (
+  rv32m_unit dut (
     .clk_i       (clk),
     .rst_ni      (rst_n),
     .req_valid_i (req_valid),
@@ -107,12 +105,27 @@ module tb_rv32m_unit;
         @(negedge clk);
 
       if (is_multiply(op)) begin
+        @(posedge clk);
         #1;
-        assert (rsp_valid && rsp.result == expected)
-          else $fatal(1, "multiply mismatch op=%0d lhs=%h rhs=%h got=%h expected=%h",
-                      op, lhs, rhs, rsp.result, expected);
+        assert (!rsp_valid && busy && wait_required && !req_ready)
+          else $fatal(1, "multiply was not captured into its registered PARTIAL state");
         @(negedge clk);
         req_valid = 1'b0;
+        repeat (2) begin
+          @(posedge clk);
+          #1;
+          assert (!rsp_valid && busy && wait_required && !req_ready)
+            else $fatal(1, "multiply left its registered arithmetic pipeline early");
+        end
+        @(posedge clk);
+        #1;
+        assert (rsp_valid && rsp.result == expected && !wait_required)
+          else $fatal(1, "registered multiply mismatch op=%0d lhs=%h rhs=%h got=%h expected=%h",
+                      op, lhs, rhs, rsp.result, expected);
+        @(posedge clk);
+        #1;
+        assert (!rsp_valid && !busy)
+          else $fatal(1, "accepted multiply response did not return to idle");
       end else begin
         @(posedge clk);
         @(negedge clk);
@@ -173,19 +186,107 @@ module tb_rv32m_unit;
       req.lhs   = 32'h8000_0001;
       req.rhs   = 32'hffff_fffd;
       req_valid = 1'b1;
-      for (i = 0; i < 3; i = i + 1) begin
+      assert (req_ready)
+        else $fatal(1, "idle multiplier did not accept with response backpressure");
+      @(posedge clk);
+      #1;
+      assert (!rsp_valid && busy && wait_required && !req_ready)
+        else $fatal(1, "multiply did not enter EXEC under response backpressure");
+      @(negedge clk);
+      req_valid = 1'b0;
+      repeat (2) begin
+        @(posedge clk);
         #1;
-        assert (!req_ready && rsp_valid && rsp.result == expected)
-          else $fatal(1, "multiply request/response changed while backpressured");
+        assert (!rsp_valid && busy && wait_required && !req_ready)
+          else $fatal(1, "multiply left its registered arithmetic pipeline early under backpressure");
+      end
+      @(posedge clk);
+      #1;
+      assert (rsp_valid && rsp.result == expected && wait_required && !req_ready)
+        else $fatal(1, "multiply response was not registered and held");
+      for (i = 0; i < 3; i = i + 1) begin
         @(negedge clk);
+        assert (!req_ready && rsp_valid && rsp.result == expected && wait_required)
+          else $fatal(1, "multiply request/response changed while backpressured");
       end
       rsp_ready = 1'b1;
       #1;
-      assert (req_ready && rsp_valid && rsp.result == expected)
+      assert (!req_ready && rsp_valid && rsp.result == expected && !wait_required)
         else $fatal(1, "multiply transfer was not released by response ready");
+      @(posedge clk);
+      #1;
+      assert (!rsp_valid && !busy)
+        else $fatal(1, "multiply response did not clear after acceptance");
+      case_count = case_count + 1;
+    end
+  endtask
+
+  task automatic check_mul_kill_exec;
+    int i;
+    begin
+      @(negedge clk);
+      req.op    = MULDIV_MULHU;
+      req.lhs   = 32'hffff_0001;
+      req.rhs   = 32'h8000_0003;
+      req_valid = 1'b1;
+      while (!req_ready)
+        @(negedge clk);
+      @(posedge clk);
+      #1;
+      assert (busy && wait_required && !rsp_valid)
+        else $fatal(1, "multiply did not enter EXEC before kill");
+      @(negedge clk);
+      req_valid = 1'b0;
+      kill = 1'b1;
+      #1;
+      assert (!rsp_valid && !req_ready)
+        else $fatal(1, "kill did not suppress multiplier protocol outputs");
+      @(posedge clk);
+      @(negedge clk);
+      kill = 1'b0;
+      for (i = 0; i < 4; i = i + 1) begin
+        @(negedge clk);
+        assert (!rsp_valid && !busy)
+          else $fatal(1, "EXEC-killed multiply produced a late response");
+      end
+      run_case(MULDIV_MULHU, 32'hffff_0001, 32'h8000_0003);
+      case_count = case_count + 1;
+    end
+  endtask
+
+  task automatic check_mul_kill_response;
+    int i;
+    begin
+      @(negedge clk);
+      rsp_ready = 1'b0;
+      req.op    = MULDIV_MUL;
+      req.lhs   = 32'd12345;
+      req.rhs   = 32'd6789;
+      req_valid = 1'b1;
+      while (!req_ready)
+        @(negedge clk);
       @(posedge clk);
       @(negedge clk);
       req_valid = 1'b0;
+      repeat (2) @(posedge clk);
+      @(posedge clk);
+      #1;
+      assert (rsp_valid && wait_required)
+        else $fatal(1, "multiply did not reach held RESP before kill");
+      @(negedge clk);
+      kill = 1'b1;
+      #1;
+      assert (!rsp_valid)
+        else $fatal(1, "kill did not suppress held multiply response");
+      @(posedge clk);
+      @(negedge clk);
+      kill = 1'b0;
+      rsp_ready = 1'b1;
+      for (i = 0; i < 4; i = i + 1) begin
+        @(negedge clk);
+        assert (!rsp_valid && !busy)
+          else $fatal(1, "RESP-killed multiply produced a late response");
+      end
       case_count = case_count + 1;
     end
   endtask
@@ -255,6 +356,8 @@ module tb_rv32m_unit;
     end
 
     check_mul_backpressure();
+    check_mul_kill_exec();
+    check_mul_kill_response();
     check_backpressure();
     check_kill_restart();
 

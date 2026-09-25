@@ -5,7 +5,7 @@
 **Scope:** CPU pipeline, retirement, CSR state, redirects, the CPU-local data
 bus, and polling UART TX/RX
 
-**Last updated:** 2026-08-09
+**Last updated:** 2026-09-24
 
 This document defines what important signals mean, who owns them, when they are
 valid, and how future signals must be named and grouped. It complements the
@@ -76,6 +76,11 @@ intent, candidate, command, or protocol transfer instead.
 | `_o` | Output from the module. |
 | `_io` | Bidirectional electrical signal only; do not use for logical request/response protocols. |
 
+Reserve these suffixes for module boundaries. Internal combinational aliases
+use names that describe meaning (`operand1`, `selected_imm`, `branch_taken`),
+not apparent direction. Registered local state still uses `_q`, with `_d` only
+for an explicit next-state counterpart.
+
 ### 4.2 Time and role suffixes
 
 | Suffix | Meaning |
@@ -104,6 +109,19 @@ without a domain qualifier. Prefer `div_complete`, `irq_eligible`,
 - Do not encode transient timing in names such as `delayed2`; use a semantic
   name plus `_q`, or document an intentional pipeline stage.
 
+### 4.4 Width and parameter vocabulary
+
+The production core is deliberately RV32: scalar XLEN, architectural address
+width, and the CPU-local data bus are 32 bits. `AW` and `DW` in `riscv_pkg`
+are fixed architectural constants, not supported product parameters. Modules
+whose ports use package-owned packets must not expose shadow width parameters.
+
+Independent wide state remains explicit: `mtime`, `mtimecmp`, `mcycle`, and
+`minstret` are 64-bit and use paired RV32 accesses where software-visible.
+Genuinely reusable RAM/divider leaf IP may retain width/depth parameters only
+for configurations that elaborate and have their own verification evidence.
+Accelerator lane/accumulator widths are independent of scalar XLEN.
+
 ## 5. Packed type standard
 
 Create a packed struct when all fields:
@@ -123,12 +141,19 @@ Pipeline packets carry information belonging to one instruction. Their
 `valid` field is authoritative. Every invalid registered packet must equal its
 canonical all-zero bubble.
 
-| Current type | Current definition | Phase 3 evolution |
+At a packet-producing boundary, initialize the complete typed value from its
+named canonical bubble, then assign only fields owned by that boundary. A later
+fault override must likewise start from the canonical bubble rather than leave
+normal side-effect fields live. Do not replace this rule with a collection of
+independent field-level continuous assignments.
+
+| Current type | Current definition | Ownership note |
 |---|---|---|
 | `fetch_pkt_t` | Fetch response validity, error, PC, instruction bits. | No semantic change. |
 | `id_ex_pkt_t` | Decoded operands and RF/EX/memory/CSR intent; MRET/WFI markers. | No ownership change. |
-| `ex_wb_pkt_t` | Executed instruction, results, memory completion, synchronous trap metadata, MRET marker. | Add resolved `next_pc` and WFI marker so retirement has complete instruction semantics. |
+| `ex_wb_pkt_t` | Executed instruction, results, memory completion, synchronous trap metadata, resolved `next_pc`, MRET and WFI markers. | Retirement receives complete instruction semantics. |
 | `commit_pkt_t` | Ordered verification observation for a valid EX/WB instruction. | Remains observational; asynchronous trap entry is reported separately if needed rather than fabricated as a synchronous instruction trap. |
+| `pipe_ctrl_t` | PC/fetch and IF/ID/ID/EX hold/flush actions plus pipeline/EX kill. | One-cycle movement policy owned only by `core_ctrl`. |
 
 ### 5.2 Retirement types
 

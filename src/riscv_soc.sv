@@ -3,8 +3,6 @@
 import riscv_pkg::*;
 import soc_mem_map_pkg::*;
 module riscv_soc #(
-  parameter AW             = 32,
-  parameter DW             = 32,
   parameter PROG_RAM_DEPTH = SOC_PROG_RAM_DEPTH_WORDS,
   parameter DATA_RAM_DEPTH = SOC_DATA_RAM_DEPTH_WORDS,
   parameter int DATA_REQ_WAIT_CYCLES = 0,
@@ -101,9 +99,7 @@ module riscv_soc #(
     .waddr_i      (prog_wr_addr),
     .wdata_i      (prog_wr_data)
   );
-  riscv #(
-    .AW(AW), .DW(DW)
-  ) u_riscv (
+  riscv u_riscv (
     .clk_i           (clk),
     .rst_ni          (cpu_rst_n),
     .instr_ren_o     (instr_ren),
@@ -124,8 +120,6 @@ module riscv_soc #(
   );
 
   soc_data_fabric #(
-    .AW(AW),
-    .DW(DW),
     .TIMER_BASE(SOC_TIMER_BASE),
     .TIMER_END(SOC_TIMER_END),
     .UART_BASE(SOC_UART_BASE),
@@ -167,8 +161,6 @@ module riscv_soc #(
   );
 
   core_bus_gpio #(
-    .AW(AW),
-    .DW(DW),
     .GPIO_WIDTH(GPIO_WIDTH),
     .RESET_VALUE(GPIO_RESET_VALUE),
     .GPIO_OUT_OFFSET(GPIO_OUT_LOCAL_OFFSET)
@@ -184,8 +176,6 @@ module riscv_soc #(
   );
 
   core_bus_uart #(
-    .AW(AW),
-    .DW(DW),
     .CLK_FREQ_HZ(UART_CLK_FREQ_HZ),
     .BAUD_RATE(UART_BAUD_RATE),
     .RX_FIFO_DEPTH(UART_RX_FIFO_DEPTH),
@@ -208,8 +198,6 @@ module riscv_soc #(
   );
 
   mtime_timer #(
-    .AW(AW),
-    .DW(DW),
     .TICK_CYCLES(TIMER_TICK_CYCLES),
     .MTIMECMP_OFFSET(MTIMECMP_LOCAL_OFFSET),
     .MTIME_OFFSET(MTIME_LOCAL_OFFSET)
@@ -225,8 +213,6 @@ module riscv_soc #(
   );
 
   core_bus_data_ram #(
-    .AW(AW),
-    .DW(DW),
     .DEPTH(DATA_RAM_DEPTH),
     .INIT_FILE(DATA_INIT_FILE),
     .REQ_WAIT_CYCLES(DATA_REQ_WAIT_CYCLES),

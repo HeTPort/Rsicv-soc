@@ -53,8 +53,6 @@ module tb_soc_data_fabric;
   int cpu_response_count;
 
   soc_data_fabric #(
-    .AW(32),
-    .DW(32),
     .TIMER_BASE(TIMER_BASE),
     .TIMER_END(TIMER_END),
     .UART_BASE(UART_BASE),

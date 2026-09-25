@@ -52,7 +52,7 @@ Current ownership and status:
 | AR-018 | Phase 2 SoC contract | All data and instruction fault cases GREEN; closed |
 | AR-019 | Phase 2 data fabric | Centralized decoder/default target implemented and verified |
 | AR-025 | Phase 6 FreeRTOS | Official V11.3.0 port focused and extended ModelSim runs plus routed bitstream verified; physical execution open |
-| AR-026 | Continuous verification and post-release expansion | Scalable UVM architecture accepted; passive retirement slice not implemented |
+| AR-026 | Continuous verification and post-release expansion | Scalable UVM architecture accepted; ModelSim/UVM 1.2 toolchain gate verified, passive retirement slice not implemented |
 
 ## Verified baseline
 
@@ -680,6 +680,24 @@ For the initial single-hart FreeRTOS target:
 - [x] Keep MTIP hardware-owned even if other writable `mip` bits are added.
 
 ## Revised execution order and current position
+
+### AR-029 — Width knobs overstated the supported architecture
+
+**Status:** implemented and verified. See
+[`AR029_RV32_CONTRACT_AND_REFACTORING_SCOPE.md`](AR029_RV32_CONTRACT_AND_REFACTORING_SCOPE.md).
+The production scalar/core-bus contract is now explicitly RV32. Unsupported
+RV64 macro branches and shadow core/SoC/bus/peripheral width parameters are
+removed, while 64-bit timers/counters and genuinely generic RAM/divider
+parameters remain. This does not change the memory map, firmware ABI, or
+pipeline latency. AR-030 subsequently accepts the registered blocking
+multiplier for 95 MHz after routed timing/CPI/power evidence. AR-031 then
+centralizes typed redirect, fetch, hold, flush, and kill policy in `core_ctrl`,
+makes MRET retirement-owned, and closes the exact current 95/100 MHz builds at
++0.078/+0.098 ns WNS. The new route-dominated operand-to-redirect-to-ID/EX
+enable path remains the next frequency-scaling risk. AR-032 subsequently
+closes the first P3 cleanup slice: decode/execute local names and packet
+construction are normalized without changing interfaces, stages, timing, or
+ownership. Focused/protocol, smoke 23/23, ACT4 47/47, and layered lint pass.
 
 Steps 1–6 are complete. AR-003/AR-004 complete transaction/result ownership,
 AR-019 completes centralized data decoding/default routing, and Phase 3 adds
