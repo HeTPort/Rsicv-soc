@@ -3,7 +3,7 @@
 **Purpose:** keep source provenance, reading priority, paper audits, and later
 reproduction evidence separate from the central program plan.
 
-**Last updated:** 2026-09-25
+**Last updated:** 2026-09-26
 
 ## What belongs here
 
@@ -11,6 +11,7 @@ reproduction evidence separate from the central program plan.
 | --- | --- | --- |
 | [`SOURCE_REGISTRY.md`](SOURCE_REGISTRY.md) | Exact citations, canonical source links, access notes, intended use, priority, and current state | Add a row after identity and source are checked |
 | [`PAPER_AUDIT_TEMPLATE.md`](PAPER_AUDIT_TEMPLATE.md) | Claim, assumption, equation, baseline, reproduction, and decision audit | Keep as the reusable template |
+| [`W0_D1_EXECUTION_BRIEF.md`](W0_D1_EXECUTION_BRIEF.md) | Bounded source questions, candidate surrogate boundary, baseline contract, scenarios, oracle, and W0-D1 decision rules | Use only for W0-D1; it is not implementation evidence |
 | `papers/<paper-id>-<short-name>.md` | One detailed audit for one active paper | Create only when screening or close reading starts |
 | `../../research/reproductions/<paper-id>/` | Code, inputs, compact outputs, hashes, and commands for an active reproduction | Create only when an experiment starts |
 
@@ -31,6 +32,10 @@ Before committing any paper, dataset, model, figure, or third-party
 implementation, confirm compatible redistribution terms and update
 [`THIRD_PARTY_NOTICES.md`](../../THIRD_PARTY_NOTICES.md). A DOI or public web
 page is not by itself permission to copy the full work into this repository.
+Apply the separate
+[information-classification policy](../INFORMATION_CLASSIFICATION_AND_HANDLING.md)
+before placing unpublished results or source notes in Git or an external
+service.
 
 ## Source workflow
 

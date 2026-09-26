@@ -13,6 +13,9 @@ architecture, phase evidence, and implementation status.
   user names it or a scoped search identifies it as relevant.
 - Do not store secrets, credentials, personal data, copyrighted paper PDFs, or
   third-party source code here.
+- This is a Git-synchronised area, not a confidentiality boundary. Apply the
+  [information-classification policy](../doc/INFORMATION_CLASSIFICATION_AND_HANDLING.md)
+  before capture; uncertain or `DATA-CONFIDENTIAL` material stays outside Git.
 
 ## Workflow
 

@@ -71,6 +71,27 @@ Required sections:
 ## Scope and user/system outcome
 What observable outcome does this phase enable?
 
+## Decision contract
+| Field | Value |
+| --- | --- |
+| Decision question | One decision this phase must enable |
+| Linked research claims | Stable `RES-Hn` / `PROP-Hn` IDs, or `none` |
+| Linked product hypotheses | Stable `PROD-Hn` IDs, or `none` |
+| Current baseline / alternative | Existing implementation, algorithm, workflow, or no-build option |
+| GO condition | Evidence that justifies the declared successor |
+| PIVOT condition | Evidence that keeps the problem but changes method or boundary |
+| DEFER condition and re-entry | Missing external condition and exact restart trigger |
+| NO-GO condition | Evidence that ends this route without deleting its results |
+
+## Information classification before work
+| Field | Value |
+| --- | --- |
+| Anticipated data class | `DATA-PUBLIC` / `DATA-INTERNAL` / `DATA-CONFIDENTIAL` / `DATA-RESTRICTED` |
+| Potential confidential/restricted fields | Exact fields or `none identified` |
+| Repository-safe content | What may be committed and shared |
+| Approved external storage | Non-secret alias or `not required`; never record credentials here |
+| Classification owner and review trigger | Owner plus publication/patent/partner/result/phase trigger |
+
 ## Preconditions and assumptions
 Tool versions, clocks, memory map, plant/model assumptions, board constraints.
 
@@ -233,9 +254,29 @@ Bitstream hash, run duration, instruments/model version, screenshots/data.
 ## Known limitations and confidence
 What was not measured, model uncertainty, waivers, external blockers.
 
+## Information-classification review
+- Highest class actually produced:
+- Repository content retained and why it is safe:
+- External evidence IDs, safe hashes, and storage aliases, or `none`:
+- Reclassification/incident action, owner, date, and reason, or `none`:
+
 ## Exit-gate verdict
 PASS | FAIL | PARTIAL, with reviewer-readable reasons and next action.
+
+## Decision outcome
+GO | PIVOT | DEFER | NO-GO.
+
+- Linked claims supported, refuted, inconclusive, deferred, or superseded:
+- Product-hypothesis implication, or `none`:
+- Reusable artifacts and last valid evidence:
+- Successor phase/claim, or `none`:
+- Re-entry condition, or `not applicable`:
 ```
+
+The evidence verdict and decision outcome are deliberately independent. A
+completed falsification may be `PASS / NO-GO`; a promising but incomplete run
+may be `PARTIAL / DEFER`. A `PIVOT` must name the successor and preserve the
+earlier boundary and evidence rather than rewriting them.
 
 Large generated outputs should normally stay out of Git. Retain compact reports,
 summaries, hashes, failing seeds, and the commands needed to regenerate them.
@@ -259,6 +300,12 @@ summaries, hashes, failing seeds, and the commands needed to regenerate them.
 - [ ] Register source and generated consumers cannot silently diverge.
 - [ ] Positive, boundary, negative, fault, reset/race, and recovery cases exist.
 - [ ] Exit gate is measurable and all claims link to retained evidence.
+- [ ] Decision question, linked hypotheses, baseline, and GO/PIVOT/DEFER/NO-GO
+      conditions are explicit.
+- [ ] Anticipated and actual data classification, repository-safe subset,
+      owner, storage boundary, and review trigger are explicit.
+- [ ] Negative or stopped work retains last valid evidence, reusable artifacts,
+      successor/re-entry information, and is not silently rewritten.
 - [ ] Known limitations distinguish simulation, synthesis, FPGA, and product
       assurance.
 - [ ] `TODO.md`, living documents, diagrams, risks, and focused AR evidence are

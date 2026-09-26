@@ -3,7 +3,7 @@
 **Phase:** U0 passive UVM — toolchain confirmation
 **Status:** Verified
 **Owner:** Verification
-**Last updated:** 2026-09-16
+**Last updated:** 2026-09-26
 **Depends on:** [requirements](requirements.md), [verification plan](verification_plan.md)
 **Related evidence:** [AR-026](../../ar/AR026_SCALABLE_UVM_VERIFICATION_ARCHITECTURE.md)
 
@@ -71,9 +71,34 @@ Not applicable.
 - A first attempted wrapper command used unavailable `powershell.exe`; the
   actual evidence uses the discovered PowerShell Core `pwsh` command.
 
+## Information-classification review
+
+- Highest class actually produced: `DATA-PUBLIC` for retained U0 material.
+- Repository content retained and why it is safe: standalone test/runner,
+  executable and library version identity, commands, pass/fail summary, and
+  non-sensitive installation paths; no credential or entitlement token.
+- External evidence IDs, safe hashes, and storage aliases: none required.
+- Reclassification/incident action: none; verification owner reviewed this
+  boundary on 2026-09-26.
+
 ## Exit-gate verdict
 
 **PASS for the U0 toolchain-confirmation sub-gate.** ModelSim SE-64 2019.2 can
 compile and run the installed UVM 1.2 library on this host, and the result gate
 rejects a clean simulation that lacks its expected success marker. The full U0
 passive retirement vertical slice is not implemented and remains open.
+
+## Decision outcome
+
+**GO for the toolchain-confirmation sub-gate.** This outcome permits the next
+U0 step—the DUT-facing passive retirement contract, monitor, and scoreboard—to
+start, but does not mark the full U0 phase complete.
+
+- Linked research-claim disposition: none.
+- Linked product-hypothesis implication: none.
+- Reusable artifacts and last valid evidence: the standalone smoke source,
+  checked-in runner, negative result gate, and compact toolchain summary remain
+  valid for the tested host identity.
+- Successor: the open passive retirement vertical slice in this U0 package.
+- Re-entry condition: repeat the toolchain gate when the simulator, UVM
+  library, host installation, or license path changes materially.

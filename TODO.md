@@ -768,9 +768,10 @@ heartbeats; PL D1 toggled and deliberate K2 restarts recovered. See
 
 ## Continuous Track W — Workload and acceleration discovery
 
-**Status:** W0 planning baseline, source registry, and paper-audit template
-created; starter sources are queued, but no paper has passed local audit, no W0
-workload has been profiled, and no accelerator is selected.
+**Status:** W0 planning baseline, source registry, claim/product-hypothesis
+registers, decision-outcome rules, and paper-audit template created; starter
+sources are queued, but no paper has passed local audit, no W0 workload has
+been profiled, and no accelerator is selected.
 
 The central research map is
 [`doc/RESEARCH_PROGRAM_PLAN.md`](doc/RESEARCH_PROGRAM_PLAN.md). It keeps
@@ -785,9 +786,21 @@ implemented feature.
 
 - [x] Define the research-document structure, paper lifecycle, audit template,
       provenance boundary, and links to TODO/phase evidence.
-- [ ] Select a bounded DC-bus/battery/motor-compressor surrogate scenario with
-      units, ranges, sample periods, deadlines, safe states, and explicit
-      unknowns.
+- [x] Define stable research/product hypothesis IDs, revision rules,
+      GO/PIVOT/DEFER/NO-GO outcomes, and evidence-preserving stop/re-entry
+      requirements.
+- [x] Define repository-wide `DATA-*` information classes, pre-commit/upload
+      questions, external-storage boundaries, and phase result review rules.
+- [ ] Execute `W0-D1`: decide whether one replaceable battery–DC-bus–motor/
+      compressor surrogate is bounded enough for deterministic rule/PI
+      comparison. Produce the signal/unit/range/status table, timing and safe
+      state, three scenario classes, baseline contract, explicit unknowns, and
+      an outcome using
+      [`doc/research/W0_D1_EXECUTION_BRIEF.md`](doc/research/W0_D1_EXECUTION_BRIEF.md);
+      keep it `NOT RUN` until those artifacts exist.
+- [ ] After a `W0-D1` GO outcome, freeze the selected surrogate boundary in the
+      active W0 phase requirements and trace stable requirement IDs into its
+      scenarios and tests.
 - [ ] Classify energy-management/control/estimation algorithm families and
       select auditable baselines rather than choosing by venue or novelty.
 - [ ] Create deterministic high-level and bounded-C versions of the first
@@ -1003,9 +1016,9 @@ for the first FreeRTOS FPGA demonstration:
    path. UVM 1.2 compile/runtime and the negative result gate now pass; the next
    U0 work is the passive retirement contract/monitor, not a download. U0 does
    not block P0.
-5. Start W0 with one bounded surrogate use case, audited algorithms, a
-   deterministic C workload, and L0/L3 measurement; CoreMark is a secondary L1
-   baseline, not the accelerator-selection gate.
+5. Execute the research plan's `W0-D1` decision contract first. Only after its
+   GO outcome, start the bounded rule/PI reference and C workload; CoreMark is
+   a secondary L1 baseline, not the accelerator-selection gate.
 6. Advance M0 low-order modelling and C0 safe-control requirements in parallel;
    open their evidence packages only with stable requirement IDs, and do not
    treat documentation as implementation evidence.

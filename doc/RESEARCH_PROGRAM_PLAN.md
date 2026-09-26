@@ -6,7 +6,7 @@ workload-discovery plan
 **Status:** Accepted planning baseline; it records no reproduced paper result,
 implemented accelerator, validated plant, or propulsion feasibility claim
 
-**Last updated:** 2026-09-25
+**Last updated:** 2026-09-26
 
 ## 1. Possible development path
 
@@ -91,6 +91,66 @@ An MMIO accelerator initially needs a C driver and golden model, not a custom
 compiler. A custom ISA or programmable vector/NPU path may later justify
 compiler work, but that is a product/runtime decision, not a prerequisite for
 W0.
+
+### Decision and uncertainty contract
+
+Every active research or engineering phase has one primary **decision
+question**. Implementation, simulation, measurement, paper reproduction, and
+customer discovery produce evidence for that decision; completing a module is
+not itself the decision.
+
+Phase results record two independent conclusions:
+
+- **evidence verdict:** `PASS`, `FAIL`, or `PARTIAL` says whether the declared
+  experiment and oracle were completed;
+- **decision outcome:** `GO`, `PIVOT`, `DEFER`, or `NO-GO` says what the program
+  should do with the evidence.
+
+A well-executed experiment may be `PASS / NO-GO` when it credibly falsifies an
+accelerator, propulsion, algorithm, or product hypothesis. That is retained
+research evidence, not an incomplete phase.
+
+Research claims use stable IDs and the lifecycle `Proposed -> Active ->
+Supported`, `Refuted`, `Inconclusive`, `Deferred`, or `Superseded`. Product
+hypotheses use `Unvalidated -> Testing -> Supported` or `Refuted`, `Deferred`,
+or `Superseded`. These states express evidence, not confidence by repetition.
+
+Minor wording, threshold, or operating-envelope refinement keeps the stable ID
+and adds a dated revision. A change to the claimed mechanism, population,
+system boundary, or falsification test creates a new ID; the old claim is
+marked `Superseded` or `Refuted` and links to the successor. Evidence is never
+silently reassigned to a materially different claim.
+
+Keep at most one primary and two supporting research claims `Active`. New
+ideas remain in [`notes/inbox/`](../notes/inbox/) until screened. A stopped
+phase retains its last valid evidence, failure classification, reusable
+artifacts, successor, and explicit re-entry condition.
+
+### Program research-claim register
+
+These are hypotheses to test, not accepted project facts:
+
+| ID | Falsifiable claim | Principal test / falsifier | State | Evidence dependency | Next decision |
+| --- | --- | --- | --- | --- | --- |
+| `RES-H1` | At least two accepted power/control workloads expose a repeated bounded domain primitive after reasonable software/layout optimization | W0 profiles must show the same bounded operation; refute or narrow if hotspots disappear or remain workload-specific | Proposed | W0.1–W0.5 | W0.6 common-kernel decision |
+| `RES-H2` | A deadline- and fault-aware accelerator can reduce end-to-end execution energy or worst observed latency without degrading the declared control oracle | Refute if transfer/software overhead removes the gain, numeric error violates the oracle, or safe recovery is unbounded | Proposed | `RES-H1`, P1, C0, stable M0/W0 workload | A0 GO/PIVOT/NO-GO |
+| `PROP-H1` | A mechanically compressed, ionization-assisted electric-propulsion chain has a bounded operating region with net system benefit after energy, heat, mass-flow, momentum, and carried-mass costs | Refute or defer if conservative parameter ranges cannot close the balances or the advantage disappears after system costs | Proposed | M0 sensitivity study, later M1 evidence | Physical-concept feasibility decision |
+
+### Product-hypothesis register
+
+Product hypotheses do not become requirements until customer/adoption evidence
+exists. Keep them here while unvalidated; create a separate product-discovery
+record only when the first interview, trial, cost comparison, or purchase
+signal is retained.
+
+| ID | User/problem hypothesis | Value and adoption test | State | Next evidence |
+| --- | --- | --- | --- | --- |
+| `PROD-H1` | Small power-control or propulsion research teams have a recurring integration/verification problem that a deterministic control platform solves better than separate MCU/DSP/FPGA tooling | Measure present workflow time/cost, required interfaces, acceptable migration effort, and willingness to trial | Unvalidated | Bounded workload plus initial problem interviews |
+| `PROD-H2` | Bounded execution, explicit safe fallback, and reusable EMS kernels are valuable enough to justify an accelerator/IP/platform rather than optimized software alone | Compare end-to-end benefit, engineering/verification cost, deployment friction, and a real user's acceptance criterion | Unvalidated | W0/P1/C0 evidence before A0 product claims |
+
+Research value and product value are assessed separately. A scientifically
+useful negative result may prevent product waste; a valuable integration
+feature may be a product differentiator without being a publishable novelty.
 
 ## 2. The plan is the hub, not the evidence warehouse
 
@@ -420,8 +480,45 @@ evidence can promote a common kernel into A0.
 
 ## 8. Immediate next research actions
 
-1. Select one bounded DC-bus/battery/motor-compressor surrogate scenario and
-   state ranges, sample periods, deadlines, safe state, and unknowns.
+### W0-D1 — bound the first surrogate use case
+
+**Status:** `Planned / NOT RUN`
+
+**Execution brief:**
+[`research/W0_D1_EXECUTION_BRIEF.md`](research/W0_D1_EXECUTION_BRIEF.md) defines
+the bounded reading questions, candidate system boundary, tables, baseline
+contracts, scenarios, oracles, classification review, and decision record.
+
+**Decision question:** Is one replaceable battery–DC-bus–motor/compressor
+surrogate bounded well enough to generate deterministic scenarios and compare
+the same rule/PI workload in a high-level model and bounded C?
+
+**Linked hypotheses:** `RES-H1` (enabling evidence) and `PROD-H1` (problem
+relevance remains unvalidated). This step does not test `RES-H2` or establish
+propulsion feasibility.
+
+**Required outputs:**
+
+1. a signal table with direction, unit, sign, scaling, provisional range,
+   source, and unknown/assumed/measured status;
+2. control-period and deadline ranges, timing rationale, safe state, fault
+   response, and uncertainty bounds;
+3. at least nominal demand-change, limit/overload, and sensor/actuator-fault
+   deterministic scenarios;
+4. a rule/PI baseline contract with inputs, outputs, constraints, and oracle,
+   but no claimed performance result;
+5. a GO/PIVOT/DEFER/NO-GO decision on whether implementation can start.
+6. an anticipated data classification and repository-safe evidence boundary;
+   unknown classification blocks commit/upload rather than blocking analysis.
+
+**Outcome rules:** `GO` opens
+`doc/plans/w0-workload-discovery/` when implementation begins. `PIVOT` narrows
+the motor/compressor to a simpler bounded electrical/mechanical load if its
+unknowns dominate. `DEFER` records which source, parameter, or expert input is
+missing. `NO-GO` is valid only if no bounded control-relevant surrogate can be
+defined without inventing the conclusion.
+
+1. Execute `W0-D1`; do not select an accelerator or create an empty phase tree.
 2. Select one review or representative paper from each of EMS, estimation, and
    accelerator/data-movement research; create exact audit files from the
    template rather than summarizing them only in chat.

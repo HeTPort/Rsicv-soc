@@ -3,7 +3,7 @@
 **Purpose:** select the smallest sufficient document and evidence set for one
 task. This file is a routing map, not an additional status ledger.
 
-**Last updated:** 2026-09-25
+**Last updated:** 2026-09-26
 
 ## 1. Authority map
 
@@ -18,9 +18,11 @@ than whichever text was read most recently.
 | What architecture decision is accepted? | [`ARCHITECTURE_DESIGN_AND_DECISIONS.md`](ARCHITECTURE_DESIGN_AND_DECISIONS.md) plus the indexed [`ar/AR*.md`](ar/README.md) evidence |
 | What is the current beginner-oriented system explanation? | [`PROJECT_KNOWLEDGE_BASE.md`](PROJECT_KNOWLEDGE_BASE.md) |
 | What research direction or paper decision exists? | [`RESEARCH_PROGRAM_PLAN.md`](RESEARCH_PROGRAM_PLAN.md) plus the relevant paper audit |
+| What research claim or product hypothesis is current? | The claim/hypothesis registers in [`RESEARCH_PROGRAM_PLAN.md`](RESEARCH_PROGRAM_PLAN.md) |
 | What source is queued and where did it come from? | [`research/SOURCE_REGISTRY.md`](research/SOURCE_REGISTRY.md) |
 | What is merely an unreviewed idea? | [`notes/inbox/`](../notes/inbox/) |
 | What may be reused and under what boundary? | [`REFERENCE_INDEX.md`](REFERENCE_INDEX.md), [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md), and the root license |
+| May this information be committed, shared, or uploaded? | [`INFORMATION_CLASSIFICATION_AND_HANDLING.md`](INFORMATION_CLASSIFICATION_AND_HANDLING.md) |
 
 `README.md` is the public orientation and quick-start page. It must link to the
 owners above rather than become another detailed status database.
@@ -90,10 +92,11 @@ physical measurements as separate identities.
 
 ### W0/M0/C0 research work
 
-Start with the relevant section of the research plan, the source-registry row,
-the active phase package when created, one bounded system question, and only
-the selected paper/model audit. Do not browse every candidate source or treat
-an inbox note as a requirement.
+Start with one registered claim ID, the relevant section of the research plan,
+the source-registry row, the active phase package when created, one bounded
+decision question, and only the selected paper/model audit. The first planned
+decision is `W0-D1`. Do not browse every candidate source or treat an inbox
+note as a requirement.
 
 ### Release, licensing, or external reuse
 
@@ -104,9 +107,14 @@ reuse rights from repository popularity.
 ## 4. Storage and handoff rules
 
 - `notes/inbox/`: committed, cross-device, unreviewed ideas; excluded from
-  default reads.
+  default reads and limited to `DATA-PUBLIC` or explicitly approved
+  `DATA-INTERNAL` content.
 - `doc/research/`: tracked source provenance and active audits; full-text
   originals stay outside Git by default.
+- confidential/restricted evidence: approved encrypted storage outside the
+  repository; tracked documents contain only a sanitized summary, stable ID,
+  safe hash, and non-secret storage alias allowed by the
+  [classification policy](INFORMATION_CLASSIFICATION_AND_HANDLING.md).
 - `.planning/<task-id>/`: ignored local agent plan/findings/progress; never the
   source of product requirements or proof.
 - `doc/plans/<phase-id>/`: committed cross-conversation requirements and
@@ -130,6 +138,18 @@ Use these words precisely:
 - `Verified`: the declared gate passed with retained actual evidence.
 - `Deferred`: intentionally postponed with a stated entry condition.
 - `Superseded`: replaced by a linked newer decision/evidence set.
+
+Keep lifecycle and outcome words separate from the status above:
+
+- research claims: `Proposed`, `Active`, `Supported`, `Refuted`,
+  `Inconclusive`, `Deferred`, or `Superseded`;
+- product hypotheses: `Unvalidated`, `Testing`, `Supported`, `Refuted`,
+  `Deferred`, or `Superseded`;
+- phase decision outcome: `GO`, `PIVOT`, `DEFER`, or `NO-GO`.
+
+An evidence package can be `Verified` with a `NO-GO` outcome when the declared
+experiment successfully disproves the route. A `PIVOT` creates a linked
+successor instead of editing the old question into a different one.
 
 If status drift is found, correct the owning ledger/result first, then update
 public summaries in the same change.

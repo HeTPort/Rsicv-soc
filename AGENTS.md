@@ -87,7 +87,7 @@ Maintain as applicable:
 Give requirements stable IDs and trace them into tests/assertions/results. Link
 existing AR and guide evidence; do not silently duplicate or supersede it.
 
-## 5. License and provenance boundary
+## 5. License, provenance, and confidentiality boundary
 
 - Original material is governed by the root noncommercial source-available
   `LICENSE`; do not call the repository OSI open source.
@@ -102,6 +102,16 @@ existing AR and guide evidence; do not silently duplicate or supersede it.
   reuse and notices are deliberately reviewed.
 - Do not accept substantial external code/RTL contributions until written
   contribution terms preserve the project's licensing options.
+- Before committing, uploading, or pasting project data into an external
+  service, apply [`doc/INFORMATION_CLASSIFICATION_AND_HANDLING.md`](doc/INFORMATION_CLASSIFICATION_AND_HANDLING.md).
+- Use `DATA-PUBLIC`, `DATA-INTERNAL`, `DATA-CONFIDENTIAL`, or
+  `DATA-RESTRICTED`; unresolved material is treated as `DATA-CONFIDENTIAL` and
+  is not committed or uploaded until its owner decides.
+- A Git commit is a potential disclosure. Keep confidential/restricted payloads
+  outside the repository; retain only approved sanitized summaries, stable
+  evidence IDs, safe hashes, and non-secret storage aliases.
+- Credentials and private keys belong in a secret manager, never source,
+  documentation, logs, phase evidence, prompts, or a general database.
 
 ## 6. Stable project facts and invariants
 

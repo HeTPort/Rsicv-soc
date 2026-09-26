@@ -5,7 +5,7 @@
 **Status:** starter source set registered; no source below has passed local
 audit or reproduction
 
-**Last updated:** 2026-09-25
+**Last updated:** 2026-09-26
 
 This file answers four questions: what the source is, where the original comes
 from, why it is in the queue, and whether local review has started. It does not
@@ -30,17 +30,19 @@ prove a paper's claims and does not authorize copying its full text.
 | Order | ID | Source role | State | Intended local output |
 | ---: | --- | --- | --- | --- |
 | 1 | `EMS-001` | Hybrid-electric aircraft architecture, conceptual design, EMS, and safety overview | Candidate / queued | Vocabulary and system-boundary notes for W0/M0 |
-| 2 | `EMS-002` | Recent aircraft EMS taxonomy across rule, optimization, and learning methods | Candidate / queued | Algorithm-family comparison and research-gap list |
-| 3 | `EMS-003` | Battery/supercapacitor EMS methods and comparison dimensions | Candidate / queued | Candidate baselines, constraints, metrics, and failure concerns |
-| 4 | `EMS-004` | Battery/supercapacitor topology, converters, control, and applications | Candidate / queued | System topology and interface assumptions for the surrogate plant |
-| 5 | `MODEL-001` | Low-order Thevenin battery-model implementation reference | Candidate / queued | M0 model boundary and parameter list; not yet an adopted implementation |
-| 6 | `CTRL-001` | Aircraft TEEM MPC compared with a PI baseline | Candidate / queued | MPC/PI comparison questions and control metrics |
-| 7 | `EMS-005` | Battery/supercapacitor rule, quadratic-MPC, and regularized-MPC comparison | Candidate / queued for reproducibility screening | Go/no-go decision for the first bounded paper reproduction |
+| 2 | `EMS-004` | Battery/supercapacitor topology, converters, control, and applications | Candidate / queued | System topology and interface assumptions for the surrogate plant |
+| 3 | `MODEL-001` | Low-order Thevenin battery-model implementation reference | Candidate / queued | M0 model boundary and parameter list; not yet an adopted implementation |
+| 4 | `EMS-003` | Battery/supercapacitor EMS methods and comparison dimensions | Candidate / queued | Candidate baselines, constraints, metrics, and failure concerns |
+| 5 | `CTRL-002` | NASA technical memorandum comparing centralized/distributed MPC with a PI benchmark | Candidate / queued after boundary definition | Baseline-fairness, constraint, operating-point, and transient-metric questions |
+| 6 | `EMS-005` | Battery/supercapacitor rule, quadratic-MPC, and regularized-MPC comparison | Candidate / queued for reproducibility screening | Go/no-go decision for the first bounded paper reproduction |
+| 7 | `EMS-002` | Recent aircraft EMS taxonomy across rule, optimization, and learning methods | Candidate / later taxonomy check | Algorithm-family comparison and research-gap list |
+| — | `CTRL-001` | NASA TEEM MPC presentation | Candidate / supporting summary | Presentation-level map to the detailed `CTRL-002` technical memorandum |
 | — | `PROP-001` | Classical compressor surge/rotating-stall system model | Deferred | Revisit only after the simple M0 motor/compressor boundary is stable |
 
-The sequence is deliberate: learn the system and classification first, define
-a small local model second, and only then spend time reconstructing an MPC
-paper. `PROP-001` is relevant to the long-term propulsion model but is not the
+The sequence is deliberate: define architecture/topology/model boundaries,
+choose one bounded baseline and metric set, then screen MPC comparison and
+reproduction sources. `EMS-002` refreshes the taxonomy after the first boundary
+exists. `PROP-001` is relevant to the long-term propulsion model but is not the
 first battery–bus–motor/compressor model.
 
 ## 3. Source records
@@ -110,6 +112,17 @@ first battery–bus–motor/compressor model.
 | Access checked | 2026-09-25; NTRS labels distribution “Public” and copyright “Public Use Permitted” |
 | Intended use | Study how an MPC and PI baseline are compared on a nonlinear turbofan model and which transient-operability metrics are used |
 | State / audit | Candidate / queued; detailed audit not created |
+| Local original | None in Git; hash not applicable |
+
+### CTRL-002 — NASA TEEM MPC technical memorandum
+
+| Field | Record |
+| --- | --- |
+| Exact citation | Elyse D. Hill, Aria E. Amthor, Donald I. Soloway, Donald L. Simon, and Joseph W. Connolly, “Model Predictive Control Strategies for Turbine Electrified Energy Management,” NASA Technical Reports Server document 20230010222, Technical Memorandum E-20144 / GT2023-101735, 2023 |
+| Official source | [NASA NTRS 20230010222](https://ntrs.nasa.gov/citations/20230010222) |
+| Access checked | 2026-09-26; NTRS labels distribution “Public,” copyright “Public Use Permitted,” and technical review “NASA Technical Management” |
+| Intended use | Audit how centralized/distributed linear MPC and a PI benchmark share constraints, operating conditions, nonlinear-plant evidence, and transient-operability metrics; do not transfer turbofan-specific requirements into W0 without justification |
+| State / audit | Candidate / queued after W0-D1 boundary definition; detailed audit not created |
 | Local original | None in Git; hash not applicable |
 
 ### EMS-005 — regularized MPC reproduction candidate

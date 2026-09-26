@@ -3,7 +3,7 @@
 **Phase:** U0 passive UVM — toolchain confirmation
 **Status:** Accepted
 **Owner:** Verification
-**Last updated:** 2026-09-16
+**Last updated:** 2026-09-26
 **Depends on:** AR-026; installed ModelSim/Questa toolchain
 **Related evidence:** [AR-026](../../ar/AR026_SCALABLE_UVM_VERIFICATION_ARCHITECTURE.md), [verification plan](verification_plan.md), [results](results.md)
 
@@ -12,6 +12,29 @@
 Prove with a minimal standalone test whether the installed simulator can
 compile and execute UVM, and retain the exact version, library selection,
 commands, and pass/fail evidence needed before DUT integration begins.
+
+## Decision contract
+
+| Field | Definition |
+|---|---|
+| Decision question | Can the installed, legally available ModelSim/Questa path run a reproducible minimal UVM test well enough to permit DUT-facing passive UVM integration? |
+| Linked research claims | None; U0 is verification infrastructure, not evidence for a research claim. |
+| Linked product hypotheses | None. |
+| Current baseline/alternative | Keep the existing directed tests, SVA, and regressions without depending on UVM. |
+| GO condition | Exact simulator/UVM identity is recorded, the positive smoke passes, and a deliberately invalid result is rejected. |
+| PIVOT condition | The installed path fails but another legally available and supportable simulator/UVM path can be evaluated. |
+| DEFER and re-entry condition | License, installation, or host access is unavailable; re-enter only when the exact executable/library path can be tested. |
+| NO-GO condition | No legally available and reproducible UVM path exists for the project, so the existing verification stack remains the selected approach. |
+
+## Information classification before work
+
+| Field | Value |
+| --- | --- |
+| Anticipated data class | `DATA-PUBLIC` for the retained source, commands, versions, and sanitized toolchain results. |
+| Potential confidential/restricted fields | Simulator license credentials or entitlement records; none are required in this package. |
+| Repository-safe content | Test source, runner, public executable/version identity, compact output summary, and result status. |
+| Approved external storage | Not required for the retained U0 evidence; any license credential remains in its designated system. |
+| Classification owner and review trigger | Verification owner; repeat on simulator, library, host, license path, or evidence-content change. |
 
 ## Preconditions and assumptions
 

@@ -18,10 +18,12 @@ $requiredPaths = @(
     'README.md',
     'TODO.md',
     'doc/CONTEXT_ROUTER.md',
+    'doc/INFORMATION_CLASSIFICATION_AND_HANDLING.md',
     'doc/RESEARCH_PROGRAM_PLAN.md',
     'doc/research/README.md',
     'doc/research/SOURCE_REGISTRY.md',
     'doc/research/PAPER_AUDIT_TEMPLATE.md',
+    'doc/research/W0_D1_EXECUTION_BRIEF.md',
     'doc/ROADMAP_AND_LEARNING_PATH.md',
     'doc/PHASE_EVIDENCE_TEMPLATE.md',
     'doc/plans/README.md',
@@ -103,6 +105,92 @@ if ($phaseIndex -match 'U0\s*\|\s*`u0-passive-uvm/`\s*\|\s*Create') {
 $readme = Get-Content -LiteralPath (Join-Path $repoRoot 'README.md') -Raw
 if ($readme -match '\*\*P0 active; P1 gated\*\*') {
     Add-GovernanceError 'README.md contains the superseded P0-active status.'
+}
+
+$phaseTemplate = Get-Content -LiteralPath (Join-Path $repoRoot 'doc/PHASE_EVIDENCE_TEMPLATE.md') -Raw
+$requiredDecisionMarkers = @(
+    '## Decision contract',
+    '| Linked research claims |',
+    '| Linked product hypotheses |',
+    '| NO-GO condition |',
+    '## Decision outcome',
+    'GO | PIVOT | DEFER | NO-GO'
+    '## Information classification before work'
+    '## Information-classification review'
+    'DATA-CONFIDENTIAL'
+)
+foreach ($marker in $requiredDecisionMarkers) {
+    if (-not $phaseTemplate.Contains($marker)) {
+        Add-GovernanceError "Phase evidence template is missing decision marker: $marker"
+    }
+}
+
+$researchPlan = Get-Content -LiteralPath (Join-Path $repoRoot 'doc/RESEARCH_PROGRAM_PLAN.md') -Raw
+$requiredResearchMarkers = @(
+    '### Program research-claim register',
+    '### Product-hypothesis register',
+    '`RES-H1`',
+    '`RES-H2`',
+    '`PROP-H1`',
+    '`PROD-H1`',
+    '`PROD-H2`',
+    '### W0-D1 — bound the first surrogate use case'
+)
+foreach ($marker in $requiredResearchMarkers) {
+    if (-not $researchPlan.Contains($marker)) {
+        Add-GovernanceError "Research plan is missing decision-governance marker: $marker"
+    }
+}
+
+$todo = Get-Content -LiteralPath (Join-Path $repoRoot 'TODO.md') -Raw
+if (-not $todo.Contains('Execute `W0-D1`')) {
+    Add-GovernanceError 'TODO.md does not identify W0-D1 as the next research decision.'
+}
+
+$classificationPolicy = Get-Content -LiteralPath (Join-Path $repoRoot 'doc/INFORMATION_CLASSIFICATION_AND_HANDLING.md') -Raw
+foreach ($marker in @('DATA-PUBLIC', 'DATA-INTERNAL', 'DATA-CONFIDENTIAL', 'DATA-RESTRICTED', 'If classification is unresolved')) {
+    if (-not $classificationPolicy.Contains($marker)) {
+        Add-GovernanceError "Information-classification policy is missing marker: $marker"
+    }
+}
+
+$w0Brief = Get-Content -LiteralPath (Join-Path $repoRoot 'doc/research/W0_D1_EXECUTION_BRIEF.md') -Raw
+foreach ($marker in @('Planned / `NOT RUN`', 'Pass A — required boundary sources', '`BASE-0` mandatory rule baseline', '`GO` requires')) {
+    if (-not $w0Brief.Contains($marker)) {
+        Add-GovernanceError "W0-D1 execution brief is missing marker: $marker"
+    }
+}
+
+$sourceRegistry = Get-Content -LiteralPath (Join-Path $repoRoot 'doc/research/SOURCE_REGISTRY.md') -Raw
+if (-not $sourceRegistry.Contains('### CTRL-002 — NASA TEEM MPC technical memorandum')) {
+    Add-GovernanceError 'Research source registry is missing CTRL-002.'
+}
+
+$researchIndex = Get-Content -LiteralPath (Join-Path $repoRoot 'doc/research/README.md') -Raw
+if (-not $researchIndex.Contains('W0_D1_EXECUTION_BRIEF.md')) {
+    Add-GovernanceError 'Research index is missing the W0-D1 execution brief.'
+}
+
+$inboxReadme = Get-Content -LiteralPath (Join-Path $repoRoot 'notes/inbox/README.md') -Raw
+if (-not $inboxReadme.Contains('data_classification: REVIEW_REQUIRED') -or
+    -not $inboxReadme.Contains('INFORMATION_CLASSIFICATION_AND_HANDLING.md')) {
+    Add-GovernanceError 'Idea-inbox template is missing its pre-commit classification reminder.'
+}
+
+$u0Requirements = Get-Content -LiteralPath (Join-Path $repoRoot 'doc/plans/u0-passive-uvm/requirements.md') -Raw
+if (-not $u0Requirements.Contains('## Decision contract')) {
+    Add-GovernanceError 'The active U0 requirements do not contain a decision contract.'
+}
+if (-not $u0Requirements.Contains('## Information classification before work')) {
+    Add-GovernanceError 'The active U0 requirements do not contain an information-classification boundary.'
+}
+
+$u0Results = Get-Content -LiteralPath (Join-Path $repoRoot 'doc/plans/u0-passive-uvm/results.md') -Raw
+if (-not $u0Results.Contains('## Decision outcome')) {
+    Add-GovernanceError 'The active U0 results do not contain a decision outcome.'
+}
+if (-not $u0Results.Contains('## Information-classification review')) {
+    Add-GovernanceError 'The active U0 results do not contain an information-classification review.'
 }
 
 $markdownFiles = @(
