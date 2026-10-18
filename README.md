@@ -18,6 +18,14 @@ requirements. There is not yet power-management IP, a motor/compressor
 controller, a validated plant model, thrust-producing hardware, or
 propulsion-feasibility evidence.
 
+The owner has started an independent, specification-first core rewrite on
+`codex/core-v2-spec-first`. The [CV2 foundation](doc/plans/core-v2-foundation/requirements.md)
+defines the [target directory ownership](doc/plans/core-v2-foundation/architecture.md)
+and [verification gates](doc/plans/core-v2-foundation/verification_plan.md).
+The existing `src/` implementation remains the v1 reference; v2 RTL and
+verification runs have not started. Actual progress is owned by
+[CV2 results](doc/plans/core-v2-foundation/results.md).
+
 **License status:** the original project material is source-available for
 noncommercial learning, teaching, and academic research. Commercial use
 requires a separate written license; see [License and commercial use](#license-and-commercial-use).

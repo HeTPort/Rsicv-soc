@@ -40,3 +40,4 @@ architecture decision log and relevant phase package.
 - [AR-031 — Core Control Ownership Consolidation](AR031_CORE_CONTROL_OWNERSHIP.md)
 - [AR-032 — P3 Semantic and Code Cleanup](AR032_P3_SEMANTIC_CODE_CLEANUP.md)
 - [AR-033 — Document Governance and Just-in-Time Context Routing](AR033_DOCUMENT_GOVERNANCE_AND_CONTEXT_ROUTING.md)
+- [AR-034 — Independent Specification-First Core V2 Rewrite](AR034_SPEC_FIRST_CORE_V2_REWRITE.md)

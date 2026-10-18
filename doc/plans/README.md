@@ -30,6 +30,7 @@ stages. Do not infer a program phase from those directory names.
 | ID | Package | Status / creation trigger |
 | --- | --- | --- |
 | R0 | No dedicated package | Ongoing documentation, provenance, and release-readiness discipline |
+| CV2 | [core-v2-foundation/](core-v2-foundation/requirements.md) | **Active:** owner-authored core rewrite; directory/specification/verification foundation documented; new RTL/tests NOT RUN |
 | U0 | [`u0-passive-uvm/`](u0-passive-uvm/) | **Partial:** toolchain-confirmation sub-gate verified; DUT-facing passive retirement monitor/scoreboard remains open |
 | U1 | `u1-iss-differential/` | Create after the full U0 exit gate passes |
 | U2 | `u2-generated-isa/` | Create after U1 has stable architectural comparison |

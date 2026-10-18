@@ -3,7 +3,7 @@
 **Purpose:** select the smallest sufficient document and evidence set for one
 task. This file is a routing map, not an additional status ledger.
 
-**Last updated:** 2026-09-26
+**Last updated:** 2026-10-16
 
 ## 1. Authority map
 
@@ -46,6 +46,13 @@ Safety, licensing, or interface dependencies may justify additional reads.
 ## 3. Context recipes
 
 ### RTL bug or architectural change
+
+For the owner-authored rewrite on `codex/core-v2-spec-first`, use the
+[CV2 requirements](plans/core-v2-foundation/requirements.md),
+[architecture/directory map](plans/core-v2-foundation/architecture.md),
+[verification plan](plans/core-v2-foundation/verification_plan.md), the selected
+module contract, and [results](plans/core-v2-foundation/results.md) as the scoped
+context pack. Existing `src/` remains the v1 reference, not the v2 oracle.
 
 Start with:
 

@@ -4,9 +4,9 @@
 
 **Audience:** New contributors and learners
 
-**Last updated:** 2026-09-25
+**Last updated:** 2026-10-16
 
-**Current reference:** `codex/phase2-act4-cleanup`. Phases 1–4 are complete.
+**Production reference:** `codex/phase2-act4-cleanup`. Phases 1–4 are complete.
 Phase 5 is complete in ModelSim and Vivado OOC synthesis. AR-024 adds the Bo
 Chen Jing Xin ZYNQ MINI `20240221/REVB` top, schematic-derived XDC, 50-to-25 MHz
 MMCM/reset wrapper, and routed bitstreams for all three bare-metal programs.
@@ -16,6 +16,18 @@ also pass physically. AR-025 adds the official FreeRTOS V11.3.0 RISC-V port, a
 GREEN ModelSim vertical slice and extended scheduler/context soak, a routed
 exact-board bitstream, and physical execution evidence. Positive speed-grade
 identification remains open.
+
+The current owner-selected learning track is an independent specification-first
+rewrite on `codex/core-v2-spec-first`, recorded in
+[AR-034](ar/AR034_SPEC_FIRST_CORE_V2_REWRITE.md). Existing synthesizable `src/`
+remains v1; future v2 ownership is documented in the
+[directory map](plans/core-v2-foundation/architecture.md). The owner writes RTL
+module by module, starting with the [ALU specification pilot](plans/core-v2-foundation/modules/alu.md).
+Independent models, module/cluster tests, precise retirement observation and
+later ISS checking follow the [CV2 verification plan](plans/core-v2-foundation/verification_plan.md).
+This is a documentation foundation; new RTL, tests, timing and power are
+unimplemented/NOT RUN. Mutable evidence is owned by
+[CV2 results](plans/core-v2-foundation/results.md).
 
 AR-026 accepts a future scalable UVM verification architecture based on stable
 retirement, memory, translation, coherence, and accelerator transactions above

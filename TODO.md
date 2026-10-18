@@ -61,17 +61,45 @@ recommended Phase 0A gate are recorded in
 > readable; builds conservatively target `xc7z010clg400-1` until it is
 > positively identified.
 
+## CV2 — Independent specification-first core rewrite
+
+**Active user-selected learning/engineering track:** develop on
+`codex/core-v2-spec-first` from the current baseline. The owner will write each
+RTL module from its specification. Product/research value, clear contracts and
+independent verification determine the architecture; diff size is not a goal.
+This track does not establish W0/M0 or product-control evidence.
+
+- [x] Create the independent local branch and record the baseline identity.
+- [x] Define [directory ownership](doc/plans/core-v2-foundation/architecture.md),
+      [requirements](doc/plans/core-v2-foundation/requirements.md), and
+      [module-to-system verification gates](doc/plans/core-v2-foundation/verification_plan.md).
+- [x] Draft the first [RV32 ALU module specification](doc/plans/core-v2-foundation/modules/alu.md).
+- [ ] Accept the first module contract before writing its RTL.
+- [ ] Implement an independent model/checker, including deliberate-mismatch tests.
+- [ ] Owner writes ALU RTL; close required bins, lint, boundary/random tests and
+      applicable formal checks with actual evidence.
+- [ ] Freeze v2 core ISA/CSR, memory/IRQ/debug/power/trace contracts before
+      relevant cluster/core integration.
+- [ ] Establish passive retirement/trap observation, then ISS differential
+      checking and generated ISA according to the CV2 gates.
+
+No new RTL or verification capability is claimed by these documents. The owning
+evidence package is [core-v2-foundation](doc/plans/core-v2-foundation/results.md);
+the architectural direction is [AR-034](doc/ar/AR034_SPEC_FIRST_CORE_V2_REWRITE.md).
+
 ## Development and learning rules
 
-1. Preserve a green regression before and after every architectural change.
+1. Preserve the v1 reference and its regression identity. For v2, require the
+   applicable module/cluster/core gates at each integration boundary; existing
+   v1 passes do not establish correctness of a rewritten module.
 2. Use focused tests while debugging, then run the complete smoke suite.
 3. A checkbox is complete only when its implementation and verification
    evidence both exist.
 4. Before completing a phase, be able to explain why the interface or mechanism
    is needed, not only how it was coded.
-5. Prefer the smallest design that meets the active phase's measurable exit
-   gate. Add AXI, PLIC, DDR, accelerators, NPU/GPU, or advanced debug only when a
-   later requirement and workload justify them.
+5. Design for accepted product/research requirements and measurable exit gates,
+   not minimum diff size. Choose AXI, PLIC, DDR, accelerators, NPU/GPU and debug
+   features through explicit requirements and workload evidence.
 6. Use [`doc/CONTEXT_ROUTER.md`](doc/CONTEXT_ROUTER.md) to start from one scoped
    phase/context pack. Do not read every document or treat
    [`notes/inbox/`](notes/inbox/) as requirements or evidence.
@@ -1003,6 +1031,11 @@ for the first FreeRTOS FPGA demonstration:
 - [ ] Linux research: S/U modes, MMU, atomics, OpenSBI, DDR, and a larger ISA.
 
 ## Immediate next action — advance from the SoC foundation, not skip to hardware
+
+The owner's current development focus is the CV2 specification-first rewrite
+above. Start with its ALU specification/model/checker pilot while freezing the
+core-facing contracts. The list below retains the independent v1/program
+maintenance and research gates; it does not make CV2 RTL implemented.
 
 1. Use the verified six-workload P0 baseline for later architectural
    comparisons; do not claim 80% direct SAIF mapping or physical board power.

@@ -93,6 +93,27 @@ Not yet demonstrated:
 
 ## 5. Detailed stages
 
+### CV2 — Owner-authored core rewrite and verification foundation
+
+The owner has selected a parallel specification-first rewrite, starting from
+core modules on `codex/core-v2-spec-first`. Target directory ownership and
+per-module learning/verification contracts are defined in the
+[active CV2 package](plans/core-v2-foundation/requirements.md); actual evidence
+is owned by [its results](plans/core-v2-foundation/results.md).
+
+The implementation sequence is specification/oracle, user-authored module,
+cluster, passive architectural observation, ISS, generated ISA, then SoC and
+physical gates. Combinational module tests do not require completion of the
+entire UVM framework. CV2 core integration must nevertheless validate event
+observation and negative-checker behavior before ISA differential checking.
+This uses the AR-026 layering without changing the recorded U0/U1/U2 status.
+
+Product/research benefit and measurable contracts determine the target;
+implementation difficulty or diff size alone does not decide inclusion.
+The v1 source tree and runners remain the reference. Do not create empty
+future RTL/model directories or infer implemented capability from the target
+tree. W0/M0/C0/P1 workload and product gates remain independently applicable.
+
 ### R0 — Documentation, licensing, and release readiness
 
 **Outcome:** an external reviewer can tell what is implemented, reproduce the
@@ -444,6 +465,10 @@ output as proof.
 ## 7. Near-term order
 
 The next implementation sequence is:
+
+The user-selected CV2 learning track may proceed through its own module and
+core gates above. The following list continues to own the existing program's
+research/production dependencies; CV2 does not bypass those product gates.
 
 1. finish the remaining R0 provenance/release review without changing the
    default branch; the repository license decision is adopted;

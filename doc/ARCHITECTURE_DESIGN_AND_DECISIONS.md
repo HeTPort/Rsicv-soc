@@ -4,7 +4,7 @@
 
 **Audience:** Designers, reviewers, learners, and future maintainers
 
-**Last updated:** 2026-09-25
+**Last updated:** 2026-10-16
 
 **Current milestone:** The first custom-RV32IM FreeRTOS FPGA demonstration is
 complete. AR-024 implements the ZYNQ MINI REVB boundary; together with AR-025
@@ -38,6 +38,12 @@ routed workload estimates pass reviewed block-level activity and repeatability,
 while direct-name mapping remains about 5.5%. The
 repository licensing policy is also adopted as noncommercial source-available
 with commercial use handled through a separate written agreement.
+
+AR-034 accepts an independent owner-authored, specification-first core rewrite
+on `codex/core-v2-spec-first`. The CV2 package defines target directory ownership,
+module specifications and independent verification gates; existing `src/`
+remains v1. This is a documentation foundation, not an implemented v2 core or
+new verification/PPA evidence. See [CV2 results](plans/core-v2-foundation/results.md).
 
 > This is the consolidated record of what the architecture is, why it evolved
 > this way, what was learned while fixing problems, and which decisions remain
@@ -1750,6 +1756,31 @@ requirements, and status claims must still be backed by phase results. The
 
 **Verification:** See
 [`AR033_DOCUMENT_GOVERNANCE_AND_CONTEXT_ROUTING.md`](ar/AR033_DOCUMENT_GOVERNANCE_AND_CONTEXT_ROUTING.md).
+
+### D-034 — Rebuild core modules from independent specifications and oracles
+
+**Date:** 2026-10-16
+
+**State:** Accepted; documentation implemented, new RTL NOT RUN
+
+**Context:** The owner explicitly wants to relearn and independently write each
+module, and accepts a major redesign when product/research value justifies it.
+
+**Decision:** Use a separate local rewrite branch, retain `src/` and its runners
+as v1, and document future `rtl/`, `verif/v2/` and `config/v2/` ownership. User
+RTL follows a reviewed module contract and independent expected behavior. Gate
+module/cluster verification before core event observation, ISS/generated ISA,
+SoC and physical validation. Do not use old RTL as the only oracle or silently
+claim existing historical passes for v2. Do not generate empty future trees.
+
+**Consequences:** Pipeline/protocol/configuration changes can be evaluated
+without conflating v1 behavior and v2 evidence. Models, adapters, negative tests,
+coverage and proof assumptions need independent review. Exact ISA/pipeline/bus
+choices remain separately specified; AR-029/031/032 continue to describe v1.
+
+**Verification:** Branch identity and actual documentation checks are recorded
+in [CV2 results](plans/core-v2-foundation/results.md). Rationale and risks are
+in [AR-034](ar/AR034_SPEC_FIRST_CORE_V2_REWRITE.md).
 
 ## 10. Architecture decision template
 
